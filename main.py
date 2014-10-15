@@ -1,18 +1,10 @@
 import numpy as np
 import scipy.io as io
-from math import floor
+import time
+import matplotlib.pyplot as plt
+from math import floor,sqrt
 from random import random
-
-img_file = 'IMAGES.mat'
-IMAGES = io.loadmat(img_file)['IMAGES']
-(imsize, imsize, num_images) = IMAGES.shape
-
-sz = 16
-N = sz * sz # Pixels
-M = N       # Dictionary elements
-
-phi = np.array((M,N))
-a = np.zeros(M)
+from showbfs import showbfs
 
 def reconstruct(phi, a):
     return np.dot(a.T, phi)
@@ -20,48 +12,99 @@ def reconstruct(phi, a):
 def get_subimages(batch_size):
     BUFF = 4
     imi = floor(num_images*random())
-    I = numpy.array(N, batch_size)
-    for i in range(batch_size)
-        r = BUFF + floor((imgsize-sz-2*BUFF) * random())
-        c = BUFF + floor((imgsize-sz-2*BUFF) * random())
-        I[:,i] = np.reshape(IMAGES[r:(r+sz-1), c:(c+sz-1), imi], N, 1)
+    I = np.zeros((N, batch_size))
+    for i in range(batch_size):
+        r = BUFF + floor((imsize-sz-2*BUFF) * random())
+        c = BUFF + floor((imsize-sz-2*BUFF) * random())
+        I[:,i] = np.reshape(IMAGES[r:(r+sz), c:(c+sz), imi], N, 1)
     return I
 
+def sparsify(I, phi, lambdah):
+    # MxBS = MxN x NxBS (batch_size)
+    b = np.dot(phi.T, I) # sometimes get nan...
+    G = np.dot(phi.T, phi) - np.eye(M)
+
+    u = np.zeros((M,batch_size))
+    l = 0.5 * np.max(np.abs(b), axis=0)
+    a = g(u,l)
+
+    num_iterations = 125;
+    eta = 0.1;
+
+    for i in range(num_iterations):
+        u = eta * (b - np.dot(G, a)) + (1 - eta) * u
+        a = g(u, l)
+
+        l = 0.95 * l
+        l[l < lambdah] = lambdah
+
+    return a
+
+def g(u,l):
+  a = u;
+  a[np.abs(a) < l] = 0
+  return a
+
+img_file = 'IMAGES_Z.mat'
+IMAGES = io.loadmat(img_file)['IMAGES']
+(imsize, imsize, num_images) = IMAGES.shape
+
+sz = 8
+N = sz * sz # Pixels
+M = 2 * N       # Dictionary elements
+
+phi = np.random.randn(N,M)
+phi = np.dot(phi, np.diag(1/np.sqrt(np.sum(phi**2, axis = 0))))
+a = np.zeros(M)
+plt.ion()
+showbfs(phi)
+
 batch_size = 100
-I = get_subimages(batch_size)
+eta = 6.0/batch_size
+lambdah = 0.1;
+showbfs(phi)
 
-    # MxN x NxBS (batch_size)
-b = np.dot(phi, I)
-G = np.dot(phi, phi.T) - np.identity(M)
+def get_eta(t):
+    if t < 1000:
+        return 6.0/batch_size
+    if t < 1500:
+        return 3.0/batch_size
+    if t < 2000:
+        return 1.0/batch_size
+    if t < 2500:
+        return 0.5/batch_size
+    if t < 3000:
+        return 0.25/batch_size
+    if t < 3500:
+        return 0.10/batch_size
+    return 0.10/batch_size
 
-u = np.zeros(M)
-l = 0.5 * np.amax(abs(b))
-def thres(u_m):
-    if u_m >= l:
-        return u_m
-    return 0
-vecthres = np.vectorize(thres)
-a = vecthres(u)
+for t in range(10000):
+    eta = get_eta(t)
+    # Random images
+    I = get_subimages(batch_size)
 
-tau = 10 # ms
+    # Coefficient Inference
+    ahat = sparsify(I, phi, lambdah)
 
-num_iterations = 200;
-eta = 0.1;
+    # Error = Nxbatch_size - NxM * Mxbatch_size
+    R = I - np.dot(phi, ahat)
 
-for i in range(num_iterations):
-    u = eta * (b - np.dot(G, a)) + (1-eta) * u
-    a = vecthres(u)
+    # Update phi
+    dphi = eta * np.dot(R, ahat.T)
+    phi = phi + dphi
 
-    # l = 0.98*l  # Hm...
+    # Normalize
+    phi = np.dot(phi, np.diag(1/np.sqrt(np.sum(phi**2, axis = 0))))
+    if t % 20 == 0:
+        print 'Trial %d | Err=%f' % (t, np.sum(R))
+        showbfs(phi)
 
-#while True:
-    # Mx1 =    MxN     Nx1
-    #b = np.dot(phi[0], s)
+print "Coeff", a
+plt.show()
+time.sleep(10000)
 
-    # 1x1 =             1x1 - 1x1 - (       NxM x MxN
-    #du_m = (1.0/tau) * (b_m - u_m - (np.dot(phi.T, phi) - np.identity) # OLD
-
-    # Mx1 =           Mx1 - Mx1 -       (       (MxN  x NxM      - MxM)         x   Mx1        )
-    #du = (1.0/tau) * ( b  -  u  - np.dot((np.dot(phi, phi.T) - np.identity(M)), vecthres(u)))
-
-    #u += du
+'''
+s = np.sum(abs(np.dot(phi.T,phi)), 0) # Added abs
+phi = np.dot(phi, np.diag(1.0 / np.sqrt(s)))
+'''
