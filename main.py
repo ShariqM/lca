@@ -35,8 +35,8 @@ def sparsify(I, phi, lambdah):
         u = eta * (b - np.dot(G, a)) + (1 - eta) * u
         a = g(u, l)
 
-        l = 0.95 * l
-        l[l < lambdah] = lambdah
+        #l = 0.95 * l
+        #l[l < lambdah] = lambdah
 
     return a
 
@@ -45,8 +45,8 @@ def g(u,l):
   a[np.abs(a) < l] = 0
   return a
 
-img_file = 'IMAGES_Z.mat'
-IMAGES = io.loadmat(img_file)['IMAGES']
+img_file = 'IMAGES_SHARIQ.mat'
+IMAGES = io.loadmat(img_file)['IMAGES_SHARIQ']
 (imsize, imsize, num_images) = IMAGES.shape
 
 sz = 8
@@ -100,9 +100,8 @@ for t in range(10000):
         print 'Trial %d | Err=%f' % (t, np.sum(R))
         showbfs(phi)
 
-print "Coeff", a
-plt.show()
-time.sleep(10000)
+print "Coeff", ahat
+plt.show(block=True)
 
 '''
 s = np.sum(abs(np.dot(phi.T,phi)), 0) # Added abs
