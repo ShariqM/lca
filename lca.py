@@ -4,11 +4,12 @@ import random
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
+from math import log
+from colors import COLORS
 from datetime import datetime
-import fista
 
 def get_eta(t,batch_size):
-    start = 2000
+    start = 1200
     if t < start:
         return 6.0/batch_size
     if t < start+500:
@@ -23,7 +24,10 @@ def get_eta(t,batch_size):
         return 0.10/batch_size
     return 0.10/batch_size
 
-def sparsenet(patch_dim=64, neurons=128, lambdav=0.05, eta=6.0, num_trials=3000, batch_size=100, border=4, inference='lca', run_learning=True):
+run_learning=True
+coeff_visualizer=False
+def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch_size=100):
+
     """
     N: # Inputs
     M: # Outputs
@@ -32,116 +36,169 @@ def sparsenet(patch_dim=64, neurons=128, lambdav=0.05, eta=6.0, num_trials=3000,
     num_trials: Learning Iterations
     batch_size: Batch size per iteration
     border: Border when extracting image patches
-    Inference: 'lca' or 'fista'
     """
-    name='IMAGES_FOREMAN'
-    IMAGES = scipy.io.loadmat('./%s.mat' % name)[name]
+    border=4
+    name = 'IMAGES_DUCK'
+    IMAGES = scipy.io.loadmat('mat/%s.mat' % name)[name]
+
     (imsize, imsize, num_images) = np.shape(IMAGES)
 
+    if coeff_visualizer and batch_size != 1:
+        print 'Setting batch size to 1 for coeff visualizer'
+        batch_size = 1
+
     sz = np.sqrt(patch_dim)
-    eta = eta / batch_size
+    print 'sz', sz
 
     # Initialize basis functions
     Phi = np.random.randn(patch_dim, neurons)
     Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
+    I = np.zeros((patch_dim,batch_size))
+
     plt.ion()
+    ahat_prev = None
 
     if not run_learning:
+
         # Tiling the image
         patch_per_dim = int(np.floor(imsize / sz))
-        batch_size = patch_per_dim**2
+        if not coeff_visualizer:
+            batch_size = patch_per_dim**2
 
         I = np.zeros((patch_dim, batch_size))
-        num_images = 200
+        num_images = 500
 
         # Load dict from learning run
-        Phi = scipy.io.loadmat('Phi_IMAGES_FOREMAN_lambda=0.05.mat')['Phi']
+        Phi = scipy.io.loadmat('Phi_%s_OC=%.1f_lambda=%.3f.mat' % (name, float(neurons)/patch_dim, lambdav))
+        Phi = Phi['Phi']
 
-        # Record data
-        MSE = [] # Mean Squared Error
-        CA  = np.zeros(num_images) # Active coefficients
-        CF  = np.zeros(num_images) # Changing coefficients
-        DELTA = [0] * num_images
-        ahat_prev = np.zeros((neurons, batch_size))
+        # **** Hack ****
+        lambdav = 0.07
 
         max_active = float(neurons * batch_size)
 
-        start = datetime.now()
-        for t in range(num_images):
-            i = 0
-            for r in range(patch_per_dim):
-                for c in range(patch_per_dim):
-                    rr = r * sz
-                    cc = c * sz
-                    I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
-                    i = i + 1
+        #run_p = [(True, 120), (True, 90), (True, 60)] # Run params (use_prev?, iters)
+        #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
+        #run_p = [(True, 120), (True, 40), (True, 20)]
+        #run_p = [(True, 5), (True, 3), (True, 1)]
+        run_p = [(False, 30), (False, 10), (False, 5)]
+        labels = []
+        for (b,x) in run_p:
+            if b == 1:
+                labels += ["Init Coeff NI=%d" % x]
+            else:
+                labels += ["Normal NI=%d" % x]
 
-            #ahat, delta = sparsify(I, Phi, lambdav)
-            ahat, delta = sparsify(I, Phi, lambdav, ahat_prev)
+        runs = len(labels)
+        rcolor = [COLORS['red'], COLORS['green'], COLORS['blue'], COLORS['black'],
+                  COLORS['yellow2'], COLORS['purple']]
+        top_CC_AC=0
 
-            # Calculate Residual Error
-            R = I - np.dot(Phi, ahat)
-            MSE.append((R ** 2).mean())
+        for run in range(runs):
+            # Record data
+            MSE = [] # Mean Squared Error
+            SNR = [] # Signal to Noise ratio
+            AC  = np.zeros(num_images) # Active coefficients
+            CC  = np.zeros(num_images) # Changing coefficients
+            #DELTA = [0] * num_images
+            ahat_prev = np.zeros((neurons, batch_size))
+            ahat_prev_c = np.zeros((neurons, batch_size))
 
-            ahat[np.abs(ahat) > lambdav/1000.0] = 1
-            CA[t] = np.sum(ahat)
-            CF[t] = np.sum(ahat!=ahat_prev)
-            DELTA[t] = delta
-            ahat_prev = ahat
-        elapsed = (datetime.now() - start).seconds
+            start = datetime.now()
+            for t in range(num_images):
+                i = 0
+                for r in range(patch_per_dim):
+                    for c in range(patch_per_dim):
+                        rr = r * sz
+                        cc = c * sz
+                        I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
+                        if coeff_visualizer:
+                            break
+                        i = i + 1
 
+                if run_p[run][0]:
+                    ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
+                else:
+                    ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
 
-        plt.subplot(231)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('MSE', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0.0, max(MSE) * 1.1])
-        plt.plot(range(num_images), MSE)
+                # Calculate Residual Error
+                R = I - np.dot(Phi, ahat)
+                mse = (R ** 2).mean()
+                MSE.append(mse)
+                var = I.var().mean()
+                SNR.append(10 * log(var/mse, 10))
+                print '%.3d) %s || var=%.2f || snr=%.2fdB' % (t, labels[run], var, SNR[t])
 
+                ahat_prev = ahat
 
-        top = max(max(CF),max(CA)) * 1.1
-        plt.subplot(232)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top])
-        plt.plot(range(num_images), CA)
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                AC[t] = np.sum(ahat_c)
+                CC[t] = np.sum(ahat_c!=ahat_prev_c)
+                ahat_prev_c = ahat_c
+                #DELTA[t] = delta
+            elapsed = (datetime.now() - start).seconds
 
-        plt.subplot(233)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('# Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top])
-        plt.plot(range(num_images), CF)
+            plt.subplot(231)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('MSE', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0.0, max(MSE) * 1.1])
+            plt.plot(range(num_images), MSE, color=rcolor[run], label=labels[run])
+            lg = plt.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
+            lg.draw_frame(False)
 
-        plt.subplot(234)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('# Delta in LCA', fontdict={'fontsize':12})
-        #plt.axis([0, num_images, 0, top])
-        plt.plot(range(num_images), DELTA)
+            top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
+            plt.subplot(232)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0, top_CC_AC])
+            plt.plot(range(num_images), AC, color=rcolor[run])
 
-        # % plots
-        top_p = 100 * top / max_active
-        plt.subplot(235)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('% Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_p])
-        plt.plot(range(num_images), 100 * CA / max_active)
+            plt.subplot(233)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('# Changed Coeff', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0, top_CC_AC])
+            plt.plot(range(num_images), CC, color=rcolor[run])
 
-        plt.subplot(236)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('% Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_p])
-        plt.plot(range(num_images), 100 * CF / max_active)
+            plt.subplot(234)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0.0, 22])
+            plt.plot(range(num_images), SNR, color=rcolor[run], label=labels[run])
+            #lg = plt.legend(fontsize=10)
+            lg = plt.legend(bbox_to_anchor=(-0.6 , 0.60), loc=2, fontsize=10)
+            lg.draw_frame(False)
 
-        plt.suptitle("LCA Analysis, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
-                        (imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
+            #plt.subplot(234)
+            #plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            #plt.ylabel('# Delta in LCA', fontdict={'fontsize':12})
+            #plt.axis([0, num_images, 0, top])
+            #plt.plot(range(num_images), DELTA, color=rcolor[run])
+
+            # % plots
+            top_p = 100 * top_CC_AC / max_active
+            plt.subplot(235)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('% Active Coeff', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0, top_p])
+            plt.plot(range(num_images), 100 * AC / max_active, color=rcolor[run])
+
+            plt.subplot(236)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('% Changed Coeff', fontdict={'fontsize':12})
+            plt.axis([0, num_images, 0, top_p])
+            plt.plot(range(num_images), 100 * CC / max_active, color=rcolor[run])
+
+        plt.suptitle("DATA=%s, LAMBDAV=%.2f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
+                        (name, lambdav, imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
         plt.show(block=True)
 
         return False
 
-    I = np.zeros((patch_dim,batch_size))
+
 
     for t in range(num_trials):
-
         # Choose a random image
         imi = np.ceil(num_images * random.uniform(0, 1))
 
@@ -151,46 +208,49 @@ def sparsenet(patch_dim=64, neurons=128, lambdav=0.05, eta=6.0, num_trials=3000,
 
             I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1], patch_dim, 1)
 
-            # Coefficient Inference
-            if inference == 'lca':
-                ahat = sparsify(I, Phi, lambdav)
-            elif inference == 'fista':
-                ahat = fista.fista(I, Phi, lambdav, max_iterations=50)
-            else:
-                print "Invalid inference option"
-            return
+        # Coefficient Inference
+        ahat = sparsify(I, Phi, lambdav)
 
-            # Calculate Residual Error
-            R = I-np.dot(Phi, ahat)
+        # Calculate Residual
+        R = I-np.dot(Phi, ahat)
 
-            # Update Basis Functions
-            dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
-            Phi = Phi + dPhi
-            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+        # Update Basis Functions
+        dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
+        Phi = Phi + dPhi
+        Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-            # Plot every 100 iterations
-            if np.mod(t, 20) == 0:
-                print "Iteration %d, Error = %f " % (t, np.sum(R))
-                side = np.sqrt(neurons)
-                image = np.zeros((sz*side+side,sz*side+side))
-                for i in range(side.astype(int)):
-                    for j in range(side.astype(int)):
-                        patch = np.reshape(Phi[:,i*side+j],(sz,sz))
-                        patch = patch/np.max(np.abs(patch))
-                        image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
+        # Plot every 100 iterations
+        if np.mod(t,100) == 0:
+            mse = (R ** 2).mean()
+            var = I.var().mean()
+            print "Iteration %.4d, Var = %.2f, SNR = %.2fdB" % (t, var, 10 * log(var/mse, 10))
+            side = np.sqrt(neurons)
+            image = np.zeros((sz*side+side,sz*side+side))
+            for i in range(side.astype(int)):
+                for j in range(side.astype(int)):
+                    patch = np.reshape(Phi[:,i*side+j],(sz,sz))
+                    patch = patch/np.max(np.abs(patch))
+                    image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
 
+            #for t in range(num_images):
+                #plt.imshow(IMAGES[:,:,t], cmap=cm.Greys_r, interpolation="nearest")
+                #plt.draw()
+                #time.sleep(4)
             plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
             plt.draw()
 
-    #scipy.io.savemat('Phi_%s_lambda=%.2f' % (name,lambdav), {'Phi':Phi})
-    plt.show(block=True) # Display
-    return Phi, ahat
+        ahat_prev = ahat
 
-def sparsify(I, Phi, lambdav, ahat_prev=None, eta=0.1, num_iterations=125):
+    scipy.io.savemat('Phi_%s_OC=%.1f_lambda=%.2f' % (name, float(neurons)/patch_dim, lambdav),
+                    {'Phi':Phi})
+    plt.show()
+    return Phi
+
+def sparsify(I, Phi, lambdav, eta=0.1, ahat_prev=None, num_iterations=80):
     """
     LCA Inference.
-    I: Image batch (patch x batch)
-    Phi: Dictionary (patch x neurons)
+    I: Image batch (dim x batch)
+    Phi: Dictionary (dim x dictionary element)
     lambdav: Sparsity coefficient
     eta: Update rate
     """
@@ -202,38 +262,65 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, eta=0.1, num_iterations=125):
     b = np.dot(Phi.T, I)
     G = np.dot(Phi.T, Phi) - np.eye(M)
 
-    l = 0.1 * np.max(np.abs(b), axis=0) # Threshold per patch
+    if run_learning:
+        l = 0.5 * np.max(np.abs(b), axis = 0)
+    else:
+        l = np.ones(batch_size)
+        l *= lambdav
+
     if ahat_prev is not None:
-        #  u - neuronsx384, l - 384x1
-        u = np.dot(ahat_prev, np.diag(l))
+        u = ahat_prev
+        #u = np.dot(ahat_prev, np.diag(l)) # Artificially set at threshold
     else:
         u = np.zeros((M,batch_size))
 
     a = g(u, l)
 
-    init_sum = (b - np.dot(G,a)).sum()
+    if coeff_visualizer:
+        assert batch_size == 1
+        fig, ax = plt.subplots()
+        coeffs = ax.bar(range(M), u, color='b')
+        lthresh = ax.plot(range(M), list(l) * M, color='r')
+        ax.axis([0, M, 0, 1.00])
+        plt.draw()
+        plt.show()
+        time.sleep(1)
+
     for t in range(num_iterations):
-        #tmp = b - np.dot(G,a)
-        #print '\tTMP MEAN:%f SUM:%f ' % (tmp.mean(), tmp.sum())
-        #u = eta * tmp + (1 - eta) * u
         u = eta * (b - np.dot(G, a)) + (1 - eta) * u
         a = g(u, l)
 
-        #l = 0.95 * l
-        #l[l < lambdav] = lambdav
+        l = 0.95 * l
+        l[l < lambdav] = lambdav
 
-    print 'init_sum: %f vs. %f :final_sum' % (init_sum, (b - np.dot(G,a)).sum())
-    return a, init_sum - (b - np.dot(G,a)).sum()
+        if coeff_visualizer:
+            for coeff, i in zip(coeffs, range(M)):
+                coeff.set_height(u[i])
+            lthresh[0].set_data(range(M), list(l) * M)
+            plt.title('Iter=%d/%d' % (t, num_iterations))
+            plt.draw()
+            plt.show()
 
-# g:  Hard threshold. L0 approximation
-def g(u,theta):
+    if coeff_visualizer:
+        plt.close()
+
+    return a
+
+def g(u,theta,thresh_type='hard'):
     """
     LCA threshold function
     u: coefficients
     theta: threshold value
     """
+    #if thresh_type=='hard': # L0 Approximation
+        #a = u;
+        #a[np.abs(a) < theta] = 0
+    #elif thresh_type=='soft': # L1 Approximation
+        #a = abs(u) - theta;
+        #a[a < 0] = 0
+        #a = np.sign(u) * a
     a = u;
     a[np.abs(a) < theta] = 0
     return a
 
-sparsenet(run_learning=False)
+sparsenet()

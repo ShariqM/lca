@@ -10,6 +10,7 @@ def showbfs(Phi):
     (L, M) = Phi.shape # L = pixels of image, M = num images
 
     sz = sqrt(L) # sz of one side of image
+    print sz
     n = floor(sqrt(M)) # sz of one side of the grid of images
     m = ceil(M/n) # ceil for 1 extra
     buf = 1
@@ -29,3 +30,14 @@ def showbfs(Phi):
 
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
     plt.draw()
+
+#Phi = scipy.io.loadmat('Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
+
+Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
+#Phi = scipy.io.loadmat('mat/IMAGES.mat')['IMAGES']
+print Phi.shape
+for i in range(Phi.shape[2]/10):
+    plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
+    plt.draw()
+    plt.show()
+
