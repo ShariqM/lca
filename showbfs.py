@@ -1,4 +1,5 @@
 import scipy.io
+import time
 import numpy
 from numpy import reshape, zeros, ones
 import matplotlib.pyplot as plt
@@ -31,13 +32,28 @@ def showbfs(Phi):
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
     plt.draw()
 
-#Phi = scipy.io.loadmat('Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
+#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.01.mat')['Phi']
+#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=2.0_lambda=0.01.mat')['Phi']
 
-Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
+#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
+#showbfs(Phi)
+#plt.show()
+
+# Show image
 #Phi = scipy.io.loadmat('mat/IMAGES.mat')['IMAGES']
+#Phi = scipy.io.loadmat('IMAGES_GARB_SMOOTH.mat')['IMAGES']
+
+#Phi = scipy.io.loadmat('IMAGES_DUCK_SMOOTH.mat')['IMAGES']
+#Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
+#Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT_NO_VAR.mat')['IMAGES_DUCK']
+Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
+
 print Phi.shape
-for i in range(Phi.shape[2]/10):
-    plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
+plt.ion()
+for i in range(Phi.shape[2]):
+    #plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
+    plt.imshow(Phi[:,:,i], cmap = cm.binary)
+    plt.title('%d Var=%.4f' % (i, Phi[:,:,i].var().mean()))
     plt.draw()
     plt.show()
-
+    time.sleep(0.01)

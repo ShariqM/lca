@@ -24,8 +24,9 @@ def get_eta(t,batch_size):
         return 0.10/batch_size
     return 0.10/batch_size
 
-run_learning=True
+run_learning=False
 coeff_visualizer=False
+#def sparsenet(patch_dim=64, neurons=128, lambdav=0.01, num_trials=5000, batch_size=100):
 def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch_size=100):
 
     """
@@ -48,7 +49,6 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
         batch_size = 1
 
     sz = np.sqrt(patch_dim)
-    print 'sz', sz
 
     # Initialize basis functions
     Phi = np.random.randn(patch_dim, neurons)
@@ -62,33 +62,39 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
     if not run_learning:
 
         # Tiling the image
+        import pdb
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
 
         I = np.zeros((patch_dim, batch_size))
-        num_images = 500
+        num_images = 200
 
         # Load dict from learning run
-        Phi = scipy.io.loadmat('Phi_%s_OC=%.1f_lambda=%.3f.mat' % (name, float(neurons)/patch_dim, lambdav))
+        Phi = scipy.io.loadmat('dict/Phi_%s_OC=%.1f_lambda=%.3f.mat' % (name, float(neurons)/patch_dim, lambdav))
+        #print 'dict/Phi_%s_OC=%.1f_lambda=%.3f.mat' % (name, float(neurons)/patch_dim, lambdav)
+        #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=2.0_lambda=0.01.mat')
         Phi = Phi['Phi']
 
-        # **** Hack ****
-        lambdav = 0.07
+        # **** Hack? Diff lambda for training vs. reconstructing ****
+        lambdav = 0.02
 
         max_active = float(neurons * batch_size)
 
         #run_p = [(True, 120), (True, 90), (True, 60)] # Run params (use_prev?, iters)
         #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
         #run_p = [(True, 120), (True, 40), (True, 20)]
-        #run_p = [(True, 5), (True, 3), (True, 1)]
-        run_p = [(False, 30), (False, 10), (False, 5)]
+        run_p = [(True, 10, 0.10)]
+        #run_p = [
+        #run_p = [(True, 60)]
+        #run_p = [(True, 10), (True, 30), (False, 60)]
+        #run_p = [(False, 80), (True, 5), (True, 3), (True, 1)]
         labels = []
-        for (b,x) in run_p:
+        for (b,x,g) in run_p:
             if b == 1:
-                labels += ["Init Coeff NI=%d" % x]
+                labels += ["InitP (%d)" % x]
             else:
-                labels += ["Normal NI=%d" % x]
+                labels += ["Init0 (%d)" % x]
 
         runs = len(labels)
         rcolor = [COLORS['red'], COLORS['green'], COLORS['blue'], COLORS['black'],
@@ -104,12 +110,17 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
             #DELTA = [0] * num_images
             ahat_prev = np.zeros((neurons, batch_size))
             ahat_prev_c = np.zeros((neurons, batch_size))
+            lambdav = run_p[run][2]
 
             start = datetime.now()
             for t in range(num_images):
                 i = 0
                 for r in range(patch_per_dim):
                     for c in range(patch_per_dim):
+                        r = c = 8
+                        #if coeff_visualizer:
+                            #r = np.floor(random.random() * patch_per_dim)
+                            #c = np.floor(random.random() * patch_per_dim)
                         rr = r * sz
                         cc = c * sz
                         I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
@@ -128,7 +139,6 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
                 MSE.append(mse)
                 var = I.var().mean()
                 SNR.append(10 * log(var/mse, 10))
-                print '%.3d) %s || var=%.2f || snr=%.2fdB' % (t, labels[run], var, SNR[t])
 
                 ahat_prev = ahat
 
@@ -137,6 +147,9 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
                 AC[t] = np.sum(ahat_c)
                 CC[t] = np.sum(ahat_c!=ahat_prev_c)
                 ahat_prev_c = ahat_c
+
+                print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
+                        % (t, labels[run], lambdav, SNR[t], 100.0 * AC[t] / max_active)
                 #DELTA[t] = delta
             elapsed = (datetime.now() - start).seconds
 
@@ -198,6 +211,7 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
 
 
 
+    start = datetime.now()
     for t in range(num_trials):
         # Choose a random image
         imi = np.ceil(num_images * random.uniform(0, 1))
@@ -223,7 +237,9 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
         if np.mod(t,100) == 0:
             mse = (R ** 2).mean()
             var = I.var().mean()
-            print "Iteration %.4d, Var = %.2f, SNR = %.2fdB" % (t, var, 10 * log(var/mse, 10))
+            print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
+                    % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
+
             side = np.sqrt(neurons)
             image = np.zeros((sz*side+side,sz*side+side))
             for i in range(side.astype(int)):
@@ -246,7 +262,7 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
     plt.show()
     return Phi
 
-def sparsify(I, Phi, lambdav, eta=0.1, ahat_prev=None, num_iterations=80):
+def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
     """
     LCA Inference.
     I: Image batch (dim x batch)
@@ -265,6 +281,7 @@ def sparsify(I, Phi, lambdav, eta=0.1, ahat_prev=None, num_iterations=80):
     if run_learning:
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
+        #l = 0.1 * np.max(np.abs(b), axis = 0)
         l = np.ones(batch_size)
         l *= lambdav
 
@@ -278,10 +295,18 @@ def sparsify(I, Phi, lambdav, eta=0.1, ahat_prev=None, num_iterations=80):
 
     if coeff_visualizer:
         assert batch_size == 1
-        fig, ax = plt.subplots()
-        coeffs = ax.bar(range(M), u, color='b')
-        lthresh = ax.plot(range(M), list(l) * M, color='r')
-        ax.axis([0, M, 0, 1.00])
+        plt.subplot(313)
+        coeffs = plt.bar(range(M), u, color='b')
+        lthresh = plt.plot(range(M), list(l) * M, color='r')
+        plt.axis([0, M, 0, 1.05])
+
+        plt.subplot(312)
+        plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
+
+        plt.subplot(311)
+        recon = np.dot(Phi, a)
+        plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+
         plt.draw()
         plt.show()
         time.sleep(1)
@@ -297,6 +322,11 @@ def sparsify(I, Phi, lambdav, eta=0.1, ahat_prev=None, num_iterations=80):
             for coeff, i in zip(coeffs, range(M)):
                 coeff.set_height(u[i])
             lthresh[0].set_data(range(M), list(l) * M)
+
+            plt.subplot(311)
+            recon = np.dot(Phi, a)
+            plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+
             plt.title('Iter=%d/%d' % (t, num_iterations))
             plt.draw()
             plt.show()
@@ -312,15 +342,13 @@ def g(u,theta,thresh_type='hard'):
     u: coefficients
     theta: threshold value
     """
-    #if thresh_type=='hard': # L0 Approximation
-        #a = u;
-        #a[np.abs(a) < theta] = 0
-    #elif thresh_type=='soft': # L1 Approximation
-        #a = abs(u) - theta;
-        #a[a < 0] = 0
-        #a = np.sign(u) * a
-    a = u;
-    a[np.abs(a) < theta] = 0
+    if thresh_type=='hard': # L0 Approximation
+        a = u;
+        a[np.abs(a) < theta] = 0
+    elif thresh_type=='soft': # L1 Approximation
+        a = abs(u) - theta;
+        a[a < 0] = 0
+        a = np.sign(u) * a
     return a
 
 sparsenet()
