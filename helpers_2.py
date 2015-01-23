@@ -1,9 +1,6 @@
 from enum import Enum
 
-class RunType():
-    learning = 1
-    rt_learning = 2
-    rt_reconstruct = 3
+RunType = Enum('RunType', 'learning rt_learning rt_reconstruct')
 
 def get_eta(t,batch_size):
     start = 1000
