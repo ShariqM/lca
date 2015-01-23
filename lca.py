@@ -14,24 +14,25 @@ import theano.tensor as T
 
 
 # Parameters
-patch_dim   = 100 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 200  # Number of basis functions
-#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 1024  # Number of basis functions
+#patch_dim   = 100 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 200  # Number of basis functions
+patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 1024  # Number of basis functions
 lambdav     = 0.007 # Minimum Threshold
 num_trials  = 5000
 batch_size  = 100
 border      = 4
 
 # More Parameters
-runtype          = RunType.learning # learning, rt_learning, rt_reconstruct
-coeff_visualizer = False # Visualize potentials of neurons
+runtype            = RunType.rt_reconstruct # learning, rt_learning, rt_reconstruct
+coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-image_data_name  = 'IMAGES_DUCK'
+image_data_name    = 'IMAGES_DUCK'
 
 sz     = np.sqrt(patch_dim)
 IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
+num_images = 60
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -40,7 +41,7 @@ if coeff_visualizer:
 # Don't block when showing images
 plt.ion()
 
-def load_rt_images(I, t):
+def load_rt_images(I, t, patch_per_dim):
     if coeff_visualizer: # Pick 1 specified patch
         rr = random_patch_index * sz
         cc = random_patch_index * sz
@@ -53,6 +54,7 @@ def load_rt_images(I, t):
                 cc = c * sz
                 I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
                 i = i + 1
+    return I
 
 def load_images(I, t):
     # Choose a random image
@@ -137,7 +139,7 @@ def learning():
             I = load_images(I, t)
             ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
         else:
-            I = load_rt_images(I, t)
+            I = load_rt_images(I, t, patch_per_dim)
             ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=20)
 
         # Calculate Residual
@@ -159,6 +161,8 @@ def learning():
     plt.show()
 
 def rt_reconstruct():
+    global batch_size
+
     # Tile the entire image with patches
     patch_per_dim = int(np.floor(imsize / sz))
 
@@ -169,20 +173,17 @@ def rt_reconstruct():
     # Initialize batch of images
     I = np.zeros((patch_dim, batch_size))
 
-    # Look at 200 images for now
-    num_images = 200
-
     # Load dict from learning run
-    Phi = scipy.io.loadmat('dict/Phi_%s_OC=%.1f_lambda=%.3f.mat' % (name, float(neurons)/patch_dim, lambdav))
+    Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')
     Phi = Phi['Phi']
 
     # **** Hack? Diff lambda for training vs. reconstructing ****
-    lambdav = 0.02
+    lambdav = 0.020
 
     max_active = float(neurons * batch_size)
 
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
-    run_p = [(True, 10, 0.10)]
+    run_p = [(True, 10, 0.02), (True, 20, 0.03), (True, 40, 0.04)]
     #run_p = [(True, 120), (True, 90), (True, 60)]
     #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
     #run_p = [(True, 120), (True, 40), (True, 20)]
@@ -216,7 +217,7 @@ def rt_reconstruct():
 
         start = datetime.now()
         for t in range(num_images):
-            I = load_rt_images(I, t)
+            I = load_rt_images(I, t, patch_per_dim)
 
             if run_p[run][0] == True: # InitP
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
@@ -285,8 +286,8 @@ def rt_reconstruct():
         plt.axis([0, num_images, 0, top_p])
         plt.plot(range(num_images), 100 * CC / max_active, color=rcolor[run])
 
-    plt.suptitle("DATA=%s, LAMBDAV=%.2f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
-                    (name, lambdav, imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
+    plt.suptitle("DATA=%s, LAMBDAV=%.3f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
+                    (image_data_name, lambdav, imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
     plt.show(block=True)
 
 def sparsenet():
@@ -295,11 +296,14 @@ def sparsenet():
     else:
         learning()
 
+# Theano Matrix Multiplication Optimization
 Gv = T.fmatrix('G')
 av = T.fmatrix('a')
 o  = T.dot(Gv, av)
-
 f = theano.function([Gv, av], o, allow_input_downcast=True)
+
+def visualizer_code():
+    pass
 
 def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
     """
@@ -322,7 +326,7 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
     else:
         #l = 0.1 * np.max(np.abs(b), axis = 0)
         l = np.ones(batch_size)
-        l *= lambdav * 3
+        l *= lambdav
 
     if ahat_prev is not None:
         u = ahat_prev
@@ -373,6 +377,7 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
             plt.title('Iter=%d/%d' % (t, num_iterations))
             plt.draw()
             plt.show()
+# Do some clf magic
 
     if coeff_visualizer:
         plt.close()
