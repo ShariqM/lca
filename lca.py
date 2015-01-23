@@ -19,20 +19,20 @@ import theano.tensor as T
 patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024  # Number of basis functions
 lambdav     = 0.007 # Minimum Threshold
-num_trials  = 5000
+num_trials  = 1000
 batch_size  = 100
 border      = 4
 
 # More Parameters
 runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
-coeff_visualizer   = True # Visualize potentials of neurons
+coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 image_data_name    = 'IMAGES_DUCK'
 
 sz     = np.sqrt(patch_dim)
 IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
-num_images = 40
+print 'num', num_images
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -120,9 +120,6 @@ def log_and_save_dict(Phi):
 def learning():
     global batch_size # Wow epic fail http://bugs.python.org/issue9049
 
-    # Initialize batch of images
-    I = np.zeros((patch_dim, batch_size))
-
     # Initialize basis functions
     Phi = np.random.randn(patch_dim, neurons)
     Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -133,6 +130,9 @@ def learning():
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
+
+    # Initialize batch of images
+    I = np.zeros((patch_dim, batch_size))
 
     max_active = float(neurons * batch_size)
     start = datetime.now()
