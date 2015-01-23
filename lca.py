@@ -1,4 +1,5 @@
 import scipy.io
+import pdb
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -25,8 +26,8 @@ def get_eta(t,batch_size):
     return 0.10/batch_size
 
 run_learning=False
-coeff_visualizer=False
-#def sparsenet(patch_dim=64, neurons=128, lambdav=0.01, num_trials=5000, batch_size=100):
+run_rt_learning=True
+coeff_visualizer=True
 def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch_size=100):
 
     """
@@ -40,7 +41,10 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
     """
     border=4
     name = 'IMAGES_DUCK'
-    IMAGES = scipy.io.loadmat('mat/%s.mat' % name)[name]
+    #name = 'IMAGES_DUCK_SHORT_SMOOTH'
+    name2 = 'IMAGES_DUCK'
+    #name2 = 'IMAGES'
+    IMAGES = scipy.io.loadmat('mat/%s.mat' % name)[name2]
 
     (imsize, imsize, num_images) = np.shape(IMAGES)
 
@@ -54,15 +58,16 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
     Phi = np.random.randn(patch_dim, neurons)
     Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
+    plt.ion()
+
     I = np.zeros((patch_dim,batch_size))
 
-    plt.ion()
+    #plt.ion()
     ahat_prev = None
 
     if not run_learning:
 
         # Tiling the image
-        import pdb
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
@@ -127,6 +132,8 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
                         if coeff_visualizer:
                             break
                         i = i + 1
+                    if coeff_visualizer:
+                        break
 
                 if run_p[run][0]:
                     ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
@@ -211,54 +218,115 @@ def sparsenet(patch_dim=256, neurons=1024, lambdav=0.007, num_trials=5000, batch
 
 
 
-    start = datetime.now()
-    for t in range(num_trials):
-        # Choose a random image
-        imi = np.ceil(num_images * random.uniform(0, 1))
+    if run_rt_learning:
+        start = datetime.now()
+        patch_per_dim = int(np.floor(imsize / sz))
+        if not coeff_visualizer:
+            batch_size = patch_per_dim**2
 
-        for i in range(batch_size):
-            r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-            c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+        print batch_size
+        I = np.zeros((patch_dim, batch_size))
 
-            I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1], patch_dim, 1)
+        for t in range(num_images):
+            i = 0
+            for r in range(patch_per_dim):
+                for c in range(patch_per_dim):
+                    if coeff_visualizer:
+                        r = c = 4
+                    rr = r * sz
+                    cc = c * sz
+                    I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
+                    i = i + 1
+                    if coeff_visualizer:
+                        break
+                if coeff_visualizer:
+                    break
 
-        # Coefficient Inference
-        ahat = sparsify(I, Phi, lambdav)
+            # Coefficient Inference
+            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=20)
 
-        # Calculate Residual
-        R = I-np.dot(Phi, ahat)
+            # Calculate Residual
+            R = I - np.dot(Phi, ahat)
 
-        # Update Basis Functions
-        dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
-        Phi = Phi + dPhi
-        Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            # Update Basis Functions
+            dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
 
-        # Plot every 100 iterations
-        if np.mod(t,100) == 0:
-            mse = (R ** 2).mean()
-            var = I.var().mean()
-            print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
-                    % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
+            Phi = Phi + dPhi
+            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-            side = np.sqrt(neurons)
-            image = np.zeros((sz*side+side,sz*side+side))
-            for i in range(side.astype(int)):
-                for j in range(side.astype(int)):
-                    patch = np.reshape(Phi[:,i*side+j],(sz,sz))
-                    patch = patch/np.max(np.abs(patch))
-                    image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
+            # Plot every 100 iterations
+            if np.mod(t,10) == 0:
+                mse = (R ** 2).mean()
+                var = I.var().mean()
+                print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
+                        % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
 
-            #for t in range(num_images):
-                #plt.imshow(IMAGES[:,:,t], cmap=cm.Greys_r, interpolation="nearest")
-                #plt.draw()
-                #time.sleep(4)
-            plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
-            plt.draw()
+                side = np.sqrt(neurons)
+                image = np.zeros((sz*side+side,sz*side+side))
+                for i in range(side.astype(int)):
+                    for j in range(side.astype(int)):
+                        patch = np.reshape(Phi[:,i*side+j],(sz,sz))
+                        patch = patch/np.max(np.abs(patch))
+                        image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
 
-        ahat_prev = ahat
+                plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
+                plt.draw()
+                plt.show()
+            ahat_prev = ahat
 
-    scipy.io.savemat('Phi_%s_OC=%.1f_lambda=%.2f' % (name, float(neurons)/patch_dim, lambdav),
-                    {'Phi':Phi})
+        scipy.io.savemat('Phi_RT_%s_OC=%.1f_lambda=%.2f' % (name, float(neurons)/patch_dim, lambdav),
+                        {'Phi':Phi})
+    else:
+
+        start = datetime.now()
+        for t in range(num_trials):
+            # Choose a random image
+            imi = np.ceil(num_images * random.uniform(0, 1))
+
+            for i in range(batch_size):
+                r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+
+                I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1], patch_dim, 1)
+
+            # Coefficient Inference
+            ahat = sparsify(I, Phi, lambdav)
+
+            # Calculate Residual
+            R = I-np.dot(Phi, ahat)
+
+            # Update Basis Functions
+            dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
+            Phi = Phi + dPhi
+            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+
+            # Plot every 100 iterations
+            if np.mod(t,10) == 0:
+                mse = (R ** 2).mean()
+                var = I.var().mean()
+                print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
+                        % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
+
+                side = np.sqrt(neurons)
+                image = np.zeros((sz*side+side,sz*side+side))
+                for i in range(side.astype(int)):
+                    for j in range(side.astype(int)):
+                        patch = np.reshape(Phi[:,i*side+j],(sz,sz))
+                        patch = patch/np.max(np.abs(patch))
+                        image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
+
+                #for t in range(num_images):
+                    #plt.imshow(IMAGES[:,:,t], cmap=cm.Greys_r, interpolation="nearest")
+                    #plt.draw()
+                    #time.sleep(4)
+                plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
+                plt.draw()
+                plt.show()
+
+            ahat_prev = ahat
+
+        scipy.io.savemat('Phi_%s_OC=%.1f_lambda=%.2f' % (name, float(neurons)/patch_dim, lambdav),
+                        {'Phi':Phi})
     plt.show()
     return Phi
 
@@ -278,12 +346,12 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
     b = np.dot(Phi.T, I)
     G = np.dot(Phi.T, Phi) - np.eye(M)
 
-    if run_learning:
+    if run_learning and not run_rt_learning:
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
         #l = 0.1 * np.max(np.abs(b), axis = 0)
         l = np.ones(batch_size)
-        l *= lambdav
+        l *= lambdav * 3
 
     if ahat_prev is not None:
         u = ahat_prev
@@ -298,7 +366,11 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
         plt.subplot(313)
         coeffs = plt.bar(range(M), u, color='b')
         lthresh = plt.plot(range(M), list(l) * M, color='r')
-        plt.axis([0, M, 0, 1.05])
+
+        if run_learning and not run_rt_learning:
+            plt.axis([0, M, 0, 1.05])
+        else:
+            plt.axis([0, M, 0, lambdav * 10])
 
         plt.subplot(312)
         plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')

@@ -46,14 +46,24 @@ def showbfs(Phi):
 #Phi = scipy.io.loadmat('IMAGES_DUCK_SMOOTH.mat')['IMAGES']
 #Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
 #Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT_NO_VAR.mat')['IMAGES_DUCK']
+
+
+
+
+
+
+
+
 Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
+import matplotlib
 
 print Phi.shape
 plt.ion()
 for i in range(Phi.shape[2]):
     #plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
-    plt.imshow(Phi[:,:,i], cmap = cm.binary)
+    plt.imshow(Phi[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
     plt.title('%d Var=%.4f' % (i, Phi[:,:,i].var().mean()))
     plt.draw()
     plt.show()
     time.sleep(0.01)
+    plt.clf()

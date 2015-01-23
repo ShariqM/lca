@@ -1,0 +1,25 @@
+- Color patches based on MSE, should see more error around movements
+
+
+
+
+
+11-6-14
+- Duck training, threshold adapting lambda = 0.01
+- Reconstruct phase lambda = 0.05 use fixed lambda
+- Result: As num iterations goes from 120 to 20...
+    - SNR pretty fixed (16dB to 15dB)
+    - Sparsity pretty bad for both up to 22.25%
+    - Change coeff stay under 5
+
+11-12-14
+- Active coeff explosion problem
+    - If lambda is too low explosion of coeff (fixed lambda)
+    - If I start lambda at 0.1 * max(blah...) and have adaptive it works ok
+
+- Soft threshold?
+- Filter in time?
+- Connection to time constant
+
+11-17-14
+- http://intelligenttradingtech.blogspot.com/2010/05/is-it-possible-to-get-causal-smoothed.html
