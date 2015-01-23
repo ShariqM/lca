@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import scipy.io
 import pdb
 import numpy as np

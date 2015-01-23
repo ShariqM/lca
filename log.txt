@@ -1,0 +1,11 @@
+*** Phi_1 ***
+Time=2015-01-23 02:20:26.345892
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=256
+neurons=1024
+lambdav=0.007
+num_trials=1000
+batch_size=144
+1
+
