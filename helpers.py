@@ -1,5 +1,3 @@
-from enum import Enum
-
 class RunType():
     learning = 1
     rt_learning = 2
