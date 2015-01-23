@@ -25,7 +25,7 @@ border      = 4
 
 # More Parameters
 runtype          = RunType.learning # learning, rt_learning, rt_reconstruct
-coeff_visualizer = True # Visualize potentials of neurons
+coeff_visualizer = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 image_data_name  = 'IMAGES_DUCK'
 
