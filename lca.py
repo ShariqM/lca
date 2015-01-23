@@ -24,15 +24,15 @@ batch_size  = 100
 border      = 4
 
 # More Parameters
-runtype            = RunType.rt_reconstruct # learning, rt_learning, rt_reconstruct
-coeff_visualizer   = False # Visualize potentials of neurons
+runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
+coeff_visualizer   = True # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 image_data_name    = 'IMAGES_DUCK'
 
 sz     = np.sqrt(patch_dim)
 IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
-num_images = 60
+num_images = 40
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -129,10 +129,12 @@ def learning():
 
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
+        lambdav = 0.02
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
 
+    max_active = float(neurons * batch_size)
     start = datetime.now()
     for t in range(num_images):
         if runtype == RunType.learning:
@@ -154,6 +156,13 @@ def learning():
         # Plot every 100 iterations
         if np.mod(t, 100) == 0:
             graph_basis(R, I, Phi, start, t)
+        if runtype == RunType.rt_learning:
+            var = I.var().mean()
+            mse = (R ** 2).mean()
+            snr = 10 * log(var/mse, 10)
+            ac = np.sum(ahat)
+            print '%.3d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
+                    % (t, lambdav, snr, ac / max_active)
 
         ahat_prev = ahat
 
@@ -183,7 +192,7 @@ def rt_reconstruct():
     max_active = float(neurons * batch_size)
 
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
-    run_p = [(True, 10, 0.02), (True, 20, 0.03), (True, 40, 0.04)]
+    run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
     #run_p = [(True, 120), (True, 90), (True, 60)]
     #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
     #run_p = [(True, 120), (True, 40), (True, 20)]
