@@ -21,7 +21,7 @@ import theano.tensor as T
 patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024  # Number of basis functions
 lambdav     = 0.007 # Minimum Threshold
-num_trials  = 1000
+num_trials  = 100
 batch_size  = 100
 border      = 4
 
@@ -104,7 +104,7 @@ def log_and_save_dict(Phi):
     f.close()
     f = open('log.txt', 'a')
 
-    f.write('*** %s ***\n' % name)
+    f.write('\n*** %s ***\n' % name)
     f.write('Time=%s\n' % datetime.now())
     f.write('RunType=%s\n' % get_RunType_name(runtype))
     f.write('IMAGES=%s\n' % image_data_name)
@@ -113,14 +113,17 @@ def log_and_save_dict(Phi):
     f.write('lambdav=%.3f\n' % lambdav)
     f.write('num_trials=%d\n' % num_trials)
     f.write('batch_size=%d\n' % batch_size)
+    f.write('NUM_IMAGES=%d\n' % num_images)
 
-    f.write('%d\n\n' % (int(rr)+1))
+    f.write('%d\n' % (int(rr)+1))
     f.close()
 
     scipy.io.savemat('dict/%s' % name, {'Phi':Phi})
 
 def learning():
     global batch_size # Wow epic fail http://bugs.python.org/issue9049
+    global lambdav
+    global num_images
 
     # Initialize basis functions
     Phi = np.random.randn(patch_dim, neurons)
@@ -128,7 +131,8 @@ def learning():
 
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
-        lambdav = 0.02
+        lambdav = 0.05
+        num_images = 300
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
@@ -156,15 +160,19 @@ def learning():
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
         # Plot every 100 iterations
-        if np.mod(t, 100) == 0:
+        if np.mod(t, 10) == 0:
             graph_basis(R, I, Phi, start, t)
         if runtype == RunType.rt_learning:
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
-            ac = np.sum(ahat)
+
+            ahat_c = np.copy(ahat)
+            ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+            ac = np.sum(ahat_c)
+
             print '%.3d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
-                    % (t, lambdav, snr, ac / max_active)
+                    % (t, lambdav, snr, 100.0 * ac / max_active)
 
         ahat_prev = ahat
 

@@ -9,3 +9,26 @@ num_trials=1000
 batch_size=144
 1
 
+*** Phi_2 ***
+Time=2015-01-23 10:15:24.806467
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=256
+neurons=1024
+lambdav=0.040
+num_trials=100
+batch_size=144
+NUM_IMAGES=100
+2
+
+*** Phi_3 ***
+Time=2015-01-23 10:19:47.833491
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=256
+neurons=1024
+lambdav=0.050
+num_trials=100
+batch_size=144
+NUM_IMAGES=300
+3
