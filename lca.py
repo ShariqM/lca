@@ -132,7 +132,7 @@ def learning():
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
         lambdav = 0.05
-        num_images = 300
+        num_images = 1000
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
