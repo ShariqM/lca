@@ -44,3 +44,51 @@ num_trials=100
 batch_size=144
 NUM_IMAGES=1000
 4
+
+*** Phi_5 ***
+Time=2015-01-23 12:31:50.557049
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=100
+batch_size=256
+NUM_IMAGES=1000
+5
+
+*** Phi_6 ***
+Time=2015-01-23 14:41:31.556678
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=100
+batch_size=256
+NUM_IMAGES=4500
+6
+
+*** Phi_7 ***
+Time=2015-01-23 14:54:58.036092
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=100
+batch_size=256
+NUM_IMAGES=4500
+7
+
+*** Phi_8 ***
+Time=2015-01-23 17:15:25.830494
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=10000
+batch_size=256
+NUM_IMAGES=1000
+8
