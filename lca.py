@@ -16,12 +16,12 @@ import theano.tensor as T
 
 
 # Parameters
-#patch_dim   = 100 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 200  # Number of basis functions
-patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 1024  # Number of basis functions
-lambdav     = 0.007 # Minimum Threshold
-num_trials  = 100
+patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 288  # Number of basis functions
+#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 1024  # Number of basis functions
+lambdav     = 0.05 # Minimum Threshold
+num_trials  = 10000
 batch_size  = 100
 border      = 4
 
@@ -34,7 +34,6 @@ image_data_name    = 'IMAGES_DUCK'
 sz     = np.sqrt(patch_dim)
 IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
-print 'num', num_images
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -132,7 +131,6 @@ def learning():
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
         lambdav = 0.05
-        num_images = 1000
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
@@ -142,13 +140,15 @@ def learning():
 
     max_active = float(neurons * batch_size)
     start = datetime.now()
-    for t in range(num_images):
+    for tt in range(num_trials):
         if runtype == RunType.learning:
+            t = tt
             I = load_images(I, t)
             ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
         else:
+            t = tt % num_images
             I = load_rt_images(I, t, patch_per_dim)
-            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=20)
+            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=10)
 
         # Calculate Residual
         R = I - np.dot(Phi, ahat)
@@ -160,9 +160,9 @@ def learning():
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
         # Plot every 100 iterations
-        if np.mod(t, 10) == 0:
+        if np.mod(t, 400) == 0:
             graph_basis(R, I, Phi, start, t)
-        if runtype == RunType.rt_learning:
+        if np.mod(t, 10) == 0 and runtype == RunType.rt_learning:
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)

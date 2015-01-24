@@ -36,7 +36,7 @@ def showbfs(Phi):
 #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=2.0_lambda=0.01.mat')['Phi']
 
 #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
-Phi = scipy.io.loadmat('dict/Phi_3.mat')['Phi']
+Phi = scipy.io.loadmat('dict/Phi_7.mat')['Phi']
 showbfs(Phi)
 plt.show()
 
@@ -47,12 +47,6 @@ plt.show()
 #Phi = scipy.io.loadmat('IMAGES_DUCK_SMOOTH.mat')['IMAGES']
 #Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
 #Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT_NO_VAR.mat')['IMAGES_DUCK']
-
-
-
-
-
-
 
 
 Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
