@@ -22,7 +22,7 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 10000
+num_trials  = 5
 batch_size  = 100
 border      = 4
 
@@ -30,15 +30,15 @@ border      = 4
 runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-image_data_name    = 'IMAGES_DUCK_LONG'
-iters_per_read     = 10 # Only for rt_learning
+#image_data_name    = 'IMAGES_DUCK_LONG'
+image_data_name    = 'IMAGES'
+iters_per_frame    = 12 # Only for rt_learning
 thresh_type        = 'hard'
 coeff_eta          = 0.05
 lambda_type        = ''
 
 sz     = np.sqrt(patch_dim)
-v7.3_file = True
-if v7.3_file:
+if image_data_name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
     IMAGES = f.get(image_data_name)
@@ -48,6 +48,8 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 
 (imsize, imsize, num_images) = np.shape(IMAGES)
+if runtype == RunType.rt_learning and num_trials < num_images:
+    num_trials = num_images
 print 'num images', num_images
 
 if coeff_visualizer:
@@ -130,7 +132,7 @@ def log_and_save_dict(Phi):
     f.write('NUM_IMAGES=%d\n' % num_images)
     f.write('iter_per_frame=%d\n' % iters_per_frame)
     f.write('thresh_type=%s\n' % thresh_type)
-    f.write('coeff_eta=%f\n' % coeff_eta)
+    f.write('coeff_eta=%.3f\n' % coeff_eta)
     f.write('lambda_type=[%s]\n' % lambda_type)
 
     f.write('%d\n' % (int(rr)+1))
@@ -167,7 +169,8 @@ def learning():
         else:
             t = tt % num_images
             I = load_rt_images(I, t, patch_per_dim)
-            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=10)
+            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
+                               num_iterations=iters_per_frame)
 
         # Calculate Residual
         R = I - np.dot(Phi, ahat)
