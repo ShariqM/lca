@@ -92,3 +92,19 @@ num_trials=10000
 batch_size=256
 NUM_IMAGES=1000
 8
+
+*** Phi_9 ***
+Time=2015-01-26 15:17:20.103880
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK_LONG
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=9000
+batch_size=256
+NUM_IMAGES=9000
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+9
