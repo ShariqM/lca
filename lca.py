@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 import scipy.io
 import pdb
 import numpy as np
@@ -30,8 +30,8 @@ border      = 4
 runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-#image_data_name    = 'IMAGES_DUCK_LONG'
-image_data_name    = 'IMAGES'
+image_data_name    = 'IMAGES_DUCK_LONG'
+#image_data_name    = 'IMAGES'
 iters_per_frame    = 12 # Only for rt_learning
 thresh_type        = 'hard'
 coeff_eta          = 0.05
