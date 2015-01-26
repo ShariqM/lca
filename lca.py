@@ -1,4 +1,4 @@
-" Run LCA on a data set"
+" Run LCA on a data set g"
 import matplotlib
 matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 import scipy.io
