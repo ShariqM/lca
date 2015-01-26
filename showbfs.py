@@ -6,6 +6,14 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from math import floor, ceil, sqrt
 import pprint
+import h5py
+import argparse
+
+parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument("-d", "--idx", dest="dict_idx", default=1,
+                    type=int, help="Dictionary index to show")
+args = parser.parse_args()
+
 
 def showbfs(Phi):
     (L, M) = Phi.shape # L = pixels of image, M = num images
@@ -32,33 +40,21 @@ def showbfs(Phi):
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
     plt.draw()
 
-#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.01.mat')['Phi']
-#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=2.0_lambda=0.01.mat')['Phi']
-
-#Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
-Phi = scipy.io.loadmat('dict/Phi_7.mat')['Phi']
+Phi = scipy.io.loadmat('dict/Phi_%d.mat' % args.dict_idx)['Phi']
 showbfs(Phi)
 plt.show()
 
 # Show image
-#Phi = scipy.io.loadmat('mat/IMAGES.mat')['IMAGES']
-#Phi = scipy.io.loadmat('IMAGES_GARB_SMOOTH.mat')['IMAGES']
-
-#Phi = scipy.io.loadmat('IMAGES_DUCK_SMOOTH.mat')['IMAGES']
-#Phi = scipy.io.loadmat('mat/IMAGES_DUCK.mat')['IMAGES_DUCK']
-#Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT_NO_VAR.mat')['IMAGES_DUCK']
-
-
-Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
-import matplotlib
-
-print Phi.shape
-plt.ion()
-for i in range(Phi.shape[2]):
-    #plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
-    plt.imshow(Phi[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
-    plt.title('%d Var=%.4f' % (i, Phi[:,:,i].var().mean()))
-    plt.draw()
-    plt.show()
-    time.sleep(0.01)
-    plt.clf()
+#Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
+#import matplotlib
+#
+#print Phi.shape
+#plt.ion()
+#for i in range(Phi.shape[2]):
+    ##plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
+    #plt.imshow(Phi[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+    #plt.title('%d Var=%.4f' % (i, Phi[:,:,i].var().mean()))
+    #plt.draw()
+    #plt.show()
+    #time.sleep(0.01)
+    #plt.clf()

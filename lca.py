@@ -13,6 +13,7 @@ from datetime import datetime
 from helpers import *
 from theano import *
 import theano.tensor as T
+import h5py
 
 
 # Parameters
@@ -29,11 +30,25 @@ border      = 4
 runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-image_data_name    = 'IMAGES_DUCK'
+image_data_name    = 'IMAGES_DUCK_LONG'
+iters_per_read     = 10 # Only for rt_learning
+thresh_type        = 'hard'
+coeff_eta          = 0.05
+lambda_type        = ''
 
 sz     = np.sqrt(patch_dim)
-IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+v7.3_file = True
+if v7.3_file:
+    # Load data, have to use h5py because had to use v7.3 because .mat is so big.
+    f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
+    IMAGES = f.get(image_data_name)
+    IMAGES = np.array(IMAGES)
+    IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
+else:
+    IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+
 (imsize, imsize, num_images) = np.shape(IMAGES)
+print 'num images', num_images
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -113,6 +128,10 @@ def log_and_save_dict(Phi):
     f.write('num_trials=%d\n' % num_trials)
     f.write('batch_size=%d\n' % batch_size)
     f.write('NUM_IMAGES=%d\n' % num_images)
+    f.write('iter_per_frame=%d\n' % iters_per_frame)
+    f.write('thresh_type=%s\n' % thresh_type)
+    f.write('coeff_eta=%f\n' % coeff_eta)
+    f.write('lambda_type=[%s]\n' % lambda_type)
 
     f.write('%d\n' % (int(rr)+1))
     f.close()
@@ -324,14 +343,15 @@ f = theano.function([Gv, av], o, allow_input_downcast=True)
 def visualizer_code():
     pass
 
-def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
+def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
     """
     LCA Inference.
     I: Image batch (dim x batch)
     Phi: Dictionary (dim x dictionary element)
     lambdav: Sparsity coefficient
-    eta: Update rate
+    coeff_eta: Update rate
     """
+    global lambda_type
     batch_size = np.shape(I)[1]
 
     (N, M) = np.shape(Phi)
@@ -341,9 +361,11 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
     G = f(Phi.T, Phi) - np.eye(M)
 
     if runtype == RunType.learning:
+        lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
         #l = 0.1 * np.max(np.abs(b), axis = 0)
+        lambda_type = 'Fixed and lambdav'
         l = np.ones(batch_size)
         l *= lambdav
 
@@ -378,7 +400,7 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
         time.sleep(1)
 
     for t in range(num_iterations):
-        u = eta * (b - f(G,a)) + (1 - eta) * u
+        u = coeff_eta * (b - f(G,a)) + (1 - coeff_eta) * u
         a = g(u, l)
 
         l = 0.95 * l
@@ -403,7 +425,7 @@ def sparsify(I, Phi, lambdav, eta=0.05, ahat_prev=None, num_iterations=80):
 
     return a
 
-def g(u,theta,thresh_type='hard'):
+def g(u,theta):
     """
     LCA threshold function
     u: coefficients
