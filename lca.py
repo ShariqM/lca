@@ -181,10 +181,10 @@ def learning():
         Phi = Phi + dPhi
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-        # Plot every 100 iterations
+        # Plot every 400 iterations
         if np.mod(t, 400) == 0:
             graph_basis(R, I, Phi, start, t)
-        if np.mod(t, 10) == 0 and runtype == RunType.rt_learning:
+        if np.mod(t, 200) == 0 and runtype == RunType.rt_learning:
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
