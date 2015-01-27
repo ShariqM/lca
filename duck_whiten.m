@@ -1,8 +1,8 @@
 sz = 384; % Size to cut out of rectangle image
 N = 192; % downsampled
-M = 60 * 150; % 90 seconds * 150fps = 9000   (Long)
+%M = 60 * 150; % 90 seconds * 150fps = 9000   (Long)
 %M = 30 * 150; % 30 seconds * 150fps = 4500  (Medium)
-%M = 3  * 150; % 3  seconds * 150fps = 450   (Short)
+M = 3  * 150; % 3  seconds * 150fps = 450   (Short)
 
 [fx fy]=meshgrid(-N/2:N/2-1,-N/2:N/2-1);
 rho=sqrt(fx.*fx+fy.*fy);
@@ -13,7 +13,7 @@ IMAGES = randn(N*N,M);
 
 for i=1:M
     fprintf('trial %d\r', i)
-    im_rgb=double(imread(num2str(i, 'png_2/q10-duck--%05d.png')));
+    im_rgb=double(imread(num2str(i, 'image_files/q10-duck--%05d.png')));
 
     % Cut out sz by sz part of the image
     [rsz csz c] = size(im_rgb);
@@ -42,9 +42,9 @@ end
 
 IMAGES=sqrt(0.1)*IMAGES/sqrt(mean(var(IMAGES)));
 
-IMAGES_DUCK_LONG = randn(N,N,M);
+IMAGES_DUCK_SHORT = randn(N,N,M);
 for i=1:M
-    IMAGES_DUCK_LONG(:,:,i) = reshape(IMAGES(:,i), N,N,1);
+    IMAGES_DUCK_SHORT(:,:,i) = reshape(IMAGES(:,i), N,N,1);
 end
 
-save IMAGES_DUCK_LONG.mat IMAGES_DUCK_LONG;
+save IMAGES_DUCK_SHORT.mat IMAGES_DUCK_SHORT;

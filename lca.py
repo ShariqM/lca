@@ -1,6 +1,9 @@
 " Run LCA on a data set g"
 import matplotlib
-matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+
+redwood2_run = True
+if redwood2_run:
+    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 import scipy.io
 import pdb
 import numpy as np
@@ -23,32 +26,33 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 5
+num_trials  = 3000
 batch_size  = 100
 border      = 4
+sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
+runtype            = RunType.learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-image_data_name    = 'IMAGES_DUCK_LONG'
-#image_data_name    = 'IMAGES'
-iters_per_frame    = 12 # Only for rt_learning
 thresh_type        = 'hard'
 coeff_eta          = 0.05
 lambda_type        = ''
 
-sz     = np.sqrt(patch_dim)
+image_data_name    = 'IMAGES_DUCK_SHORT'
+#image_data_name    = 'IMAGES_DUCK'
+#image_data_name    = 'IMAGES_DUCK_LONG'
+#image_data_name    = 'IMAGES'
+iters_per_frame    = 10 # Only for rt_learning
 if image_data_name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
-    IMAGES = f.get(image_data_name)
-    IMAGES = np.array(IMAGES)
+    IMAGES = np.array(f.get(image_data_name))
     IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
 else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
-
 (imsize, imsize, num_images) = np.shape(IMAGES)
+
 if runtype == RunType.rt_learning and num_trials < num_images:
     num_trials = num_images
 print 'num images', num_images
@@ -205,6 +209,13 @@ def learning():
 def rt_reconstruct():
     global batch_size
 
+    # Just look at first 200
+    num_frames = 60
+
+    # Load dict from learning run
+    Phi = scipy.io.loadmat('dict/Phi_9.mat')
+    Phi = Phi['Phi']
+
     # Tile the entire image with patches
     patch_per_dim = int(np.floor(imsize / sz))
 
@@ -215,17 +226,14 @@ def rt_reconstruct():
     # Initialize batch of images
     I = np.zeros((patch_dim, batch_size))
 
-    # Load dict from learning run
-    Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')
-    Phi = Phi['Phi']
-
     # **** Hack? Diff lambda for training vs. reconstructing ****
-    lambdav = 0.020
+    lambdav = 0.01
 
     max_active = float(neurons * batch_size)
 
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
-    run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
+    #run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
+    run_p = [(False, 80, lambdav)]
     #run_p = [(True, 120), (True, 90), (True, 60)]
     #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
     #run_p = [(True, 120), (True, 40), (True, 20)]
@@ -249,8 +257,8 @@ def rt_reconstruct():
         # Record data
         MSE = [] # Mean Squared Error
         SNR = [] # Signal to Noise ratio
-        AC  = np.zeros(num_images) # Active coefficients
-        CC  = np.zeros(num_images) # Changing coefficients
+        AC  = np.zeros(num_frames) # Active coefficients
+        CC  = np.zeros(num_frames) # Changing coefficients
 
         ahat_prev = np.zeros((neurons, batch_size))
         ahat_prev_c = np.zeros((neurons, batch_size))
@@ -258,7 +266,7 @@ def rt_reconstruct():
         lambdav = run_p[run][2]
 
         start = datetime.now()
-        for t in range(num_images):
+        for t in range(num_frames):
             I = load_rt_images(I, t, patch_per_dim)
 
             if run_p[run][0] == True: # InitP
@@ -288,8 +296,8 @@ def rt_reconstruct():
         plt.subplot(231)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('MSE', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0.0, max(MSE) * 1.1])
-        plt.plot(range(num_images), MSE, color=rcolor[run], label=labels[run])
+        plt.axis([0, num_frames, 0.0, max(MSE) * 1.1])
+        plt.plot(range(num_frames), MSE, color=rcolor[run], label=labels[run])
         lg = plt.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
         lg.draw_frame(False)
 
@@ -297,20 +305,20 @@ def rt_reconstruct():
         plt.subplot(232)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_CC_AC])
-        plt.plot(range(num_images), AC, color=rcolor[run])
+        plt.axis([0, num_frames, 0, top_CC_AC])
+        plt.plot(range(num_frames), AC, color=rcolor[run])
 
         plt.subplot(233)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('# Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_CC_AC])
-        plt.plot(range(num_images), CC, color=rcolor[run])
+        plt.axis([0, num_frames, 0, top_CC_AC])
+        plt.plot(range(num_frames), CC, color=rcolor[run])
 
         plt.subplot(234)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0.0, 22])
-        plt.plot(range(num_images), SNR, color=rcolor[run], label=labels[run])
+        plt.axis([0, num_frames, 0.0, 22])
+        plt.plot(range(num_frames), SNR, color=rcolor[run], label=labels[run])
         lg = plt.legend(bbox_to_anchor=(-0.6 , 0.60), loc=2, fontsize=10)
         lg.draw_frame(False)
 
@@ -319,14 +327,14 @@ def rt_reconstruct():
         plt.subplot(235)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('% Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_p])
-        plt.plot(range(num_images), 100 * AC / max_active, color=rcolor[run])
+        plt.axis([0, num_frames, 0, top_p])
+        plt.plot(range(num_frames), 100 * AC / max_active, color=rcolor[run])
 
         plt.subplot(236)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('% Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_images, 0, top_p])
-        plt.plot(range(num_images), 100 * CC / max_active, color=rcolor[run])
+        plt.axis([0, num_frames, 0, top_p])
+        plt.plot(range(num_frames), 100 * CC / max_active, color=rcolor[run])
 
     plt.suptitle("DATA=%s, LAMBDAV=%.3f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
                     (image_data_name, lambdav, imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
