@@ -32,7 +32,7 @@ border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.learning # learning, rt_learning, rt_reconstruct
+runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
