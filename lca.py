@@ -116,7 +116,6 @@ def log_and_save_dict(Phi):
     rr = 0
     while True:
         r = f.readline()
-        print r
         if r == '':
             break
         rr = r
