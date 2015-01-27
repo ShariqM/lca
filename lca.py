@@ -151,8 +151,12 @@ def learning():
     global num_images
 
     # Initialize basis functions
-    Phi = np.random.randn(patch_dim, neurons)
-    Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+    if True:
+        Phi = scipy.io.loadmat('dict/Phi_10.mat')
+        Phi = Phi['Phi']
+    else:
+        Phi = np.random.randn(patch_dim, neurons)
+        Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
