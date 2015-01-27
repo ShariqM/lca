@@ -15,8 +15,8 @@ x = range(0,150)
 loglog = False
 
 ploti = 1
-for a in (0.9, 0.8, 0.6):
-    y = np.power(a, x)
+for a in (0.9, 0.8, 0.7):
+    y = (1/3.333) * np.power(a, x)
     print y
 
     # Plot in time domain
@@ -28,7 +28,8 @@ for a in (0.9, 0.8, 0.6):
     xf = fftshift(fftfreq(int(nn),dt)); # x axis points
 
     my = max(yplot)
-    yplot /= my
+    print 'my ', my
+    #yplot /= my
 
     print 'For a=%f' % a
     for f in (0, 45, 75):

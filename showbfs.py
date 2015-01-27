@@ -38,23 +38,9 @@ def showbfs(Phi):
         arr[index(i):index(i)+sz, index(j):index(j)+sz] = img
 
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
+    plt.title("Phi_%d" % args.dict_idx)
     plt.draw()
 
 Phi = scipy.io.loadmat('dict/Phi_%d.mat' % args.dict_idx)['Phi']
 showbfs(Phi)
 plt.show()
-
-# Show image
-#Phi = scipy.io.loadmat('mat/IMAGES_DUCK_SHORT.mat')['IMAGES_DUCK']
-#import matplotlib
-#
-#print Phi.shape
-#plt.ion()
-#for i in range(Phi.shape[2]):
-    ##plt.imshow(Phi[:,:,i*10], cmap = cm.binary, interpolation='nearest')
-    #plt.imshow(Phi[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
-    #plt.title('%d Var=%.4f' % (i, Phi[:,:,i].var().mean()))
-    #plt.draw()
-    #plt.show()
-    #time.sleep(0.01)
-    #plt.clf()
