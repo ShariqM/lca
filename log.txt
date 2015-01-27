@@ -140,3 +140,19 @@ thresh_type=hard
 coeff_eta=0.050
 lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
 11
+
+*** Phi_12 ***
+Time=2015-01-26 18:53:03.162895
+RunType=Learning
+IMAGES=IMAGES_DUCK_LONG_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=1000
+batch_size=100
+NUM_IMAGES=8850
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+12
