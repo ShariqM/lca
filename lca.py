@@ -26,7 +26,7 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 3000
+num_trials  = 8000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
@@ -39,8 +39,8 @@ thresh_type        = 'hard'
 coeff_eta          = 0.05
 lambda_type        = ''
 
-image_data_name    = 'IMAGES_DUCK_SHORT'
-#image_data_name    = 'IMAGES_DUCK'
+#image_data_name    = 'IMAGES_DUCK_SHORT'
+image_data_name    = 'IMAGES_DUCK'
 #image_data_name    = 'IMAGES_DUCK_LONG'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for rt_learning
