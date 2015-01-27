@@ -11,7 +11,7 @@ x = range(0,t)
 a,n = 0.7, 3.333 # Sharper...
 filt = (1/n) * np.power(a, x)
 
-name = 'IMAGES_DUCK_LONG'
+name = 'IMAGES_DUCK_SHORT'
 
 if name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.

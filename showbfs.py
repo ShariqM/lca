@@ -19,7 +19,6 @@ def showbfs(Phi):
     (L, M) = Phi.shape # L = pixels of image, M = num images
 
     sz = sqrt(L) # sz of one side of image
-    print sz
     n = floor(sqrt(M)) # sz of one side of the grid of images
     m = ceil(M/n) # ceil for 1 extra
     buf = 1

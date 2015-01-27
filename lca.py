@@ -26,7 +26,7 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 1000
+num_trials  = 8850
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
@@ -39,7 +39,6 @@ thresh_type        = 'hard'
 coeff_eta          = 0.05
 lambda_type        = ''
 
-#image_data_name    = 'IMAGES_DUCK_SHORT'
 image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 #image_data_name    = 'IMAGES_DUCK_LONG'
 #image_data_name    = 'IMAGES'
@@ -53,9 +52,7 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
-if runtype == RunType.rt_learning and num_trials < num_images:
-    num_trials = num_images
-print 'num images', num_images
+print 'num images %d, num trials %d' % (num_images, num_trials)
 
 if coeff_visualizer:
     print 'Setting batch size to 1 for coeff visualizer'
@@ -143,6 +140,7 @@ def log_and_save_dict(Phi):
     f.close()
 
     scipy.io.savemat('dict/%s' % name, {'Phi':Phi})
+    print '%s successfully written.' % name
 
 def learning():
     global batch_size # Wow epic fail http://bugs.python.org/issue9049
@@ -150,7 +148,7 @@ def learning():
     global num_images
 
     # Initialize basis functions
-    if True:
+    if False:
         Phi = scipy.io.loadmat('dict/Phi_10.mat')
         Phi = Phi['Phi']
     else:
