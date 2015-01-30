@@ -40,7 +40,7 @@ coeff_eta          = 0.05
 lambda_type        = ''
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
-image_data_name    = 'IMAGES_DUCK_LONG'
+image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for rt_learning
 if image_data_name == 'IMAGES_DUCK_LONG':
