@@ -20,6 +20,9 @@ if name == 'IMAGES_DUCK_LONG':
     IMAGES = np.array(f.get(name))
     IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
 
+    name = 'IMAGES_DUCK_LONG_FAKE'
+    IMAGES = IMAGES[:,:,:450]
+
     g = 'IMAGES_DUCK_SHORT'
     short = scipy.io.loadmat('mat/%s.mat' % g)[g]
     print 'array equiv?', np.array_equal(short[:,:,0], IMAGES[:,:,0])

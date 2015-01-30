@@ -1,7 +1,7 @@
 " Run LCA on a data set g"
 import matplotlib
 
-redwood2_run = True
+redwood2_run = False
 if redwood2_run:
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 import scipy.io
@@ -26,13 +26,13 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 4500
+num_trials  = 10000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.learning # learning, rt_learning, rt_reconstruct
+runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
@@ -40,6 +40,7 @@ coeff_eta          = 0.05
 lambda_type        = ''
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
+#image_data_name    = 'IMAGES_DUCK'
 image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for rt_learning
@@ -89,12 +90,16 @@ def load_images(I, t):
 
     return I
 
+from showbfs import showbfs
 def graph_basis(R, I, Phi, start, t):
     mse = (R ** 2).mean()
     var = I.var().mean()
     print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
             % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
 
+    showbfs(Phi)
+
+def foo():
     side = np.sqrt(neurons)
     image = np.zeros((sz*side+side,sz*side+side))
     for i in range(side.astype(int)):
@@ -105,6 +110,7 @@ def graph_basis(R, I, Phi, start, t):
 
     plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
     plt.draw()
+    print 'show?'
     plt.show()
 
 def log_and_save_dict(Phi):

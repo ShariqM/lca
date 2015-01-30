@@ -11,18 +11,27 @@ import h5py
 import argparse
 
 orig_show = True
-smooth_show = False
+smooth_show = True
 
-oname = 'IMAGES_DUCK_LONG'
-sname = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
+#oname = 'IMAGES_DUCK_LONG'
+#sname = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 
-#oname = 'IMAGES_DUCK'
-#sname = 'IMAGES_DUCK_SMOOTH_0.7'
+#oname = 'IMAGES_DUCK_LONG'
+#sname = 'IMAGES_DUCK_LONG_FAKE_SMOOTH_0.7'
+
+oname = 'IMAGES_DUCK'
+sname = 'IMAGES_DUCK_SMOOTH_0.7'
 
 #oname = 'IMAGES_DUCK_SHORT'
 #sname = 'IMAGES_DUCK_SHORT_SMOOTH_0.7'
 
-sleep = 0.05 # seconds to sleep between frames
+sleep = 0.00 # seconds to sleep between frames
+interval = 1 # Show every *interval* frame
+
+
+if smooth_show:
+    SIMAGES = scipy.io.loadmat('mat/%s.mat' % sname)[sname]
+    shape = SIMAGES.shape
 
 if orig_show:
     if oname == 'IMAGES_DUCK_LONG':
@@ -33,13 +42,13 @@ if orig_show:
     else:
         OIMAGES = scipy.io.loadmat('mat/%s.mat' % oname)[oname]
 
-if smooth_show:
-    SIMAGES = scipy.io.loadmat('mat/%s.mat' % sname)[sname]
+    shape = OIMAGES.shape
 
-print 'Shape:', OIMAGES.shape
+
+print 'Shape:', shape
 
 plt.ion()
-for i in range(0, OIMAGES.shape[2]):
+for i in range(150, shape[2], interval):
     if orig_show:
         plt.subplot(211)
         plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
@@ -47,7 +56,7 @@ for i in range(0, OIMAGES.shape[2]):
 
     if smooth_show:
         plt.subplot(212)
-        plt.imshow(SIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+        plt.imshow(SIMAGES[:,:,i-150], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
         plt.title('Smooth %d Var=%.4f' % (i, SIMAGES[:,:,i].var().mean()))
 
     plt.draw()
