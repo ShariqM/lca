@@ -11,15 +11,24 @@ x = range(0,t)
 a,n = 0.7, 3.333 # Sharper...
 filt = (1/n) * np.power(a, x)
 
-name = 'IMAGES_DUCK_SHORT'
+name = 'IMAGES_DUCK_LONG'
+#name = 'IMAGES_DUCK_SHORT'
 
 if name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % name, 'r',)
     IMAGES = np.array(f.get(name))
     IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
+
+    g = 'IMAGES_DUCK_SHORT'
+    short = scipy.io.loadmat('mat/%s.mat' % g)[g]
+    print 'array equiv?', np.array_equal(short[:,:,0], IMAGES[:,:,0])
+
+    print 'image shape', IMAGES.shape
 else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % name)[name]
+import pdb
+pdb.set_trace()
 
 NIMAGES = np.empty((IMAGES.shape[0], IMAGES.shape[1], IMAGES.shape[2] - t))
 print 'Beginning Convolution', IMAGES.shape

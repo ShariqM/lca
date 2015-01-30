@@ -26,21 +26,21 @@ neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 8850
+num_trials  = 500
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
+runtype            = RunType.learning # learning, rt_learning, rt_reconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
 coeff_eta          = 0.05
 lambda_type        = ''
 
-image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
-#image_data_name    = 'IMAGES_DUCK_LONG'
+#image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
+image_data_name    = 'IMAGES_DUCK_LONG'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for rt_learning
 if image_data_name == 'IMAGES_DUCK_LONG':
