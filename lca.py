@@ -27,7 +27,7 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.12 # Minimum Threshold
+lambdav     = 0.08 # Minimum Threshold
 num_trials  = 40000
 batch_size  = 100
 border      = 4
@@ -143,7 +143,6 @@ def learning():
 
     ahat_prev = None # For reusing coefficients of the last frame
     if runtype == RunType.rt_learning:
-        lambdav = 0.05
         patch_per_dim = int(np.floor(imsize / sz))
         if not coeff_visualizer:
             batch_size = patch_per_dim**2
