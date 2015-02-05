@@ -284,3 +284,19 @@ thresh_type=hard
 coeff_eta=0.050
 lambda_type=[Fixed and lambdav]
 20
+
+*** Phi_21 ***
+Time=2015-02-04 16:44:38.353530
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=10000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+21

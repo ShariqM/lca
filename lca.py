@@ -5,6 +5,7 @@ redwood2_run = False
 if redwood2_run:
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 import scipy.io
+import sys
 import pdb
 import numpy as np
 import random
@@ -12,6 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import time
 from math import log
+from math import isnan
 from colors import COLORS
 from datetime import datetime
 from helpers import *
@@ -25,8 +27,8 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.05 # Minimum Threshold
-num_trials  = 10000
+lambdav     = 0.12 # Minimum Threshold
+num_trials  = 40000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
@@ -40,8 +42,8 @@ coeff_eta          = 0.05
 lambda_type        = ''
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
-#image_data_name    = 'IMAGES_DUCK'
-image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
+image_data_name    = 'IMAGES_DUCK'
+#image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for rt_learning
 if image_data_name == 'IMAGES_DUCK_LONG':
@@ -90,29 +92,6 @@ def load_images(I, t):
 
     return I
 
-from showbfs import showbfs
-def graph_basis(R, I, Phi, start, t):
-    mse = (R ** 2).mean()
-    var = I.var().mean()
-    print "Iteration %.4d, Var = %.2f, SNR = %.2fdB ELAP=%d"  \
-            % (t, var, 10 * log(var/mse, 10), (datetime.now() - start).seconds)
-
-    showbfs(Phi)
-
-def foo():
-    side = np.sqrt(neurons)
-    image = np.zeros((sz*side+side,sz*side+side))
-    for i in range(side.astype(int)):
-        for j in range(side.astype(int)):
-            patch = np.reshape(Phi[:,i*side+j],(sz,sz))
-            patch = patch/np.max(np.abs(patch))
-            image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
-
-    plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
-    plt.draw()
-    print 'show?'
-    plt.show()
-
 def log_and_save_dict(Phi):
     # Log dictionary and Save Mat file
     f = open('log.txt', 'r')
@@ -148,6 +127,7 @@ def log_and_save_dict(Phi):
     scipy.io.savemat('dict/%s' % name, {'Phi':Phi})
     print '%s successfully written.' % name
 
+from showbfs import showbfs
 def learning():
     global batch_size # Wow epic fail http://bugs.python.org/issue9049
     global lambdav
@@ -188,25 +168,31 @@ def learning():
         R = I - np.dot(Phi, ahat)
 
         # Update Basis Functions
-        dPhi = get_eta(t, batch_size) * (np.dot(R, ahat.T))
+        dPhi = get_eta(tt, runtype, batch_size) * (np.dot(R, ahat.T))
 
         Phi = Phi + dPhi
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-        # Plot every 400 iterations
-        if np.mod(t, 400) == 0:
-            graph_basis(R, I, Phi, start, t)
-        if np.mod(t, 200) == 0 and runtype == RunType.rt_learning:
+        # Plot every 200 iterations
+        if np.mod(tt, 200) == 0:
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
+
+            if isnan(snr):
+                pdb.set_trace()
 
             ahat_c = np.copy(ahat)
             ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
             ac = np.sum(ahat_c)
 
-            print '%.3d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
-                    % (t, lambdav, snr, 100.0 * ac / max_active)
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                    % (tt, lambdav, snr, 100.0 * ac / max_active,
+                       (datetime.now() - start).seconds)
+
+            sys.stdout.flush()
+            showbfs(Phi)
+            plt.show()
 
         ahat_prev = ahat
 
