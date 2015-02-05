@@ -300,3 +300,35 @@ thresh_type=hard
 coeff_eta=0.050
 lambda_type=[Fixed and lambdav]
 21
+
+*** Phi_22 ***
+Time=2015-02-04 18:34:43.200841
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.080
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+22
+
+*** Phi_23 ***
+Time=2015-02-04 18:35:05.044863
+RunType=RT_Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.080
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+23

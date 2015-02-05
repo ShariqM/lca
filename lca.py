@@ -1,9 +1,9 @@
 " Run LCA on a data set g"
 import matplotlib
-
-redwood2_run = False
-if redwood2_run:
+import socket
+if socket.gethostname() == 'redwood2':
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+
 import scipy.io
 import sys
 import pdb
@@ -92,7 +92,7 @@ def load_images(I, t):
 
     return I
 
-def log_and_save_dict(Phi):
+def log_and_save_dict(Phi, comp):
     # Log dictionary and Save Mat file
     f = open('log.txt', 'r')
     rr = 0
@@ -124,7 +124,7 @@ def log_and_save_dict(Phi):
     f.write('%d\n' % (int(rr)+1))
     f.close()
 
-    scipy.io.savemat('dict/%s' % name, {'Phi':Phi})
+    scipy.io.savemat('dict/%s_%f' % (name, comp), {'Phi':Phi})
     print '%s successfully written.' % name
 
 from showbfs import showbfs
@@ -193,9 +193,12 @@ def learning():
             showbfs(Phi)
             plt.show()
 
+        if np.mod(tt, 1000) == 0:
+            log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+
         ahat_prev = ahat
 
-    log_and_save_dict(Phi)
+    log_and_save_dict(Phi, 100.0)
     plt.show()
 
 def rt_reconstruct():
