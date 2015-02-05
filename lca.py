@@ -101,30 +101,33 @@ def log_and_save_dict(Phi, comp):
         if r == '':
             break
         rr = r
-    name = 'Phi_%d' % (int(rr) + 1)
-
-    f.close()
-    f = open('log.txt', 'a')
-
-    f.write('\n*** %s ***\n' % name)
-    f.write('Time=%s\n' % datetime.now())
-    f.write('RunType=%s\n' % get_RunType_name(runtype))
-    f.write('IMAGES=%s\n' % image_data_name)
-    f.write('patch_dim=%d\n' % patch_dim)
-    f.write('neurons=%d\n' % neurons)
-    f.write('lambdav=%.3f\n' % lambdav)
-    f.write('num_trials=%d\n' % num_trials)
-    f.write('batch_size=%d\n' % batch_size)
-    f.write('NUM_IMAGES=%d\n' % num_images)
-    f.write('iter_per_frame=%d\n' % iters_per_frame)
-    f.write('thresh_type=%s\n' % thresh_type)
-    f.write('coeff_eta=%.3f\n' % coeff_eta)
-    f.write('lambda_type=[%s]\n' % lambda_type)
-
-    f.write('%d\n' % (int(rr)+1))
     f.close()
 
-    scipy.io.savemat('dict/%s_%f' % (name, comp), {'Phi':Phi})
+    if comp == 0.0: # Only log on first write
+        name = 'Phi_%d' % (int(rr) + 1)
+        f = open('log.txt', 'a')
+
+        f.write('\n*** %s ***\n' % name)
+        f.write('Time=%s\n' % datetime.now())
+        f.write('RunType=%s\n' % get_RunType_name(runtype))
+        f.write('IMAGES=%s\n' % image_data_name)
+        f.write('patch_dim=%d\n' % patch_dim)
+        f.write('neurons=%d\n' % neurons)
+        f.write('lambdav=%.3f\n' % lambdav)
+        f.write('num_trials=%d\n' % num_trials)
+        f.write('batch_size=%d\n' % batch_size)
+        f.write('NUM_IMAGES=%d\n' % num_images)
+        f.write('iter_per_frame=%d\n' % iters_per_frame)
+        f.write('thresh_type=%s\n' % thresh_type)
+        f.write('coeff_eta=%.3f\n' % coeff_eta)
+        f.write('lambda_type=[%s]\n' % lambda_type)
+
+        f.write('%d\n' % (int(rr)+1))
+        f.close()
+    else:
+        name = 'Phi_%d' % (int(rr))
+
+    scipy.io.savemat('dict/%s_%.1f' % (name, comp), {'Phi':Phi})
     print '%s successfully written.' % name
 
 from showbfs import showbfs
