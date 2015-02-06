@@ -27,14 +27,14 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.08 # Minimum Threshold
+lambdav     = 0.06 # Minimum Threshold
 num_trials  = 40000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.rt_learning # learning, rt_learning, rt_reconstruct
+runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
@@ -45,7 +45,7 @@ lambda_type        = ''
 image_data_name    = 'IMAGES_DUCK'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
-iters_per_frame    = 10 # Only for rt_learning
+iters_per_frame    = 20 # Only for vLearning
 if image_data_name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
@@ -54,6 +54,13 @@ if image_data_name == 'IMAGES_DUCK_LONG':
 else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
+
+previous_dict = ''
+#previous_dict = 'Phi_32/Phi_32_22.5.mat'
+#previous_dict = 'Phi_52/Phi_52_1.2.mat'
+#previous_dict = 'Phi_54/Phi_54_1.0.mat'
+
+load_sequentially = True # False unsupported at the moment 2-6-15
 
 print 'num images %d, num trials %d' % (num_images, num_trials)
 
@@ -64,8 +71,10 @@ if coeff_visualizer:
 # Don't block when showing images
 plt.ion()
 
-def load_rt_images(I, t, patch_per_dim):
+# Load video images from sequential time points
+def load_vImages(I, t, patch_per_dim):
     if coeff_visualizer: # Pick 1 specified patch
+        print 'coeff visualizer'
         rr = random_patch_index * sz
         cc = random_patch_index * sz
         I[:,0] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
@@ -79,7 +88,26 @@ def load_rt_images(I, t, patch_per_dim):
                 i = i + 1
     return I
 
-def load_images(I, t):
+# Load video images from random starting points
+def load_vrImages(I):
+    # Choose a random image less than batch_size images away from the end
+    imi = np.ceil((num_images - batch_size) * random.uniform(0, 1))
+
+    if coeff_visualizer: # Pick 1 specified patch
+        print 'coeff visualizer'
+        rr = random_patch_index * sz
+        cc = random_patch_index * sz
+        I[:,0] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, imi], patch_dim, 1)
+    else:
+        r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+        c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+        for i in range(batch_size):
+            pdb.set_trace()
+            I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1+i], patch_dim, 1)
+            i = i + 1
+    return I
+
+def load_images(I):
     # Choose a random image
     imi = np.ceil(num_images * random.uniform(0, 1))
 
@@ -92,6 +120,7 @@ def load_images(I, t):
 
     return I
 
+import os
 def log_and_save_dict(Phi, comp):
     # Log dictionary and Save Mat file
     f = open('log.txt', 'r')
@@ -105,6 +134,11 @@ def log_and_save_dict(Phi, comp):
 
     if comp == 0.0: # Only log on first write
         name = 'Phi_%d' % (int(rr) + 1)
+
+        path = 'dict/%s' % name
+        if not os.path.exists(path):
+            os.makedirs(path)
+
         f = open('log.txt', 'a')
 
         f.write('\n*** %s ***\n' % name)
@@ -121,33 +155,40 @@ def log_and_save_dict(Phi, comp):
         f.write('thresh_type=%s\n' % thresh_type)
         f.write('coeff_eta=%.3f\n' % coeff_eta)
         f.write('lambda_type=[%s]\n' % lambda_type)
+        f.write('Previous dict=%s\n' % previous_dict)
+        f.write('Load Sequentially=%s\n' % load_sequentially)
 
         f.write('%d\n' % (int(rr)+1))
         f.close()
+
+        logfile = '%s/%s_log.txt' % (path, name)
+        print 'Assigning stdout to %s' % logfile
+        sys.stdout = open(logfile, 'w')
     else:
         name = 'Phi_%d' % (int(rr))
+        path = 'dict/%s' % name
 
-    scipy.io.savemat('dict/%s_%.1f' % (name, comp), {'Phi':Phi})
+    scipy.io.savemat('%s/%s_%.1f' % (path, name, comp), {'Phi':Phi})
     print '%s successfully written.' % name
 
 from showbfs import showbfs
-def learning():
+def Learning():
     global batch_size # Wow epic fail http://bugs.python.org/issue9049
     global lambdav
     global num_images
 
     # Initialize basis functions
-    if False:
-        Phi = scipy.io.loadmat('dict/Phi_10.mat')
+    if previous_dict != '':
+        Phi = scipy.io.loadmat('dict/%s' % previous_dict)
         Phi = Phi['Phi']
     else:
         Phi = np.random.randn(patch_dim, neurons)
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
     ahat_prev = None # For reusing coefficients of the last frame
-    if runtype == RunType.rt_learning:
+    if runtype == RunType.vLearning:
         patch_per_dim = int(np.floor(imsize / sz))
-        if not coeff_visualizer:
+        if not coeff_visualizer and load_sequentially:
             batch_size = patch_per_dim**2
 
     # Initialize batch of images
@@ -156,15 +197,23 @@ def learning():
     max_active = float(neurons * batch_size)
     start = datetime.now()
     for tt in range(num_trials):
-        if runtype == RunType.learning:
+        if runtype == RunType.Learning:
             t = tt
-            I = load_images(I, t)
+            I = load_images(I)
             ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
         else:
             t = tt % num_images
-            I = load_rt_images(I, t, patch_per_dim)
+            if load_sequentially:
+                I = load_vImages(I, t, patch_per_dim)
+            else:
+                I = load_vrImages(I)
+
             ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
                                num_iterations=iters_per_frame)
+
+        #if tt == 400:
+            #log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+            #pdb.set_trace()
 
         # Calculate Residual
         R = I - np.dot(Phi, ahat)
@@ -176,21 +225,26 @@ def learning():
         Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
         # Plot every 200 iterations
+        # Plot every 1   iterations
+        #if tt > 400 or np.mod(tt, 200) == 0:
         if np.mod(tt, 200) == 0:
-            var = I.var().mean()
-            mse = (R ** 2).mean()
-            snr = 10 * log(var/mse, 10)
+            try:
+                var = I.var().mean()
+                mse = (R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
 
-            if isnan(snr):
+                if isnan(snr):
+                    pdb.set_trace()
+
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+
+                print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (tt, lambdav, snr, 100.0 * ac / max_active,
+                           (datetime.now() - start).seconds)
+            except Exception as e:
                 pdb.set_trace()
-
-            ahat_c = np.copy(ahat)
-            ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
-            ac = np.sum(ahat_c)
-
-            print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                    % (tt, lambdav, snr, 100.0 * ac / max_active,
-                       (datetime.now() - start).seconds)
 
             sys.stdout.flush()
             showbfs(Phi)
@@ -204,13 +258,13 @@ def learning():
     log_and_save_dict(Phi, 100.0)
     plt.show()
 
-def rt_reconstruct():
+def vReconstruct():
     global batch_size
 
     # Just look at first 200
     num_frames = 60
 
-    # Load dict from learning run
+    # Load dict from Learning run
     Phi = scipy.io.loadmat('dict/Phi_9.mat')
     Phi = Phi['Phi']
 
@@ -339,10 +393,10 @@ def rt_reconstruct():
     plt.show(block=True)
 
 def sparsenet():
-    if runtype == RunType.rt_reconstruct:
-        rt_reconstruct()
+    if runtype == RunType.vReconstruct:
+        vReconstruct()
     else:
-        learning()
+        Learning()
 
 # Theano Matrix Multiplication Optimization
 Gv = T.fmatrix('G')
@@ -370,7 +424,7 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
     b = f(Phi.T, I)
     G = f(Phi.T, Phi) - np.eye(M)
 
-    if runtype == RunType.learning:
+    if runtype == RunType.Learning:
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
@@ -393,7 +447,7 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
         coeffs = plt.bar(range(M), u, color='b')
         lthresh = plt.plot(range(M), list(l) * M, color='r')
 
-        if runtype == RunType.learning:
+        if runtype == RunType.Learning:
             plt.axis([0, M, 0, 1.05])
         else:
             plt.axis([0, M, 0, lambdav * 10])

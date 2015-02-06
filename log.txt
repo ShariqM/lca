@@ -1,6 +1,6 @@
 *** Phi_1 ***
 Time=2015-01-23 02:20:26.345892
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=256
 neurons=1024
@@ -11,7 +11,7 @@ batch_size=144
 
 *** Phi_2 ***
 Time=2015-01-23 10:15:24.806467
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=256
 neurons=1024
@@ -23,7 +23,7 @@ NUM_IMAGES=100
 
 *** Phi_3 ***
 Time=2015-01-23 10:19:47.833491
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=256
 neurons=1024
@@ -35,7 +35,7 @@ NUM_IMAGES=300
 
 *** Phi_4 ***
 Time=2015-01-23 10:46:31.225435
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=256
 neurons=1024
@@ -47,7 +47,7 @@ NUM_IMAGES=1000
 
 *** Phi_5 ***
 Time=2015-01-23 12:31:50.557049
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -59,7 +59,7 @@ NUM_IMAGES=1000
 
 *** Phi_6 ***
 Time=2015-01-23 14:41:31.556678
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -71,7 +71,7 @@ NUM_IMAGES=4500
 
 *** Phi_7 ***
 Time=2015-01-23 14:54:58.036092
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -83,7 +83,7 @@ NUM_IMAGES=4500
 
 *** Phi_8 ***
 Time=2015-01-23 17:15:25.830494
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -95,7 +95,7 @@ NUM_IMAGES=1000
 
 *** Phi_9 ***
 Time=2015-01-26 15:17:20.103880
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_LONG
 patch_dim=144
 neurons=288
@@ -175,7 +175,7 @@ lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
 
 *** Phi_14 ***
 Time=2015-01-26 19:12:07.176227
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_LONG_SMOOTH_0.7
 patch_dim=144
 neurons=288
@@ -191,7 +191,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_15 ***
 Time=2015-01-26 22:46:03.528768
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_LONG_SMOOTH_0.7
 patch_dim=144
 neurons=288
@@ -207,7 +207,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_16 ***
 Time=2015-01-26 22:48:39.517666
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_SHORT
 patch_dim=144
 neurons=288
@@ -223,7 +223,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_17 ***
 Time=2015-01-26 22:50:47.883323
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_SHORT_SMOOTH_0.7
 patch_dim=144
 neurons=288
@@ -239,7 +239,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_18 ***
 Time=2015-01-26 23:10:53.640815
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_LONG_SMOOTH_0.7
 patch_dim=144
 neurons=288
@@ -271,7 +271,7 @@ lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
 
 *** Phi_20 ***
 Time=2015-01-29 19:29:40.062208
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK_SMOOTH_0.7
 patch_dim=144
 neurons=288
@@ -287,7 +287,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_21 ***
 Time=2015-02-04 16:44:38.353530
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -303,7 +303,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_22 ***
 Time=2015-02-04 18:34:43.200841
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -319,7 +319,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_23 ***
 Time=2015-02-04 18:35:05.044863
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -335,7 +335,7 @@ lambda_type=[Fixed and lambdav]
 
 *** Phi_24 ***
 Time=2015-02-04 18:40:15.401205
-RunType=RT_Learning
+RunType=vLearning
 IMAGES=IMAGES_DUCK
 patch_dim=144
 neurons=288
@@ -348,3 +348,662 @@ thresh_type=hard
 coeff_eta=0.050
 lambda_type=[Fixed and lambdav]
 24
+
+*** Phi_25 ***
+Time=2015-02-05 10:48:14.267571
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.080
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+25
+
+*** Phi_26 ***
+Time=2015-02-05 10:53:09.153842
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.080
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4350
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+26
+
+*** Phi_27 ***
+Time=2015-02-05 11:01:20.170830
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.070
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4350
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+27
+
+*** Phi_28 ***
+Time=2015-02-05 11:02:23.681652
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4350
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+28
+
+*** Phi_29 ***
+Time=2015-02-05 14:45:38.050493
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4350
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+29
+
+*** Phi_30 ***
+Time=2015-02-05 14:54:37.963049
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SMOOTH_0.7
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4350
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+30
+
+*** Phi_31 ***
+Time=2015-02-05 14:56:49.124621
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+31
+
+*** Phi_32 ***
+Time=2015-02-05 15:02:10.676265
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+32
+
+*** Phi_33 ***
+Time=2015-02-05 15:14:30.458994
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+33
+
+*** Phi_34 ***
+Time=2015-02-05 15:19:56.215174
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+34
+
+*** Phi_35 ***
+Time=2015-02-05 15:22:46.083249
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.070
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+35
+
+*** Phi_36 ***
+Time=2015-02-05 15:28:05.693528
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+36
+
+*** Phi_37 ***
+Time=2015-02-05 15:31:58.973609
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+37
+
+*** Phi_38 ***
+Time=2015-02-05 15:34:33.144055
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+38
+
+*** Phi_39 ***
+Time=2015-02-05 15:40:38.951531
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+39
+
+*** Phi_40 ***
+Time=2015-02-05 15:41:33.560019
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+40
+
+*** Phi_41 ***
+Time=2015-02-05 15:44:22.242443
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+41
+
+*** Phi_42 ***
+Time=2015-02-05 16:19:27.081890
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+42
+
+*** Phi_43 ***
+Time=2015-02-05 16:23:35.014061
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+43
+
+*** Phi_44 ***
+Time=2015-02-05 16:24:50.786522
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+44
+
+*** Phi_45 ***
+Time=2015-02-05 16:25:43.061833
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+45
+
+*** Phi_46 ***
+Time=2015-02-05 16:27:21.773454
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+46
+
+*** Phi_47 ***
+Time=2015-02-05 16:27:47.659484
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+47
+
+*** Phi_48 ***
+Time=2015-02-05 16:33:10.291311
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+48
+
+*** Phi_49 ***
+Time=2015-02-05 16:33:55.353655
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+49
+
+*** Phi_50 ***
+Time=2015-02-05 16:35:54.363462
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_49/Phi_49_1.3.mat
+50
+
+*** Phi_51 ***
+Time=2015-02-05 16:36:09.599251
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_49/Phi_49_1.3.mat
+51
+
+*** Phi_52 ***
+Time=2015-02-05 16:51:27.309155
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+52
+
+*** Phi_53 ***
+Time=2015-02-05 16:53:14.840750
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_52/Phi_52_1.2.mat
+53
+
+*** Phi_54 ***
+Time=2015-02-05 16:54:09.380297
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+54
+
+*** Phi_55 ***
+Time=2015-02-05 16:56:58.166351
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_54/Phi_54_1.0.mat
+55
+
+*** Phi_56 ***
+Time=2015-02-06 14:52:33.575559
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+Previous dict=Phi_54/Phi_54_1.0.mat
+56
+
+*** Phi_57 *** --- [Able to learn fine tuning of dictionary by cheating with normal Learning]
+Time=2015-02-06 14:53:35.454320
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+Previous dict=Phi_54/Phi_54_1.0.mat
+57
+
+*** Phi_58 ***  --- [Able to learn fine tuning of dictionary by cheating with normal Learning]
+Time=2015-02-06 14:59:44.650725
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+Previous dict=Phi_54/Phi_54_1.0.mat
+58
+
+*** Phi_59 ***
+Time=2015-02-06 15:00:59.947782
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=12
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+Previous dict=Phi_54/Phi_54_1.0.mat
+59
+
+*** Phi_60 ***
+Time=2015-02-06 15:26:16.361320
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=30
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_54/Phi_54_1.0.mat
+Load Sequentially=True
+60
+
+*** Phi_61 ***
+Time=2015-02-06 15:26:40.169751
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=30
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=Phi_32/Phi_32_22.5.mat
+Load Sequentially=True
+61
+
+*** Phi_62 ***
+Time=2015-02-06 15:29:49.276941
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.120
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=20
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=
+Load Sequentially=True
+62
+
+*** Phi_63 ***
+Time=2015-02-06 15:30:58.698666
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=256
+NUM_IMAGES=4500
+iter_per_frame=20
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=
+Load Sequentially=True
+63
