@@ -1155,3 +1155,60 @@ lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
 InitPhi=Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat
 Load Sequentially=False
 71
+
+*** Phi_72 ***
+Time=2015-02-07 11:15:41.696795
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=40
+time_batch_size=200
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+72
+
+*** Phi_73 ***
+Time=2015-02-07 11:16:09.414575
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=40
+time_batch_size=200
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+73
+
+*** Phi_74 ***
+Time=2015-02-07 11:18:21.667658
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+num_trials=40000
+batch_size=40
+time_batch_size=200
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+74

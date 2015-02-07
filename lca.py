@@ -23,13 +23,13 @@ import h5py
 
 
 # Parameters
-#patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 288  # Number of basis functions
+patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 288  # Number of basis functions
 patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
-num_trials  = 40000
-batch_size  = 40
+num_trials  = 5000
+batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
@@ -55,14 +55,14 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
-#init_Phi = ''
+init_Phi = ''
 #init_Phi = 'Phi_32/Phi_32_22.5.mat'
 #init_Phi = 'Phi_52/Phi_52_1.2.mat'
 #init_Phi = 'Phi_54/Phi_54_1.0.mat'
 #init_Phi = 'Phi_67/Phi_67_1.2.mat'
 #init_Phi = 'Phi_.mat/Phi_11.mat'
-init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
-init_Phi = 'Phi_71/Phi_71_7.5'
+#init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
+#init_Phi = 'Phi_71/Phi_71_7.5'
 #init_Phi = 'Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat' # Solid dictionary
 
 load_sequentially = False # False unsupported at the moment 2-6-15
@@ -175,7 +175,9 @@ def log_and_save_dict(Phi, comp):
         name = 'Phi_%d' % (int(rr))
         path = 'dict/%s' % name
 
-    scipy.io.savemat('%s/%s_%.1f' % (path, name, comp), {'Phi':Phi})
+    fname = '%s/%s_%.1f' % (path, name, comp)
+    plt.savefig('%s.png' % fname)
+    scipy.io.savemat(fname, {'Phi':Phi})
     print '%s_%.1f successfully written.' % (name, comp)
 
 from showbfs import showbfs
@@ -308,10 +310,10 @@ def Learning():
 
             sys.stdout.flush()
             showbfs(Phi)
-            plt.show()
 
             if np.mod(tt, 5) == 0:
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+            plt.show()
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (tt, lambdav, snr, 100.0 * ac / max_active,
