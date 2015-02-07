@@ -29,7 +29,7 @@ neurons     = 288  # Number of basis functions
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.06 # Minimum Threshold
 num_trials  = 40000
-batch_size  = 100
+batch_size  = 40
 border      = 4
 sz     = np.sqrt(patch_dim)
 
@@ -60,12 +60,12 @@ previous_dict = ''
 #previous_dict = 'Phi_52/Phi_52_1.2.mat'
 #previous_dict = 'Phi_54/Phi_54_1.0.mat'
 
-load_sequentially = True # False unsupported at the moment 2-6-15
+load_sequentially = False # False unsupported at the moment 2-6-15
 time_batch_size = 200
 
 print 'num images %d, num trials %d' % (num_images, num_trials)
 
-if coeff_visualizer or load_sequentially:
+if coeff_visualizer:
     print 'Setting batch size to 1'
     batch_size = 1
 
@@ -170,7 +170,7 @@ def log_and_save_dict(Phi, comp):
         path = 'dict/%s' % name
 
     scipy.io.savemat('%s/%s_%.1f' % (path, name, comp), {'Phi':Phi})
-    print '%s successfully written.' % name
+    print '%s_%.1f successfully written.' % (name, comp)
 
 from showbfs import showbfs
 def Learning():
@@ -259,15 +259,20 @@ def Learning():
             ahat_prev = ahat
     else:
         for tt in range(num_trials):
-            # Choose a random image less than batch_size images away from the end
-            imi = np.ceil((num_images - time_batch_size) * random.uniform(0, 1))
 
-            r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-            c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+            VI = np.zeros((patch_dim, batch_size, time_batch_size)) # Batch_size videos of time_batch_size frames
+            for x in range(batch_size):
+                # Choose a random image less than time_batch_size images away from the end
+                imi = np.floor((num_images - time_batch_size) * random.uniform(0, 1))
+                r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                VI[:,x,:] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi:imi+time_batch_size], (patch_dim, time_batch_size), 1)
+                #showbfs(VI[:,x,:])
+                #pdb.set_trace()
 
             ahat_prev = None
             for i in range(time_batch_size):
-                I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1+i], patch_dim, 1)
+                I = VI[:,:,i]
 
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
                                 num_iterations=iters_per_frame)
@@ -276,7 +281,7 @@ def Learning():
                 R = I - np.dot(Phi, ahat)
 
                 # Update Basis Functions
-                dPhi = get_eta(tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
+                dPhi = get_eta(batch_size * tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
 
                 Phi = Phi + dPhi
                 Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))

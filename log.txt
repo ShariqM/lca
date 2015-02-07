@@ -1007,3 +1007,57 @@ lambda_type=[Fixed and lambdav]
 Previous dict=
 Load Sequentially=True
 63
+
+*** Phi_64 ***
+Time=2015-02-06 16:40:53.884470
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=40
+NUM_IMAGES=4500
+iter_per_frame=20
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=
+Load Sequentially=False
+64
+
+*** Phi_65 *** (Looking better!)
+Time=2015-02-06 16:46:28.216217
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=40
+NUM_IMAGES=4500
+iter_per_frame=20
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=
+Load Sequentially=False
+65
+
+*** Phi_66 ***
+Time=2015-02-06 17:06:46.052497
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.060
+num_trials=40000
+batch_size=40
+NUM_IMAGES=4500
+iter_per_frame=20
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+Previous dict=
+Load Sequentially=False
+66

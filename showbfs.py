@@ -57,6 +57,8 @@ def gg():
     plt.title("Phi_%d" % args.dict_idx)
     plt.draw()
 
-Phi = scipy.io.loadmat('dict/Phi_%d.mat' % args.dict_idx)['Phi']
-showbfs(Phi)
+if __name__ == "main":
+    i = args.dict_idx
+    Phi = scipy.io.loadmat('dict/Phi_%d/Phi_%d_0.6.mat' % (i, i))['Phi']
+    showbfs(Phi)
 plt.show()
