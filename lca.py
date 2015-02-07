@@ -285,8 +285,11 @@ def Learning():
                 ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
+                ahat_prev = ahat
+
                 if i % 50 == 0:
                     print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, lambdav, 100.0 * ac / max_active)
+
 
             var = I.var().mean()
             mse = (R ** 2).mean()
@@ -295,6 +298,9 @@ def Learning():
             sys.stdout.flush()
             showbfs(Phi)
             plt.show()
+
+            if np.mod(tt, 5) == 0:
+                log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (tt, lambdav, snr, 100.0 * ac / max_active,
