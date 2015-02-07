@@ -23,18 +23,18 @@ import h5py
 
 
 # Parameters
-patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 288  # Number of basis functions
-#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 1024  # Number of basis functions
-lambdav     = 0.06 # Minimum Threshold
+#patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 288  # Number of basis functions
+patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 1024  # Number of basis functions
+lambdav     = 0.05 # Minimum Threshold
 num_trials  = 40000
 batch_size  = 40
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
+runtype            = RunType.vLearning# Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
@@ -45,7 +45,7 @@ lambda_type        = ''
 image_data_name    = 'IMAGES_DUCK'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
-iters_per_frame    = 20 # Only for vLearning
+iters_per_frame    = 10 # Only for vLearning
 if image_data_name == 'IMAGES_DUCK_LONG':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
@@ -55,10 +55,15 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
-previous_dict = ''
-#previous_dict = 'Phi_32/Phi_32_22.5.mat'
-#previous_dict = 'Phi_52/Phi_52_1.2.mat'
-#previous_dict = 'Phi_54/Phi_54_1.0.mat'
+#init_Phi = ''
+#init_Phi = 'Phi_32/Phi_32_22.5.mat'
+#init_Phi = 'Phi_52/Phi_52_1.2.mat'
+#init_Phi = 'Phi_54/Phi_54_1.0.mat'
+#init_Phi = 'Phi_67/Phi_67_1.2.mat'
+#init_Phi = 'Phi_.mat/Phi_11.mat'
+init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
+init_Phi = 'Phi_71/Phi_71_7.5'
+#init_Phi = 'Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat' # Solid dictionary
 
 load_sequentially = False # False unsupported at the moment 2-6-15
 time_batch_size = 200
@@ -151,12 +156,13 @@ def log_and_save_dict(Phi, comp):
         f.write('lambdav=%.3f\n' % lambdav)
         f.write('num_trials=%d\n' % num_trials)
         f.write('batch_size=%d\n' % batch_size)
+        f.write('time_batch_size=%d\n' % time_batch_size)
         f.write('NUM_IMAGES=%d\n' % num_images)
         f.write('iter_per_frame=%d\n' % iters_per_frame)
         f.write('thresh_type=%s\n' % thresh_type)
         f.write('coeff_eta=%.3f\n' % coeff_eta)
         f.write('lambda_type=[%s]\n' % lambda_type)
-        f.write('Previous dict=%s\n' % previous_dict)
+        f.write('InitPhi=%s\n' % init_Phi)
         f.write('Load Sequentially=%s\n' % load_sequentially)
 
         f.write('%d\n' % (int(rr)+1))
@@ -179,8 +185,8 @@ def Learning():
     global num_images
 
     # Initialize basis functions
-    if previous_dict != '':
-        Phi = scipy.io.loadmat('dict/%s' % previous_dict)
+    if init_Phi != '':
+        Phi = scipy.io.loadmat('dict/%s' % init_Phi)
         Phi = Phi['Phi']
     else:
         Phi = np.random.randn(patch_dim, neurons)
@@ -317,12 +323,11 @@ def Learning():
 def vReconstruct():
     global batch_size
 
-    # Just look at first 200
+    # Just look at first X frames
     num_frames = 60
 
     # Load dict from Learning run
-    Phi = scipy.io.loadmat('dict/Phi_9.mat')
-    Phi = Phi['Phi']
+    Phi = scipy.io.loadmat('dict/%s' % init_Phi)['Phi']
 
     # Tile the entire image with patches
     patch_per_dim = int(np.floor(imsize / sz))
@@ -335,7 +340,8 @@ def vReconstruct():
     I = np.zeros((patch_dim, batch_size))
 
     # **** Hack? Diff lambda for training vs. reconstructing ****
-    lambdav = 0.01
+    global lambdav
+    lambdav = 0.02
 
     max_active = float(neurons * batch_size)
 
@@ -371,11 +377,11 @@ def vReconstruct():
         ahat_prev = np.zeros((neurons, batch_size))
         ahat_prev_c = np.zeros((neurons, batch_size))
 
-        lambdav = run_p[run][2]
+        #lambdav = run_p[run][2]
 
         start = datetime.now()
         for t in range(num_frames):
-            I = load_rt_images(I, t, patch_per_dim)
+            I = load_vImages(I, t, patch_per_dim)
 
             if run_p[run][0] == True: # InitP
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
