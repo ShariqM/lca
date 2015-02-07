@@ -61,11 +61,12 @@ previous_dict = ''
 #previous_dict = 'Phi_54/Phi_54_1.0.mat'
 
 load_sequentially = True # False unsupported at the moment 2-6-15
+time_batch_size = 200
 
 print 'num images %d, num trials %d' % (num_images, num_trials)
 
-if coeff_visualizer:
-    print 'Setting batch size to 1 for coeff visualizer'
+if coeff_visualizer or load_sequentially:
+    print 'Setting batch size to 1'
     batch_size = 1
 
 # Don't block when showing images
@@ -196,64 +197,108 @@ def Learning():
 
     max_active = float(neurons * batch_size)
     start = datetime.now()
-    for tt in range(num_trials):
-        if runtype == RunType.Learning:
-            t = tt
-            I = load_images(I)
-            ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
-        else:
-            t = tt % num_images
-            if load_sequentially:
-                I = load_vImages(I, t, patch_per_dim)
+
+    if runtype == RunType.Learning:
+        for tt in range(num_trials):
+            if runtype == RunType.Learning:
+                t = tt
+                I = load_images(I)
+                ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
             else:
-                I = load_vrImages(I)
+                t = tt % num_images
+                if load_sequentially:
+                    I = load_vImages(I, t, patch_per_dim)
+                else:
+                    I = load_vrImages(I)
 
-            ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
-                               num_iterations=iters_per_frame)
+                ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
+                                   num_iterations=iters_per_frame)
 
-        #if tt == 400:
-            #log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-            #pdb.set_trace()
+            #if tt == 400:
+                #log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+                #pdb.set_trace()
 
-        # Calculate Residual
-        R = I - np.dot(Phi, ahat)
+            # Calculate Residual
+            R = I - np.dot(Phi, ahat)
 
-        # Update Basis Functions
-        dPhi = get_eta(tt, runtype, batch_size) * (np.dot(R, ahat.T))
+            # Update Basis Functions
+            dPhi = get_eta(tt, runtype, batch_size) * (np.dot(R, ahat.T))
 
-        Phi = Phi + dPhi
-        Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            Phi = Phi + dPhi
+            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-        # Plot every 200 iterations
-        # Plot every 1   iterations
-        #if tt > 400 or np.mod(tt, 200) == 0:
-        if np.mod(tt, 200) == 0:
-            try:
-                var = I.var().mean()
-                mse = (R ** 2).mean()
-                snr = 10 * log(var/mse, 10)
+            # Plot every 200 iterations
+            # Plot every 1   iterations
+            #if tt > 400 or np.mod(tt, 200) == 0:
+            if np.mod(tt, 200) == 0:
+                try:
+                    var = I.var().mean()
+                    mse = (R ** 2).mean()
+                    snr = 10 * log(var/mse, 10)
 
-                if isnan(snr):
+                    if isnan(snr):
+                        pdb.set_trace()
+
+                    ahat_c = np.copy(ahat)
+                    ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                    ac = np.sum(ahat_c)
+
+                    print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                            % (tt, lambdav, snr, 100.0 * ac / max_active,
+                               (datetime.now() - start).seconds)
+                except Exception as e:
                     pdb.set_trace()
+
+                sys.stdout.flush()
+                showbfs(Phi)
+                plt.show()
+
+            if np.mod(tt, 1000) == 0:
+                log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+
+            ahat_prev = ahat
+    else:
+        for tt in range(num_trials):
+            # Choose a random image less than batch_size images away from the end
+            imi = np.ceil((num_images - time_batch_size) * random.uniform(0, 1))
+
+            r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+            c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+
+            ahat_prev = None
+            for i in range(time_batch_size):
+                I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1+i], patch_dim, 1)
+
+                ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
+                                num_iterations=iters_per_frame)
+
+                # Calculate Residual
+                R = I - np.dot(Phi, ahat)
+
+                # Update Basis Functions
+                dPhi = get_eta(tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
+
+                Phi = Phi + dPhi
+                Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
-                print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (tt, lambdav, snr, 100.0 * ac / max_active,
-                           (datetime.now() - start).seconds)
-            except Exception as e:
-                pdb.set_trace()
+                if i % 50 == 0:
+                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, lambdav, 100.0 * ac / max_active)
+
+            var = I.var().mean()
+            mse = (R ** 2).mean()
+            snr = 10 * log(var/mse, 10)
 
             sys.stdout.flush()
             showbfs(Phi)
             plt.show()
 
-        if np.mod(tt, 1000) == 0:
-            log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-
-        ahat_prev = ahat
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (tt, lambdav, snr, 100.0 * ac / max_active,
+                           (datetime.now() - start).seconds)
 
     log_and_save_dict(Phi, 100.0)
     plt.show()
