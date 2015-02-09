@@ -1,8 +1,8 @@
 " Run LCA on a data set g"
 import matplotlib
 import socket
-if socket.gethostname() == 'redwood2':
-    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+#if socket.gethostname() == 'redwood2':
+    #matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 import scipy.io
 import sys
@@ -27,7 +27,7 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 288  # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.05 # Minimum Threshold
+lambdav     = 0.10 # Minimum Threshold
 num_trials  = 5000
 batch_size  = 100
 border      = 4
@@ -261,7 +261,7 @@ def Learning():
                 showbfs(Phi)
                 plt.show()
 
-            if np.mod(tt, 1000) == 0:
+            if np.mod(tt, 200) == 0:
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
 
             ahat_prev = ahat
