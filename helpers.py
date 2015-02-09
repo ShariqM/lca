@@ -15,6 +15,20 @@ def get_eta(t, runtype, batch_size):
         return 0.5/batch_size
     if t < start+4000:
         return 0.25/batch_size
+    return 0.10/batch_size
+
+def get_eta_long(t, runtype, batch_size):
+    start = 1000
+    if t < start:
+        return 6.0/batch_size
+    if t < start+1000:
+        return 3.0/batch_size
+    if t < start+2000:
+        return 1.0/batch_size
+    if t < start+3000:
+        return 0.5/batch_size
+    if t < start+4000:
+        return 0.25/batch_size
     if t < start+5000:
         return 0.10/batch_size
     if t < start+6000:

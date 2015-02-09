@@ -25,8 +25,8 @@ import h5py
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 288  # Number of basis functions
-patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 1024  # Number of basis functions
+#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
 num_trials  = 5000
 batch_size  = 100
@@ -34,7 +34,7 @@ border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vLearning# Learning, vLearning, vReconstruct
+runtype            = RunType.Learning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
