@@ -24,17 +24,17 @@ import h5py
 
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 288  # Number of basis functions
+neurons     = 288 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.10 # Minimum Threshold
-num_trials  = 5000
+lambdav     = 0.05 # Minimum Threshold
+num_trials  = 10000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.Learning # Learning, vLearning, vReconstruct
+runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
@@ -55,7 +55,18 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
+start_t = 200
 init_Phi = ''
+#init_Phi = 'Phi_79/Phi_79_34.0'
+#init_Phi = 'Phi_80/Phi_80_20.0'
+#init_Phi = 'Phi_81/Phi_81_64.0.mat'
+#init_Phi = 'Phi_82/Phi_82_28.0.mat'
+#init_Phi = 'Phi_83/Phi_83_6.0.mat'
+#init_Phi = 'Phi_84/Phi_84_18.0.mat'
+
+#init_Phi = 'Phi_87/Phi_87_0.5'
+init_Phi = 'Phi_89/Phi_89_2.1.mat'
+
 #init_Phi = 'Phi_32/Phi_32_22.5.mat'
 #init_Phi = 'Phi_52/Phi_52_1.2.mat'
 #init_Phi = 'Phi_54/Phi_54_1.0.mat'
@@ -66,7 +77,7 @@ init_Phi = ''
 #init_Phi = 'Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat' # Solid dictionary
 
 load_sequentially = False # False unsupported at the moment 2-6-15
-time_batch_size = 200
+time_batch_size = 100
 
 print 'num images %d, num trials %d' % (num_images, num_trials)
 
@@ -238,7 +249,7 @@ def Learning():
             # Plot every 200 iterations
             # Plot every 1   iterations
             #if tt > 400 or np.mod(tt, 200) == 0:
-            if np.mod(tt, 200) == 0:
+            if np.mod(tt, 600) == 0:
                 try:
                     var = I.var().mean()
                     mse = (R ** 2).mean()
@@ -261,12 +272,12 @@ def Learning():
                 showbfs(Phi)
                 plt.show()
 
-            if np.mod(tt, 200) == 0:
+            if np.mod(tt, 600) == 0:
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
 
             ahat_prev = ahat
     else:
-        for tt in range(num_trials):
+        for tt in range(start_t, num_trials):
 
             VI = np.zeros((patch_dim, batch_size, time_batch_size)) # Batch_size videos of time_batch_size frames
             for x in range(batch_size):
@@ -285,14 +296,18 @@ def Learning():
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
                                 num_iterations=iters_per_frame)
 
+                if np.isnan(np.sum(ahat)):
+                    pdb.set_trace()
+
                 # Calculate Residual
                 R = I - np.dot(Phi, ahat)
 
-                # Update Basis Functions
-                dPhi = get_eta(batch_size * tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
+                if i > 80/iters_per_frame:
+                    # Update Basis Functions
+                    dPhi = get_veta(batch_size * tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
 
-                Phi = Phi + dPhi
-                Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+                    Phi = Phi + dPhi
+                    Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
@@ -309,9 +324,9 @@ def Learning():
             snr = 10 * log(var/mse, 10)
 
             sys.stdout.flush()
-            showbfs(Phi)
 
             if np.mod(tt, 5) == 0:
+                showbfs(Phi)
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
             plt.show()
 

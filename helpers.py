@@ -4,16 +4,32 @@ class RunType():
     vReconstruct = 3
 
 def get_eta(t, runtype, batch_size):
-    start = 1000
+    start = 8000
+    inc = 1500
     if t < start:
         return 6.0/batch_size
-    if t < start+1000:
+    if t < start + 1*inc:
         return 3.0/batch_size
-    if t < start+2000:
+    if t < start + 2*inc:
         return 1.0/batch_size
-    if t < start+3000:
+    if t < start + 3*inc:
         return 0.5/batch_size
-    if t < start+4000:
+    if t < start + 4*inc:
+        return 0.25/batch_size
+    return 0.10/batch_size
+
+def get_veta(t, runtype, batch_size):
+    start = 10000
+    inc = 5000
+    if t < start:
+        return 6.0/batch_size
+    if t < start + 1*inc:
+        return 3.0/batch_size
+    if t < start + 2*inc:
+        return 1.0/batch_size
+    if t < start + 3*inc:
+        return 0.5/batch_size
+    if t < start + 4*inc:
         return 0.25/batch_size
     return 0.10/batch_size
 
