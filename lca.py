@@ -28,6 +28,7 @@ neurons     = 288 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.05 # Minimum Threshold
+lambda_decay= 0.6
 num_trials  = 10000
 batch_size  = 100
 border      = 4
@@ -55,7 +56,8 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
-start_t = 200
+start_t = 000
+#start_t = 200
 init_Phi = ''
 #init_Phi = 'Phi_79/Phi_79_34.0'
 #init_Phi = 'Phi_80/Phi_80_20.0'
@@ -65,7 +67,8 @@ init_Phi = ''
 #init_Phi = 'Phi_84/Phi_84_18.0.mat'
 
 #init_Phi = 'Phi_87/Phi_87_0.5'
-init_Phi = 'Phi_89/Phi_89_2.1.mat'
+#init_Phi = 'Phi_89/Phi_89_2.1.mat'
+#init_Phi = 'Phi_90/Phi_90_3.1.mat'
 
 #init_Phi = 'Phi_32/Phi_32_22.5.mat'
 #init_Phi = 'Phi_52/Phi_52_1.2.mat'
@@ -165,6 +168,7 @@ def log_and_save_dict(Phi, comp):
         f.write('patch_dim=%d\n' % patch_dim)
         f.write('neurons=%d\n' % neurons)
         f.write('lambdav=%.3f\n' % lambdav)
+        f.write('Lambda Decay=%.2f\n' % lambda_decay)
         f.write('num_trials=%d\n' % num_trials)
         f.write('batch_size=%d\n' % batch_size)
         f.write('time_batch_size=%d\n' % time_batch_size)
@@ -296,8 +300,14 @@ def Learning():
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
                                 num_iterations=iters_per_frame)
 
-                if np.isnan(np.sum(ahat)):
+                if np.sum(ahat) > 80:
+                    print 'WARNING: ahat sum over 80'
+                    log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
                     pdb.set_trace()
+
+                if np.isnan(np.sum(ahat)):
+                    print 'WARNING: ahat is nan'
+                    log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
 
                 # Calculate Residual
                 R = I - np.dot(Phi, ahat)
@@ -507,10 +517,14 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
-        #l = 0.1 * np.max(np.abs(b), axis = 0)
-        lambda_type = 'Fixed and lambdav'
-        l = np.ones(batch_size)
-        l *= lambdav
+        if False:
+            #l = 0.1 * np.max(np.abs(b), axis = 0)
+            l = np.ones(batch_size)
+            l *= lambdav
+            lambda_type = 'Fixed and lambdav'
+        else:
+            l = 0.5 * np.max(np.abs(b), axis = 0)
+            lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
 
     if ahat_prev is not None:
         u = ahat_prev
@@ -546,7 +560,7 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
         u = coeff_eta * (b - f(G,a)) + (1 - coeff_eta) * u
         a = g(u, l)
 
-        l = 0.95 * l
+        l = lambda_decay * l
         l[l < lambdav] = lambdav
 
         if coeff_visualizer:

@@ -62,7 +62,9 @@ if __name__ == "__main__":
     #Phi = scipy.io.loadmat('dict/Phi_%d/Phi_%d.mat' % (i, i))['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_.mat/Phi_11.mat')['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat')['Phi']
-    Phi = scipy.io.loadmat('dict/Phi_73_red.mat')['Phi']
+    #Phi = scipy.io.loadmat('dict/Phi_73_red.mat')['Phi']
+    #Phi = scipy.io.loadmat('dict/Phi_75_100.0.mat')['Phi']
+    Phi = scipy.io.loadmat('dict/Phi_90/Phi_90_3.1')['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
     showbfs(Phi)
     plt.show()

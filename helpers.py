@@ -19,8 +19,8 @@ def get_eta(t, runtype, batch_size):
     return 0.10/batch_size
 
 def get_veta(t, runtype, batch_size):
-    start = 10000
-    inc = 5000
+    start = 3000
+    inc = 3000
     if t < start:
         return 6.0/batch_size
     if t < start + 1*inc:

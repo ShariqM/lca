@@ -1512,7 +1512,67 @@ NUM_IMAGES=1000
 iter_per_frame=10
 thresh_type=hard
 coeff_eta=0.050
-lambda_type=[Fixed and lambdav]
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
 InitPhi=Phi_89/Phi_89_2.1.mat
 Load Sequentially=False
 90
+
+*** Phi_91 ***
+Time=2015-02-09 17:28:58.717694
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+Lambda Decay=0.60
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+91
+
+*** Phi_92 ***
+Time=2015-02-09 17:30:54.307336
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+Lambda Decay=0.60
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+92
+
+*** Phi_93 ***
+Time=2015-02-09 17:31:52.889502
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.050
+Lambda Decay=0.60
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+93
