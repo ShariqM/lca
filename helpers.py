@@ -3,7 +3,7 @@ class RunType():
     vLearning = 2
     vReconstruct = 3
 
-def get_eta(t, runtype, batch_size):
+def get_eta_old(t, runtype, batch_size):
     start = 8000
     inc = 1500
     if t < start:
@@ -18,7 +18,22 @@ def get_eta(t, runtype, batch_size):
         return 0.25/batch_size
     return 0.10/batch_size
 
-def get_veta(t, runtype, batch_size):
+def get_eta(t, neurons, runtype, batch_size):
+    start = 500
+    inc = 500
+    if t < start:
+        return 6.0/batch_size
+    if t < start + 1*inc:
+        return 3.0/batch_size
+    if t < start + 2*inc:
+        return 1.0/batch_size
+    if t < start + 3*inc:
+        return 0.5/batch_size
+    if t < start + 4*inc:
+        return 0.25/batch_size
+    return 0.10/batch_size
+
+def get_veta_old(t, runtype, batch_size):
     start = 3000
     inc = 3000
     if t < start:
@@ -31,6 +46,30 @@ def get_veta(t, runtype, batch_size):
         return 0.5/batch_size
     if t < start + 4*inc:
         return 0.25/batch_size
+    return 0.10/batch_size
+
+def get_veta(t, neurons, runtype, batch_size):
+    if neurons < 300:
+        start = 2000
+        inc = 1000
+        #start = 500
+        #inc = 500
+    else:
+        start = 6000
+        inc = 2000
+
+    if t < start:
+        return 6.0/batch_size
+    if t < start + 1*inc:
+        return 3.0/batch_size
+    if t < start + 2*inc:
+        return 1.5/batch_size
+    if t < start + 3*inc:
+        return 0.75/batch_size
+    if t < start + 4*inc:
+        return 0.375/batch_size
+    if t < start + 5*inc:
+        return 0.18/batch_size
     return 0.10/batch_size
 
 def get_eta_long(t, runtype, batch_size):

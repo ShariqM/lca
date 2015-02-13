@@ -16,7 +16,7 @@ parser.add_argument("-d", "--idx", dest="dict_idx", default=1,
 args = parser.parse_args()
 
 
-def showbfs(Phi):
+def showbfs(Phi, eta=-1.0):
     (patch_dim, neurons) = Phi.shape
 
     sz = np.sqrt(patch_dim)
@@ -29,6 +29,7 @@ def showbfs(Phi):
             patch = patch/np.max(np.abs(patch))
             image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
 
+    plt.title('Eta=%f' % eta)
     plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
     plt.draw()
 
@@ -64,7 +65,10 @@ if __name__ == "__main__":
     #Phi = scipy.io.loadmat('dict/Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat')['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_73_red.mat')['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_75_100.0.mat')['Phi']
-    Phi = scipy.io.loadmat('dict/Phi_90/Phi_90_3.1')['Phi']
+    #Phi = scipy.io.loadmat('dict/Phi_90/Phi_90_3.1')['Phi']
+    #Phi = scipy.io.loadmat('dict/Phi_101/Phi_101_20.0')['Phi']
+    #Phi = scipy.io.loadmat('dict/Phi_110/Phi_110_100.0')['Phi']
+    Phi = scipy.io.loadmat('dict/Phi_117/Phi_117_1.6.mat')['Phi']
     #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
     showbfs(Phi)
     plt.show()

@@ -1,8 +1,8 @@
 " Run LCA on a data set g"
 import matplotlib
 import socket
-#if socket.gethostname() == 'redwood2':
-    #matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+if socket.gethostname() == 'redwood2':
+    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 import scipy.io
 import sys
@@ -23,13 +23,13 @@ import h5py
 
 
 # Parameters
-#patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 288 # Number of basis functions
-patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 1024  # Number of basis functions
-lambdav     = 0.05 # Minimum Threshold
-lambda_decay= 0.6
-num_trials  = 10000
+patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 288 # Number of basis functions
+#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 1024  # Number of basis functions
+lambdav     = 0.10 # Minimum Threshold
+lambda_decay= 0.10
+num_trials  = 4000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
@@ -40,7 +40,9 @@ coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
 coeff_eta          = 0.05
+fixed_lambda       = True
 lambda_type        = ''
+
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 image_data_name    = 'IMAGES_DUCK'
@@ -56,9 +58,25 @@ else:
     IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
 (imsize, imsize, num_images) = np.shape(IMAGES)
 
-start_t = 000
+skip_frames = True
+start_t = 0
+#start_t = 88
 #start_t = 200
 init_Phi = ''
+#init_Phi = 'Phi_121/Phi_121_2.1'
+#init_Phi = 'Phi_119/Phi_119_0.4.mat'
+#init_Phi = 'Phi_101/Phi_101_10.0.mat'
+#init_Phi = 'Phi_108/Phi_108_1.2.mat'
+#init_Phi = 'Phi_119/Phi_119_1.9.mat'
+#init_Phi = 'Phi_118/Phi_118_2.1.mat'
+#init_Phi = 'Phi_103/Phi_103_0.9.mat'
+#init_Phi = 'Phi_113/Phi_113_60.0'
+#init_Phi = 'Phi_111/Phi_111_100.0.mat'
+#init_Phi = 'Phi_110/Phi_110_100.0.mat'
+#init_Phi = 'Phi_109/Phi_109_80.0.mat'
+#init_Phi = 'Phi_105/Phi_105_4.0.mat'
+#init_Phi = 'Phi_102/Phi_102_0.2.mat'
+#init_Phi = 'Phi_101/Phi_101_20.0.mat'
 #init_Phi = 'Phi_79/Phi_79_34.0'
 #init_Phi = 'Phi_80/Phi_80_20.0'
 #init_Phi = 'Phi_81/Phi_81_64.0.mat'
@@ -179,6 +197,7 @@ def log_and_save_dict(Phi, comp):
         f.write('lambda_type=[%s]\n' % lambda_type)
         f.write('InitPhi=%s\n' % init_Phi)
         f.write('Load Sequentially=%s\n' % load_sequentially)
+        f.write('Skip initial frames=%s\n' % skip_frames)
 
         f.write('%d\n' % (int(rr)+1))
         f.close()
@@ -245,7 +264,7 @@ def Learning():
             R = I - np.dot(Phi, ahat)
 
             # Update Basis Functions
-            dPhi = get_eta(tt, runtype, batch_size) * (np.dot(R, ahat.T))
+            dPhi = get_eta(tt, neurons, runtype, batch_size) * (np.dot(R, ahat.T))
 
             Phi = Phi + dPhi
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -253,7 +272,7 @@ def Learning():
             # Plot every 200 iterations
             # Plot every 1   iterations
             #if tt > 400 or np.mod(tt, 200) == 0:
-            if np.mod(tt, 600) == 0:
+            if np.mod(tt, 400) == 0:
                 try:
                     var = I.var().mean()
                     mse = (R ** 2).mean()
@@ -276,7 +295,7 @@ def Learning():
                 showbfs(Phi)
                 plt.show()
 
-            if np.mod(tt, 600) == 0:
+            if np.mod(tt, 400) == 0:
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
 
             ahat_prev = ahat
@@ -300,21 +319,12 @@ def Learning():
                 ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
                                 num_iterations=iters_per_frame)
 
-                if np.sum(ahat) > 80:
-                    print 'WARNING: ahat sum over 80'
-                    log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-                    pdb.set_trace()
-
-                if np.isnan(np.sum(ahat)):
-                    print 'WARNING: ahat is nan'
-                    log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-
                 # Calculate Residual
                 R = I - np.dot(Phi, ahat)
 
-                if i > 80/iters_per_frame:
+                if not skip_frames or i > 80/iters_per_frame:
                     # Update Basis Functions
-                    dPhi = get_veta(batch_size * tt, runtype, time_batch_size) * (np.dot(R, ahat.T))
+                    dPhi = get_veta(batch_size * tt, neurons, runtype, time_batch_size) * (np.dot(R, ahat.T))
 
                     Phi = Phi + dPhi
                     Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -336,7 +346,7 @@ def Learning():
             sys.stdout.flush()
 
             if np.mod(tt, 5) == 0:
-                showbfs(Phi)
+                showbfs(Phi, get_veta(batch_size * tt, neurons, runtype, time_batch_size))
                 log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
             plt.show()
 
@@ -368,13 +378,14 @@ def vReconstruct():
 
     # **** Hack? Diff lambda for training vs. reconstructing ****
     global lambdav
-    lambdav = 0.02
+    lambdav = 0.019
 
     max_active = float(neurons * batch_size)
 
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
     #run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
-    run_p = [(False, 80, lambdav)]
+    #run_p = [(False, 80, lambdav)]
+    run_p = [(True, 10, lambdav)]
     #run_p = [(True, 120), (True, 90), (True, 60)]
     #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
     #run_p = [(True, 120), (True, 40), (True, 20)]
@@ -517,7 +528,7 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
         l = 0.5 * np.max(np.abs(b), axis = 0)
     else:
-        if False:
+        if fixed_lambda:
             #l = 0.1 * np.max(np.abs(b), axis = 0)
             l = np.ones(batch_size)
             l *= lambdav
@@ -559,6 +570,13 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
     for t in range(num_iterations):
         u = coeff_eta * (b - f(G,a)) + (1 - coeff_eta) * u
         a = g(u, l)
+        if np.sum(u) > 1000:
+            print 'Data:'
+            x = f(G,a)
+            print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
+            print 'f(G,a) (sum, min, max)', np.sum(x), np.min(x), np.max(x)
+            print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
+
 
         l = lambda_decay * l
         l[l < lambdav] = lambdav
