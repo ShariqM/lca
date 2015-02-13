@@ -2373,3 +2373,45 @@ InitPhi=
 Load Sequentially=False
 Skip initial frames=True
 131
+
+*** Phi_132 ***
+Time=2015-02-12 18:12:29.118901
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.100
+Lambda Decay=0.10
+num_trials=4000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+132
+
+*** Phi_133 ***
+Time=2015-02-12 18:15:22.304103
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=288
+lambdav=0.100
+Lambda Decay=0.10
+num_trials=4000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=4500
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=Phi_132/Phi_132_0.2
+Load Sequentially=False
+Skip initial frames=True
+133

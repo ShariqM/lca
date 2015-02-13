@@ -50,10 +50,10 @@ def get_veta_old(t, runtype, batch_size):
 
 def get_veta(t, neurons, runtype, batch_size):
     if neurons < 300:
-        start = 2000
-        inc = 1000
-        #start = 500
-        #inc = 500
+        #start = 2000
+        #inc = 1000
+        start = 500
+        inc = 500
     else:
         start = 6000
         inc = 2000
