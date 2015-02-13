@@ -550,11 +550,12 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
         plt.subplot(313)
         coeffs = plt.bar(range(M), u, color='b')
         lthresh = plt.plot(range(M), list(l) * M, color='r')
+        lthresh2 = plt.plot(range(M), list(-l) * M, color='r')
 
         if runtype == RunType.Learning:
-            plt.axis([0, M, 0, 1.05])
+            plt.axis([0, M, -1.05, 1.05])
         else:
-            plt.axis([0, M, 0, lambdav * 10])
+            plt.axis([0, M, -lambdav * 10, lambdav * 10])
 
         plt.subplot(312)
         plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
@@ -569,14 +570,15 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
 
     for t in range(num_iterations):
         u = coeff_eta * (b - f(G,a)) + (1 - coeff_eta) * u
+        #u += coeff_eta * (b - u - f(G,a)) # (Can also be written)
         a = g(u, l)
-        if np.sum(u) > 1000:
+
+        if np.sum(u) > 1000: # Coeff explosion check
             print 'Data:'
             x = f(G,a)
             print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
             print 'f(G,a) (sum, min, max)', np.sum(x), np.min(x), np.max(x)
             print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
-
 
         l = lambda_decay * l
         l[l < lambdav] = lambdav
@@ -585,6 +587,7 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
             for coeff, i in zip(coeffs, range(M)):
                 coeff.set_height(u[i])
             lthresh[0].set_data(range(M), list(l) * M)
+            lthresh2[0].set_data(range(M), list(-l) * M)
 
             plt.subplot(311)
             recon = np.dot(Phi, a)
