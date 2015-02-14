@@ -19,8 +19,12 @@ def get_eta_old(t, runtype, batch_size):
     return 0.10/batch_size
 
 def get_eta(t, neurons, runtype, batch_size):
-    start = 500
-    inc = 500
+    if neurons < 300:
+        start = 500
+        inc = 500
+    else:
+        start = 2000
+        inc = 1000
     if t < start:
         return 6.0/batch_size
     if t < start + 1*inc:
@@ -55,8 +59,8 @@ def get_veta(t, neurons, runtype, batch_size):
         start = 500
         inc = 500
     else:
-        start = 6000
-        inc = 2000
+        start = 2000
+        inc = 1000
 
     if t < start:
         return 6.0/batch_size

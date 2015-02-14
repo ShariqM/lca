@@ -23,20 +23,20 @@ import h5py
 
 
 # Parameters
-patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 288 # Number of basis functions
-#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 1024  # Number of basis functions
+#patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 288 # Number of basis functions
+patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 1024  # Number of basis functions
 lambdav     = 0.10 # Minimum Threshold
-lambda_decay= 0.10
-num_trials  = 4000
+lambda_decay= 0.95
+num_trials  = 10000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
-coeff_visualizer   = False # Visualize potentials of neurons
+runtype            = RunType.Learning # Learning, vLearning, vReconstruct
+coeff_visualizer   = True # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'soft'
 coeff_eta          = 0.05
@@ -45,11 +45,12 @@ lambda_type        = ''
 
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
-image_data_name    = 'IMAGES_DUCK'
+image_data_name    = 'IMAGES_FIELD'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for vLearning
-if image_data_name == 'IMAGES_DUCK_LONG':
+if image_data_name == 'IMAGES_DUCK_LONG' or \
+     image_data_name == 'IMAGES_DUCK_120':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
     f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
     IMAGES = np.array(f.get(image_data_name))
@@ -60,9 +61,8 @@ else:
 
 skip_frames = True
 start_t = 0
-#start_t = 88
-#start_t = 200
-init_phi = ''
+init_Phi = ''
+#init_Phi = 'Phi_139/Phi_139_0.4'
 #init_Phi = 'Phi_132/Phi_132_0.2'
 #init_Phi = 'Phi_121/Phi_121_2.1'
 #init_Phi = 'Phi_119/Phi_119_0.4.mat'
@@ -70,30 +70,7 @@ init_phi = ''
 #init_Phi = 'Phi_108/Phi_108_1.2.mat'
 #init_Phi = 'Phi_119/Phi_119_1.9.mat'
 #init_Phi = 'Phi_118/Phi_118_2.1.mat'
-#init_Phi = 'Phi_103/Phi_103_0.9.mat'
-#init_Phi = 'Phi_113/Phi_113_60.0'
-#init_Phi = 'Phi_111/Phi_111_100.0.mat'
-#init_Phi = 'Phi_110/Phi_110_100.0.mat'
-#init_Phi = 'Phi_109/Phi_109_80.0.mat'
-#init_Phi = 'Phi_105/Phi_105_4.0.mat'
-#init_Phi = 'Phi_102/Phi_102_0.2.mat'
-#init_Phi = 'Phi_101/Phi_101_20.0.mat'
-#init_Phi = 'Phi_79/Phi_79_34.0'
-#init_Phi = 'Phi_80/Phi_80_20.0'
-#init_Phi = 'Phi_81/Phi_81_64.0.mat'
-#init_Phi = 'Phi_82/Phi_82_28.0.mat'
-#init_Phi = 'Phi_83/Phi_83_6.0.mat'
-#init_Phi = 'Phi_84/Phi_84_18.0.mat'
 
-#init_Phi = 'Phi_87/Phi_87_0.5'
-#init_Phi = 'Phi_89/Phi_89_2.1.mat'
-#init_Phi = 'Phi_90/Phi_90_3.1.mat'
-
-#init_Phi = 'Phi_32/Phi_32_22.5.mat'
-#init_Phi = 'Phi_52/Phi_52_1.2.mat'
-#init_Phi = 'Phi_54/Phi_54_1.0.mat'
-#init_Phi = 'Phi_67/Phi_67_1.2.mat'
-#init_Phi = 'Phi_.mat/Phi_11.mat'
 #init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
 #init_Phi = 'Phi_71/Phi_71_7.5'
 #init_Phi = 'Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat' # Solid dictionary
@@ -242,66 +219,41 @@ def Learning():
     start = datetime.now()
 
     if runtype == RunType.Learning:
-        for tt in range(num_trials):
-            if runtype == RunType.Learning:
-                t = tt
-                I = load_images(I)
-                ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
-            else:
-                t = tt % num_images
-                if load_sequentially:
-                    I = load_vImages(I, t, patch_per_dim)
-                else:
-                    I = load_vrImages(I)
-
-                ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
-                                   num_iterations=iters_per_frame)
-
-            #if tt == 400:
-                #log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-                #pdb.set_trace()
+        for t in range(num_trials):
+            I = load_images(I)
+            u, ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
 
             # Calculate Residual
             R = I - np.dot(Phi, ahat)
 
             # Update Basis Functions
-            dPhi = get_eta(tt, neurons, runtype, batch_size) * (np.dot(R, ahat.T))
+            dPhi = get_eta(t, neurons, runtype, batch_size) * (np.dot(R, ahat.T))
 
             Phi = Phi + dPhi
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
             # Plot every 200 iterations
-            # Plot every 1   iterations
-            #if tt > 400 or np.mod(tt, 200) == 0:
-            if np.mod(tt, 400) == 0:
-                try:
-                    var = I.var().mean()
-                    mse = (R ** 2).mean()
-                    snr = 10 * log(var/mse, 10)
+            if np.mod(t, 20 ) == 0:
+                var = I.var().mean()
+                mse = (R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
 
-                    if isnan(snr):
-                        pdb.set_trace()
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
 
-                    ahat_c = np.copy(ahat)
-                    ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
-                    ac = np.sum(ahat_c)
-
-                    print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                            % (tt, lambdav, snr, 100.0 * ac / max_active,
-                               (datetime.now() - start).seconds)
-                except Exception as e:
-                    pdb.set_trace()
+                print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (t, lambdav, snr, 100.0 * ac / max_active,
+                           (datetime.now() - start).seconds)
 
                 sys.stdout.flush()
                 showbfs(Phi)
                 plt.show()
 
-            if np.mod(tt, 400) == 0:
-                log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
-
-            ahat_prev = ahat
+            if np.mod(t, 20) == 0:
+                log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
     else:
-        for tt in range(start_t, num_trials):
+        for t in range(start_t, num_trials):
 
             VI = np.zeros((patch_dim, batch_size, time_batch_size)) # Batch_size videos of time_batch_size frames
             for x in range(batch_size):
@@ -313,19 +265,20 @@ def Learning():
                 #showbfs(VI[:,x,:])
                 #pdb.set_trace()
 
-            ahat_prev = None
+            u_prev = None
             for i in range(time_batch_size):
                 I = VI[:,:,i]
 
-                ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev,
-                                num_iterations=iters_per_frame)
+                u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev,
+                                    num_iterations=iters_per_frame)
+                u_prev = u
 
                 # Calculate Residual
                 R = I - np.dot(Phi, ahat)
 
                 if not skip_frames or i > 80/iters_per_frame:
                     # Update Basis Functions
-                    dPhi = get_veta(batch_size * tt, neurons, runtype, time_batch_size) * (np.dot(R, ahat.T))
+                    dPhi = get_veta(batch_size * t, neurons, runtype, time_batch_size) * (np.dot(R, ahat.T))
 
                     Phi = Phi + dPhi
                     Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -333,8 +286,6 @@ def Learning():
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
-
-                ahat_prev = ahat
 
                 if i % 50 == 0:
                     print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, lambdav, 100.0 * ac / max_active)
@@ -346,13 +297,13 @@ def Learning():
 
             sys.stdout.flush()
 
-            if np.mod(tt, 5) == 0:
-                showbfs(Phi, get_veta(batch_size * tt, neurons, runtype, time_batch_size))
-                log_and_save_dict(Phi, 100.0 * float(tt)/num_trials)
+            if np.mod(t, 5) == 0:
+                showbfs(Phi, get_veta(batch_size * t, neurons, runtype, time_batch_size))
+                log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
             plt.show()
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (tt, lambdav, snr, 100.0 * ac / max_active,
+                        % (t, lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
     log_and_save_dict(Phi, 100.0)
@@ -508,7 +459,7 @@ f = theano.function([Gv, av], o, allow_input_downcast=True)
 def visualizer_code():
     pass
 
-def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
+def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
     """
     LCA Inference.
     I: Image batch (dim x batch)
@@ -538,9 +489,8 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
             l = 0.5 * np.max(np.abs(b), axis = 0)
             lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
 
-    if ahat_prev is not None:
-        u = ahat_prev
-        #u = np.dot(ahat_prev, np.diag(l)) # Artificially set at threshold
+    if u_prev is not None:
+        u = u_prev
     else:
         u = np.zeros((M,batch_size))
 
@@ -597,12 +547,12 @@ def sparsify(I, Phi, lambdav, ahat_prev=None, num_iterations=80):
             plt.title('Iter=%d/%d' % (t, num_iterations))
             plt.draw()
             plt.show()
-# Do some clf magic
+            # Do some clf magic?
 
     if coeff_visualizer:
         plt.close()
 
-    return a
+    return u, a
 
 def g(u,theta):
     """
