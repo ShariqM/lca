@@ -2772,3 +2772,108 @@ InitPhi=
 Load Sequentially=False
 Skip initial frames=True
 150
+
+*** Phi_151 ***
+Time=2015-02-13 17:00:28.267166
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+151
+
+*** Phi_152 ***
+Time=2015-02-13 17:02:03.644014
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+152
+
+*** Phi_153 ***
+Time=2015-02-13 17:03:14.940145
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+153
+
+*** Phi_154 ***
+Time=2015-02-13 17:04:00.992730
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+154
+
+*** Phi_155 ***
+Time=2015-02-13 17:08:12.108781
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+155

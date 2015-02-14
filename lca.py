@@ -23,12 +23,12 @@ import h5py
 
 
 # Parameters
-#patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 288 # Number of basis functions
-patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 1024  # Number of basis functions
-lambdav     = 0.10 # Minimum Threshold
-lambda_decay= 0.95
+patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+neurons     = 288 # Number of basis functions
+#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+#neurons     = 1024  # Number of basis functions
+lambdav     = 0.20 # Minimum Threshold
+lambda_decay= 0.97
 num_trials  = 10000
 batch_size  = 100
 border      = 4
