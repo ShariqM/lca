@@ -28,7 +28,7 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 1.00 # Minimum Threshold
+lambdav     = 0.70 # Minimum Threshold
 lambda_decay= 0.98
 num_trials  = 10000
 batch_size  = 100
@@ -47,7 +47,7 @@ lambda_type        = ''
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 #image_data_name    = 'IMAGES_FIELD'
-image_data_name    = 'IMAGES_DUCK_120'
+image_data_name    = 'IMAGES_DUCK'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for vLearning
@@ -482,7 +482,7 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
     sz = np.sqrt(N)
 
     b = tdot(Phi.T, I)
-    G = tfot(Phi.T, Phi) - np.eye(M)
+    G = tdot(Phi.T, Phi) - np.eye(M)
 
     if runtype == RunType.Learning:
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'

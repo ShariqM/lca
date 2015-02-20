@@ -3255,3 +3255,24 @@ InitPhi=
 Load Sequentially=False
 Skip initial frames=True
 173
+
+*** Phi_174 ***
+Time=2015-02-19 17:37:19.700526
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=1024
+lambdav=0.700
+Lambda Decay=0.98
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+174
