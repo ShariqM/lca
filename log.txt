@@ -2877,3 +2877,381 @@ InitPhi=
 Load Sequentially=False
 Skip initial frames=True
 155
+
+*** Phi_156 ***
+Time=2015-02-13 17:12:49.890510
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=1
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+156
+
+*** Phi_157 ***
+Time=2015-02-13 17:18:19.837738
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=288
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+157
+
+*** Phi_158 ***
+Time=2015-02-13 17:24:38.952122
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=256
+neurons=1024
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+158
+
+*** Phi_159 ***
+Time=2015-02-13 17:43:59.755144
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=256
+neurons=1024
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=Phi_158/Phi_158_10.8.mat
+Load Sequentially=False
+Skip initial frames=True
+159
+
+*** Phi_160 ***
+Time=2015-02-13 18:02:10.629873
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=256
+neurons=1024
+lambdav=0.150
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+160
+
+*** Phi_161 ***
+Time=2015-02-13 18:02:39.043115
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=256
+neurons=1024
+lambdav=0.150
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+161
+
+*** Phi_162 ***
+Time=2015-02-17 12:04:18.905309
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.150
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+162
+
+*** Phi_163 ***
+Time=2015-02-17 14:21:43.012049
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.200
+Lambda Decay=0.97
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+163
+
+*** Phi_164 ***
+Time=2015-02-17 14:25:48.661931
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.250
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+164
+
+*** Phi_165 ***
+Time=2015-02-17 14:44:45.957065
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.350
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+165
+
+*** Phi_166 ***
+Time=2015-02-17 15:18:58.700389
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.350
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=Phi_165/Phi_165_20.0.mat
+Load Sequentially=False
+Skip initial frames=True
+166
+
+*** Phi_167 ***
+Time=2015-02-17 16:30:57.702882
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.100
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+167
+
+*** Phi_168 ***
+Time=2015-02-17 16:35:34.861742
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.100
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+168
+
+*** Phi_169 ***
+Time=2015-02-19 14:34:22.366691
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=200
+lambdav=0.100
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.100
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+169
+
+*** Phi_170 ***
+Time=2015-02-19 14:48:33.695724
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=1.000
+Lambda Decay=0.98
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+170
+
+*** Phi_171 ***
+Time=2015-02-19 14:48:45.525273
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=1.000
+Lambda Decay=0.98
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+171
+
+*** Phi_172 ***
+Time=2015-02-19 14:49:39.919219
+RunType=Learning
+IMAGES=IMAGES_FIELD
+patch_dim=144
+neurons=1024
+lambdav=1.000
+Lambda Decay=0.98
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=35
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+172
+
+*** Phi_173 ***
+Time=2015-02-19 17:22:44.290696
+RunType=Learning
+IMAGES=IMAGES_DUCK_120
+patch_dim=144
+neurons=1024
+lambdav=1.000
+Lambda Decay=0.98
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=18000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+173

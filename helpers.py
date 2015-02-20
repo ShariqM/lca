@@ -35,7 +35,34 @@ def get_eta(t, neurons, runtype, batch_size):
         return 0.5/batch_size
     if t < start + 4*inc:
         return 0.25/batch_size
-    return 0.10/batch_size
+    if t < start + 5*inc:
+        return 0.125/batch_size
+    if t < start + 6*inc:
+        return 0.06/batch_size
+    if t < start + 7*inc:
+        return 0.03/batch_size
+    if t < start + 8*inc:
+        return 0.015/batch_size
+    return 0.01/batch_size
+
+def get_beta(t, neurons, runtype, batch_size):
+    if neurons < 300:
+        start = 500
+        inc = 500
+    else:
+        start = 1000
+        inc = 2000
+    if t < start:
+        return 0.25/batch_size
+    if t < start + 1*inc:
+        return 0.1/batch_size
+    if t < start + 2*inc:
+        return 0.05/batch_size
+    if t < start + 3*inc:
+        return 0.025/batch_size
+    if t < start + 4*inc:
+        return 0.0125/batch_size
+
 
 def get_veta_old(t, runtype, batch_size):
     start = 3000

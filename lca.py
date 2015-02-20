@@ -24,11 +24,12 @@ import h5py
 
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-neurons     = 288 # Number of basis functions
+#neurons     = 288 # Number of basis functions
+neurons     = 1024 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.20 # Minimum Threshold
-lambda_decay= 0.97
+lambdav     = 1.00 # Minimum Threshold
+lambda_decay= 0.98
 num_trials  = 10000
 batch_size  = 100
 border      = 4
@@ -36,7 +37,7 @@ sz     = np.sqrt(patch_dim)
 
 # More Parameters
 runtype            = RunType.Learning # Learning, vLearning, vReconstruct
-coeff_visualizer   = True # Visualize potentials of neurons
+coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'soft'
 coeff_eta          = 0.05
@@ -45,7 +46,8 @@ lambda_type        = ''
 
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
-image_data_name    = 'IMAGES_FIELD'
+#image_data_name    = 'IMAGES_FIELD'
+image_data_name    = 'IMAGES_DUCK_120'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for vLearning
@@ -61,7 +63,11 @@ else:
 
 skip_frames = True
 start_t = 0
+#start_t = 6000
 init_Phi = ''
+#init_Phi = 'Phi_166/Phi_166_59.4.mat'
+#init_Phi = 'Phi_165/Phi_165_20.0.mat'
+#init_Phi = 'Phi_158/Phi_158_10.8.mat'
 #init_Phi = 'Phi_139/Phi_139_0.4'
 #init_Phi = 'Phi_132/Phi_132_0.2'
 #init_Phi = 'Phi_121/Phi_121_2.1'
@@ -219,7 +225,7 @@ def Learning():
     start = datetime.now()
 
     if runtype == RunType.Learning:
-        for t in range(num_trials):
+        for t in range(start_t, num_trials):
             I = load_images(I)
             u, ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
 
@@ -233,7 +239,7 @@ def Learning():
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
             # Plot every 200 iterations
-            if np.mod(t, 20 ) == 0:
+            if np.mod(t, 20  ) == 0:
                 var = I.var().mean()
                 mse = (R ** 2).mean()
                 snr = 10 * log(var/mse, 10)
@@ -247,7 +253,7 @@ def Learning():
                            (datetime.now() - start).seconds)
 
                 sys.stdout.flush()
-                showbfs(Phi)
+                showbfs(Phi, get_eta(t, neurons, runtype, batch_size))
                 plt.show()
 
             if np.mod(t, 20) == 0:

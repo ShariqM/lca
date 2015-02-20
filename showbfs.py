@@ -17,23 +17,7 @@ args = parser.parse_args()
 
 
 def showbfs(Phi, eta=-1.0):
-    (patch_dim, neurons) = Phi.shape
-
-    sz = np.sqrt(patch_dim)
-
-    side = np.sqrt(neurons)
-    image = np.zeros((sz*side+side,sz*side+side))
-    for i in range(int(side)):
-        for j in range(int(side)):
-            patch = np.reshape(Phi[:,i*side+j],(sz,sz))
-            patch = patch/np.max(np.abs(patch))
-            image[i*sz+i:i*sz+sz+i,j*sz+j:j*sz+sz+j] = patch
-
-    plt.title('Eta=%f' % eta)
-    plt.imshow(image, cmap=cm.Greys_r, interpolation="nearest")
-    plt.draw()
-
-def gg():
+    L,M = Phi.shape
 
     sz = sqrt(L) # sz of one side of basis
     n = floor(sqrt(M)) # sz of one side of the grid of images
