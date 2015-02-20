@@ -93,6 +93,12 @@ if coeff_visualizer:
 # Don't block when showing images
 plt.ion()
 
+# Theano Matrix Multiplication Optimization
+Gv = T.fmatrix('G')
+av = T.fmatrix('a')
+o  = T.dot(Gv, av)
+tdot = theano.function([Gv, av], o, allow_input_downcast=True)
+
 # Load video images from sequential time points
 def load_vImages(I, t, patch_per_dim):
     if coeff_visualizer: # Pick 1 specified patch
@@ -230,13 +236,13 @@ def Learning():
             u, ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
 
             # Calculate Residual
-            R = I - np.dot(Phi, ahat)
+            R = I - tdot(Phi, ahat)
 
             # Update Basis Functions
-            dPhi = get_eta(t, neurons, runtype, batch_size) * (np.dot(R, ahat.T))
+            dPhi = get_eta(t, neurons, runtype, batch_size) * (tdot(R, ahat.T))
 
             Phi = Phi + dPhi
-            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
             # Plot every 200 iterations
             if np.mod(t, 20  ) == 0:
@@ -280,14 +286,14 @@ def Learning():
                 u_prev = u
 
                 # Calculate Residual
-                R = I - np.dot(Phi, ahat)
+                R = I - tdot(Phi, ahat)
 
                 if not skip_frames or i > 80/iters_per_frame:
                     # Update Basis Functions
-                    dPhi = get_veta(batch_size * t, neurons, runtype, time_batch_size) * (np.dot(R, ahat.T))
+                    dPhi = get_veta(batch_size * t, neurons, runtype, time_batch_size) * (tdot(R, ahat.T))
 
                     Phi = Phi + dPhi
-                    Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+                    Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
@@ -370,6 +376,7 @@ def vReconstruct():
         AC  = np.zeros(num_frames) # Active coefficients
         CC  = np.zeros(num_frames) # Changing coefficients
 
+        u_prev = None
         ahat_prev = np.zeros((neurons, batch_size))
         ahat_prev_c = np.zeros((neurons, batch_size))
 
@@ -380,12 +387,12 @@ def vReconstruct():
             I = load_vImages(I, t, patch_per_dim)
 
             if run_p[run][0] == True: # InitP
-                ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
+                u, ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
             else:
-                ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
+                u, ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
 
             # Calculate Residual Error
-            R = I - np.dot(Phi, ahat)
+            R = I - tdot(Phi, ahat)
             mse = (R ** 2).mean()
             MSE.append(mse)
             var = I.var().mean()
@@ -398,6 +405,7 @@ def vReconstruct():
             AC[t] = np.sum(ahat_c)
             CC[t] = np.sum(ahat_c!=ahat_prev_c)
             ahat_prev_c = ahat_c
+            u_prev = u
 
             print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
                     % (t, labels[run], lambdav, SNR[t], 100.0 * AC[t] / max_active)
@@ -456,12 +464,6 @@ def sparsenet():
     else:
         Learning()
 
-# Theano Matrix Multiplication Optimization
-Gv = T.fmatrix('G')
-av = T.fmatrix('a')
-o  = T.dot(Gv, av)
-f = theano.function([Gv, av], o, allow_input_downcast=True)
-
 def visualizer_code():
     pass
 
@@ -479,8 +481,8 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
     (N, M) = np.shape(Phi)
     sz = np.sqrt(N)
 
-    b = f(Phi.T, I)
-    G = f(Phi.T, Phi) - np.eye(M)
+    b = tdot(Phi.T, I)
+    G = tfot(Phi.T, Phi) - np.eye(M)
 
     if runtype == RunType.Learning:
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
@@ -518,7 +520,7 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
         plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
 
         plt.subplot(311)
-        recon = np.dot(Phi, a)
+        recon = tdot(Phi, a)
         plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
 
         plt.draw()
@@ -526,13 +528,13 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
         time.sleep(1)
 
     for t in range(num_iterations):
-        u = coeff_eta * (b - f(G,a)) + (1 - coeff_eta) * u
-        #u += coeff_eta * (b - u - f(G,a)) # (Can also be written)
+        u = coeff_eta * (b - tdot(G,a)) + (1 - coeff_eta) * u
+        #u += coeff_eta * (b - u - tdot(G,a)) # (Can also be written)
         a = g(u, l)
 
         if np.sum(u) > 1000: # Coeff explosion check
             print 'Data:'
-            x = f(G,a)
+            x = tdot(G,a)
             print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
             print 'f(G,a) (sum, min, max)', np.sum(x), np.min(x), np.max(x)
             print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
@@ -547,7 +549,7 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
             lthresh2[0].set_data(range(M), list(-l) * M)
 
             plt.subplot(311)
-            recon = np.dot(Phi, a)
+            recon = tdot(Phi, a)
             plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
 
             plt.title('Iter=%d/%d' % (t, num_iterations))
