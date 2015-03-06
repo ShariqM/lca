@@ -28,8 +28,8 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.70 # Minimum Threshold
-lambda_decay= 0.98
+lambdav     = 0.15 # Minimum Threshold
+lambda_decay= 0.97
 num_trials  = 10000
 batch_size  = 100
 border      = 4
@@ -39,7 +39,7 @@ sz     = np.sqrt(patch_dim)
 runtype            = RunType.Learning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-thresh_type        = 'soft'
+thresh_type        = 'hard'
 coeff_eta          = 0.05
 fixed_lambda       = True
 lambda_type        = ''
@@ -48,6 +48,7 @@ lambda_type        = ''
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 #image_data_name    = 'IMAGES_FIELD'
 image_data_name    = 'IMAGES_DUCK'
+#image_data_name    = 'IMAGES_DUCK_120'
 #image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
 #image_data_name    = 'IMAGES'
 iters_per_frame    = 10 # Only for vLearning
