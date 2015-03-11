@@ -67,7 +67,8 @@ start_t = 0
 start_t = 3680
 #start_t = 6000
 init_Phi = ''
-init_Phi = 'Phi_192/Phi_192_36.8.mat'
+#init_Phi = 'Phi_193_37.0.mat'
+#init_Phi = 'Phi_192/Phi_192_36.8.mat'
 #init_Phi = 'Phi_166/Phi_166_59.4.mat'
 #init_Phi = 'Phi_165/Phi_165_20.0.mat'
 #init_Phi = 'Phi_158/Phi_158_10.8.mat'
@@ -97,10 +98,13 @@ if coeff_visualizer:
 plt.ion()
 
 # Theano Matrix Multiplication Optimization
-Gv = T.fmatrix('G')
-av = T.fmatrix('a')
-o  = T.dot(Gv, av)
-tdot = theano.function([Gv, av], o, allow_input_downcast=True)
+if socket.gethostname() == 'redwood2':
+    Gv = T.fmatrix('G')
+    av = T.fmatrix('a')
+    o  = T.dot(Gv, av)
+    tdot = theano.function([Gv, av], o, allow_input_downcast=True)
+else:
+    tdot = np.dot
 
 # Load video images from sequential time points
 def load_vImages(I, t, patch_per_dim):
