@@ -28,18 +28,18 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 1024 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.15 # Minimum Threshold
-lambda_decay= 0.97
+lambdav     = 0.20  # Minimum Threshold
+lambda_decay= 0.95
 num_trials  = 10000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.Learning # Learning, vLearning, vReconstruct
+runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-thresh_type        = 'hard'
+thresh_type        = 'soft'
 coeff_eta          = 0.05
 fixed_lambda       = True
 lambda_type        = ''
@@ -64,8 +64,10 @@ else:
 
 skip_frames = True
 start_t = 0
+start_t = 3680
 #start_t = 6000
 init_Phi = ''
+init_Phi = 'Phi_192/Phi_192_36.8.mat'
 #init_Phi = 'Phi_166/Phi_166_59.4.mat'
 #init_Phi = 'Phi_165/Phi_165_20.0.mat'
 #init_Phi = 'Phi_158/Phi_158_10.8.mat'
@@ -488,6 +490,8 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
     if runtype == RunType.Learning:
         lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
         l = 0.5 * np.max(np.abs(b), axis = 0)
+        #lambda_type = 'l = 0.1 * np.max(np.abs(b), axis = 0)'
+        #l = 0.1 * np.max(np.abs(b), axis = 0)
     else:
         if fixed_lambda:
             #l = 0.1 * np.max(np.abs(b), axis = 0)
