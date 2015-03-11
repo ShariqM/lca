@@ -390,7 +390,7 @@ def vReconstruct():
             I = load_vImages(I, t, patch_per_dim)
 
             if run_p[run][0] == True: # InitP
-                u, ahat = sparsify(I, Phi, lambdav, ahat_prev=ahat_prev, num_iterations=run_p[run][1])
+                u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev, num_iterations=run_p[run][1])
             else:
                 u, ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
 
