@@ -43,6 +43,7 @@ thresh_type        = 'hard'
 coeff_eta          = 0.05
 fixed_lambda       = True
 lambda_type        = ''
+group_sparse       = 2
 
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
@@ -64,10 +65,9 @@ else:
 
 skip_frames = True
 start_t = 0
-start_t = 3680
 #start_t = 6000
 init_Phi = ''
-init_Phi = 'Phi_193_37.0.mat'
+#init_Phi = 'Phi_193_37.0.mat'
 #init_Phi = 'Bruno_FIELD_Phi256x1024.mat'
 #init_Phi = 'Phi_169_45.0.mat'
 #init_Phi = 'Phi_192/Phi_192_36.8.mat'
@@ -187,6 +187,7 @@ def log_and_save_dict(Phi, comp):
         f.write('InitPhi=%s\n' % init_Phi)
         f.write('Load Sequentially=%s\n' % load_sequentially)
         f.write('Skip initial frames=%s\n' % skip_frames)
+        f.write('Group Sparse=%d\n' % group_sparse)
 
         f.write('%d\n' % (int(rr)+1))
         f.close()
@@ -615,21 +616,17 @@ def g(u,theta):
     theta: threshold value
     """
     if thresh_type=='hard': # L0 Approximation
-        #size = len(a)/2
-        #chunks = [np.array(a[x:x+size]) for x in range(0, len(a), size)]
-        #for c in chunks:
-            #if np.sum(c) < theta:
-                #c[:] = 0
-            #c[np.sum(c)np.abs(cc) for cc in chunks) < theta] = 0
-
-        size = 2
         a = u;
-        chunks = [np.array([a[x] for x in range(i, len(a), size)]) for i in range(size)]
-        for c in chunks:
-            c[np.sum(chunks, axis=0) < theta] = 0
-
-        a = np.hstack(chunks)
-        #a[np.abs(a) < theta] = 0
+        if group_sparse > 1:
+            if len(a) % group_sparse != 0:
+                raise Exception('len(a) %% group_sparse = %d' % (len(a) % group_sparse))
+            size = len(a)/group_sparse
+            chunks = [np.array(a[x:x+size]) for x in range(0, len(a), size)]
+            for c in chunks:
+                c[np.sum(np.abs(chunks), axis=0) < theta] = 0
+            a = np.concatenate(chunks)
+        else:
+            a[np.abs(a) < theta] = 0
     elif thresh_type=='soft': # L1 Approximation
         a = abs(u) - theta;
         a[a < 0] = 0
