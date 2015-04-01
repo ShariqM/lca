@@ -25,7 +25,7 @@ import h5py
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 288 # Number of basis functions
-neurons     = 1024 # Number of basis functions
+neurons     = 576 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 0.20  # Minimum Threshold
@@ -39,7 +39,7 @@ sz     = np.sqrt(patch_dim)
 runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-thresh_type        = 'soft'
+thresh_type        = 'hard'
 coeff_eta          = 0.05
 fixed_lambda       = True
 lambda_type        = ''
@@ -67,19 +67,11 @@ start_t = 0
 start_t = 3680
 #start_t = 6000
 init_Phi = ''
-#init_Phi = 'Phi_193_37.0.mat'
+init_Phi = 'Phi_193_37.0.mat'
+#init_Phi = 'Bruno_FIELD_Phi256x1024.mat'
+#init_Phi = 'Phi_169_45.0.mat'
 #init_Phi = 'Phi_192/Phi_192_36.8.mat'
 #init_Phi = 'Phi_166/Phi_166_59.4.mat'
-#init_Phi = 'Phi_165/Phi_165_20.0.mat'
-#init_Phi = 'Phi_158/Phi_158_10.8.mat'
-#init_Phi = 'Phi_139/Phi_139_0.4'
-#init_Phi = 'Phi_132/Phi_132_0.2'
-#init_Phi = 'Phi_121/Phi_121_2.1'
-#init_Phi = 'Phi_119/Phi_119_0.4.mat'
-#init_Phi = 'Phi_101/Phi_101_10.0.mat'
-#init_Phi = 'Phi_108/Phi_108_1.2.mat'
-#init_Phi = 'Phi_119/Phi_119_1.9.mat'
-#init_Phi = 'Phi_118/Phi_118_2.1.mat'
 
 #init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
 #init_Phi = 'Phi_71/Phi_71_7.5'
@@ -332,7 +324,7 @@ def vReconstruct():
     global batch_size
 
     # Just look at first X frames
-    num_frames = 60
+    num_frames = 100
 
     # Load dict from Learning run
     Phi = scipy.io.loadmat('dict/%s' % init_Phi)['Phi']
@@ -344,25 +336,22 @@ def vReconstruct():
     if not coeff_visualizer:
         batch_size = patch_per_dim**2
 
+
     # Initialize batch of images
     I = np.zeros((patch_dim, batch_size))
 
     # **** Hack? Diff lambda for training vs. reconstructing ****
     global lambdav
-    lambdav = 0.019
+    lambdav = 0.15
 
     max_active = float(neurons * batch_size)
 
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
     #run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
     #run_p = [(False, 80, lambdav)]
-    run_p = [(True, 10, lambdav)]
-    #run_p = [(True, 120), (True, 90), (True, 60)]
-    #run_p = [(True, 120), (True, 40), (True, 20), (False, 120), (False, 40), (False, 20)]
-    #run_p = [(True, 120), (True, 40), (True, 20)]
-    #run_p = [(True, 60)]
-    #run_p = [(True, 10), (True, 30), (False, 60)]
-    #run_p = [(False, 80), (True, 5), (True, 3), (True, 1)]
+    run_p = [(True, 20, lambdav)]
+    #run_p = [(False, 80, lambdav)]
+    #run_p = [(False, 80, lambdav)]
 
     labels = []
     for (initP, x, y) in run_p:
@@ -382,6 +371,7 @@ def vReconstruct():
         SNR = [] # Signal to Noise ratio
         AC  = np.zeros(num_frames) # Active coefficients
         CC  = np.zeros(num_frames) # Changing coefficients
+        activity_log = np.zeros((neurons, batch_size, num_frames))
 
         u_prev = None
         ahat_prev = np.zeros((neurons, batch_size))
@@ -397,6 +387,9 @@ def vReconstruct():
                 u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev, num_iterations=run_p[run][1])
             else:
                 u, ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
+
+            #activity_log[:,:,t] = np.abs(ahat) # Use magnitude
+            activity_log[:,:,t] = ahat
 
             # Calculate Residual Error
             R = I - tdot(Phi, ahat)
@@ -418,6 +411,35 @@ def vReconstruct():
                     % (t, labels[run], lambdav, SNR[t], 100.0 * AC[t] / max_active)
         elapsed = (datetime.now() - start).seconds
 
+        np.save('coeff_S193__initP20_100t', activity_log)
+        x_num = 59
+        y_num = 98
+        #x_num = 868
+        #y_num = 919
+        #x_num = 117
+        #y_num = 132
+        log_x = np.zeros(0)
+        log_y = np.zeros(0)
+        batch_size = 10
+        colors = np.linspace(0, 1, batch_size)
+        for i in range(batch_size):
+            #log_x = np.concatenate((log_x, activity_log[x_num, i, :]))
+            #log_y = np.concatenate((log_y, activity_log[y_num, i, :]))
+            #log_x = activity_log[x_num, i, :] + 9 * np.random.rand()
+            #log_y = activity_log[y_num, i, :] + 3 * np.random.rand()
+            log_x = activity_log[x_num, i, :]
+            log_y = activity_log[y_num, i, :]
+            #cc = [colors[i]] * len(log_x)
+            colors = np.linspace(0, 1, len(log_x))
+            color = COLORS[COLORS.keys()[i]]
+            plt.scatter(log_x, log_y, s=8, c=color, label=str(i), cmap=plt.get_cmap('autumn'), lw=0)
+            #plt.scatter(log_x, log_y, s=8, c=COLORS['green'], label=str(i), cmap=plt.get_cmap('autumn'), lw=0)
+        plt.xlabel("%d Activity" % x_num)
+        plt.ylabel("%d Activity" % y_num)
+        plt.legend(loc=4, prop={'size':6})
+        plt.show(block=True)
+        plt.savefig('plots/%s.png' % datetime.now())
+
         plt.subplot(231)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
         plt.ylabel('MSE', fontdict={'fontsize':12})
@@ -426,12 +448,27 @@ def vReconstruct():
         lg = plt.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
         lg.draw_frame(False)
 
+        #top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
+        #plt.subplot(232)
+        #plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+        #plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
+        #plt.axis([0, num_frames, 0, top_CC_AC])
+        #plt.plot(range(num_frames), AC, color=rcolor[run])
+
         top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
+
         plt.subplot(232)
+        act_a = np.average(activity_log[29 -1, :, :], axis=0)
+        act_b = np.average(activity_log[434 -1, :, :], axis=0)
+        #act_c = np.average(activity_log[288 -1, :, :], axis=0)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0, top_CC_AC])
-        plt.plot(range(num_frames), AC, color=rcolor[run])
+        plt.ylabel('Activity', fontdict={'fontsize':12})
+        plt.axis([0, num_frames, 0, max(max(act_a), max(act_b),)])
+        #plt.axis([0, num_frames, 0, max(max(act_a), max(act_b), max(act_c))])
+        plt.plot(range(num_frames), act_a, color=rcolor[run])
+        plt.plot(range(num_frames), act_b, color=COLORS['green'])
+        #plt.plot(range(num_frames), act_c, color=COLORS['blue'])
+
 
         plt.subplot(233)
         plt.xlabel('Time (steps)', fontdict={'fontsize':12})
@@ -578,8 +615,21 @@ def g(u,theta):
     theta: threshold value
     """
     if thresh_type=='hard': # L0 Approximation
+        #size = len(a)/2
+        #chunks = [np.array(a[x:x+size]) for x in range(0, len(a), size)]
+        #for c in chunks:
+            #if np.sum(c) < theta:
+                #c[:] = 0
+            #c[np.sum(c)np.abs(cc) for cc in chunks) < theta] = 0
+
+        size = 2
         a = u;
-        a[np.abs(a) < theta] = 0
+        chunks = [np.array([a[x] for x in range(i, len(a), size)]) for i in range(size)]
+        for c in chunks:
+            c[np.sum(chunks, axis=0) < theta] = 0
+
+        a = np.hstack(chunks)
+        #a[np.abs(a) < theta] = 0
     elif thresh_type=='soft': # L1 Approximation
         a = abs(u) - theta;
         a[a < 0] = 0
