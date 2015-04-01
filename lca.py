@@ -20,7 +20,7 @@ from helpers import *
 from theano import *
 import theano.tensor as T
 import h5py
-
+import inspect
 
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
@@ -28,23 +28,22 @@ patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 neurons     = 576 # Number of basis functions
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
-lambdav     = 0.20  # Minimum Threshold
+lambdav     = 0.50  # Minimum Threshold
 lambda_decay= 0.95
-num_trials  = 10000
+num_trials  = 20000
 batch_size  = 100
 border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
+runtype            = RunType.Learning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 8  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'hard'
 coeff_eta          = 0.05
 fixed_lambda       = True
 lambda_type        = ''
-group_sparse       = 2
-
+group_sparse       = 4
 
 #image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 #image_data_name    = 'IMAGES_FIELD'
@@ -195,6 +194,8 @@ def log_and_save_dict(Phi, comp):
         logfile = '%s/%s_log.txt' % (path, name)
         print 'Assigning stdout to %s' % logfile
         sys.stdout = open(logfile, 'w')
+        print inspect.getsource(get_eta)
+        print inspect.getsource(get_veta)
     else:
         name = 'Phi_%d' % (int(rr))
         path = 'dict/%s' % name

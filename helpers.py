@@ -23,8 +23,8 @@ def get_eta(t, neurons, runtype, batch_size):
         start = 500
         inc = 500
     else:
-        start = 2000
-        inc = 2000
+        start = 1000
+        inc = 1000
     if t < start:
         return 6.0/batch_size
     if t < start + 1*inc:

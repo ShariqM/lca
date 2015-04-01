@@ -3697,3 +3697,223 @@ Load Sequentially=False
 Skip initial frames=True
 Group Sparse=2
 194
+
+*** Phi_195 ***
+Time=2015-04-01 10:48:35.049916
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.200
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+195
+
+*** Phi_196 ***
+Time=2015-04-01 11:05:57.244380
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=1024
+lambdav=0.200
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+196
+
+*** Phi_197 ***
+Time=2015-04-01 11:26:54.623055
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.400
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+197
+
+*** Phi_198 ***
+Time=2015-04-01 11:42:56.173398
+RunType=vLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.800
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=8
+198
+
+*** Phi_199 ***
+Time=2015-04-01 13:04:36.341520
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.200
+Lambda Decay=0.95
+num_trials=10000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=2
+199
+
+*** Phi_200 ***
+Time=2015-04-01 15:25:42.113367
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.200
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=2
+200
+
+*** Phi_201 ***
+Time=2015-04-01 15:33:53.110968
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.250
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=2
+201
+
+*** Phi_202 ***
+Time=2015-04-01 16:23:51.169966
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.400
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+202
+
+*** Phi_203 ***
+Time=2015-04-01 16:24:02.381306
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.400
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+203
+
+*** Phi_204 ***
+Time=2015-04-01 16:26:49.911071
+RunType=Learning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.500
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=hard
+coeff_eta=0.050
+lambda_type=[l = 0.5 * np.max(np.abs(b), axis = 0)]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=True
+Group Sparse=4
+204
