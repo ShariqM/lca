@@ -16,7 +16,7 @@ parser.add_argument("-d", "--idx", dest="dict_idx", default=1,
                     type=int, help="Dictionary index to show")
 args = parser.parse_args()
 
-
+name = 'Phi_?'
 def showbfs(Phi, eta=-1.0):
     L,M = Phi.shape
 
@@ -39,23 +39,16 @@ def showbfs(Phi, eta=-1.0):
         arr[index(i):index(i)+sz, index(j):index(j)+sz] = img
 
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
-    plt.title("Phi_%d" % args.dict_idx)
+    plt.title(name)
     plt.draw()
 
 if __name__ == "__main__":
     i = args.dict_idx
-    #Phi = scipy.io.loadmat('dict/Phi_%d/Phi_%d_0.6.mat' % (i, i))['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_%d/Phi_%d.mat' % (i, i))['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_.mat/Phi_11.mat')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_73_red.mat')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_75_100.0.mat')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_90/Phi_90_3.1')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_101/Phi_101_20.0')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_110/Phi_110_100.0')['Phi']
-    #Phi = scipy.io.loadmat('dict/Phi_117/Phi_117_1.6.mat')['Phi']
-    Phi = scipy.io.loadmat('dict/Phi_193_37.0.mat')['Phi']
-    pdb.set_trace()
-    #Phi = scipy.io.loadmat('dict/Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat')['Phi']
+    #name = 'Phi_197_1.9.mat'
+    #name = 'Phi_207_0.8.mat'
+    name = 'Phi_208_0.7.mat'
+    name = 'Phi_209_0.1.mat'
+    #name = 'Phi_198_0.6.mat'
+    Phi = scipy.io.loadmat('dict/%s' % name)['Phi']
     showbfs(Phi)
     plt.show()
