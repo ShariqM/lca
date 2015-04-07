@@ -3,6 +3,7 @@ import matplotlib
 import socket
 if socket.gethostname() == 'redwood2':
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+matplotlib.use('TkAgg') # For tight_layout()
 
 import scipy.io
 import sys
@@ -25,7 +26,9 @@ import inspect
 # Parameters
 patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 288 # Number of basis functions
-neurons     = 576 # Number of basis functions
+neurons     = 1024 # Number of basis functions
+#neurons     = 576 # Number of basis functions
+
 #patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
 #neurons     = 1024  # Number of basis functions
 lambdav     = 1.60  # Minimum Threshold
@@ -36,22 +39,20 @@ border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
-coeff_visualizer   = False # Visualize potentials of neurons
-random_patch_index = 8  # For coeff visualizer we watch a single patch over time
-thresh_type        = 'hard'
-coeff_eta          = 0.05
+runtype            = RunType.vReconstruct # Learning, vLearning, vReconstruct
+coeff_visualizer   = True # Visualize potentials of neurons
+random_patch_index = 1  # For coeff visualizer we watch a single patch over time
+thresh_type        = 'soft'
+coeff_eta          = 0.07
 fixed_lambda       = True
 lambda_type        = ''
-group_sparse       = 16
+group_sparse       = 1
 
-#image_data_name    = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
 #image_data_name    = 'IMAGES_FIELD'
 image_data_name    = 'IMAGES_DUCK'
+image_data_name    = 'IMAGES_DUCK_SHORT'
 #image_data_name    = 'IMAGES_DUCK_120'
-#image_data_name    = 'IMAGES_DUCK_SMOOTH_0.7'
-#image_data_name    = 'IMAGES'
-iters_per_frame    = 10 # Only for vLearning
+iters_per_frame    = 30 # Only for vLearning
 if image_data_name == 'IMAGES_DUCK_LONG' or \
      image_data_name == 'IMAGES_DUCK_120':
     # Load data, have to use h5py because had to use v7.3 because .mat is so big.
@@ -66,7 +67,9 @@ skip_frames = True
 start_t = 0
 #start_t = 6000
 init_Phi = ''
-#init_Phi = 'Phi_193_37.0.mat'
+#init_Phi = 'Phi_206/Phi_206_0.4.mat'
+#init_Phi = 'Bruno_FIELD_Phi144x200.mat'
+init_Phi = 'Phi_193_37.0.mat'
 #init_Phi = 'Bruno_FIELD_Phi256x1024.mat'
 #init_Phi = 'Phi_169_45.0.mat'
 #init_Phi = 'Phi_192/Phi_192_36.8.mat'
@@ -351,7 +354,7 @@ def vReconstruct():
     # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
     #run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
     #run_p = [(False, 80, lambdav)]
-    run_p = [(True, 20, lambdav)]
+    run_p = [(True, 10, lambdav)]
     #run_p = [(False, 80, lambdav)]
     #run_p = [(False, 80, lambdav)]
 
@@ -513,6 +516,12 @@ def sparsenet():
 def visualizer_code():
     pass
 
+fig = None
+coeffs = None
+lthresh = None
+initialized = False
+frame_idx = 0
+frame_end = 200
 def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
     """
     LCA Inference.
@@ -552,28 +561,57 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
 
     a = g(u, l)
 
+
+    showme = True
+
+    global initialized
+    #if not initialized and coeff_visualizer:
     if coeff_visualizer:
         assert batch_size == 1
-        plt.subplot(313)
-        coeffs = plt.bar(range(M), u, color='b')
-        lthresh = plt.plot(range(M), list(l) * M, color='r')
-        lthresh2 = plt.plot(range(M), list(-l) * M, color='r')
+        if not initialized:
+            plt.figure(figsize=(16,6))
 
-        if runtype == RunType.Learning:
-            plt.axis([0, M, -1.05, 1.05])
-        else:
-            plt.axis([0, M, -lambdav * 10, lambdav * 10])
-
-        plt.subplot(312)
+        plt.subplot(223)
         plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
+        plt.axis('off')
+        plt.title('Image')
 
-        plt.subplot(311)
-        recon = tdot(Phi, a)
-        plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+        if not initialized:
+            initialized = True
+            global frame_idx, coeffs, lthresh
+            plt.subplot(224)
+            plt.title('Coefficients')
+
+            coeffs = plt.bar(range(M), np.abs(u), color='r', lw=0)
+            lthresh = plt.plot(range(M+1), list(l) * (M+1), color='g')
+            #lthresh2 = plt.plot(range(M), list(-l) * M, color='r')
+            #plt.plot(range(M), [0] * (M, color='k') 0 line
+
+            if runtype == RunType.Learning:
+                #plt.axis([0, M, -1.05, 1.05]) Negative taken out because set_height(neg) is glitchy
+                plt.axis([0, M, 0, 1.05])
+            else:
+                #plt.axis([0, M, -lambdav * 10, lambdav * 10])
+                plt.axis([0, M, 0, lambdav * 10])
+
+
+            plt.subplot(221)
+            plt.axis('off')
+            plt.title('Iter=%d\nReconstruct' % frame_idx)
+            recon = tdot(Phi, a)
+            plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+
+            plt.subplot(222)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
+            plt.axis([0, frame_end, 0.0, 22])
+
+            plt.tight_layout()
 
         plt.draw()
-        plt.show()
-        time.sleep(1)
+        if showme:
+            plt.show()
+            time.sleep(1)
 
     for t in range(num_iterations):
         u = coeff_eta * (b - tdot(G,a)) + (1 - coeff_eta) * u
@@ -581,6 +619,7 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
         a = g(u, l)
 
         if np.sum(u) > 1000: # Coeff explosion check
+            print 'Activity Explosion!!!'
             print 'Data:'
             x = tdot(G,a)
             print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
@@ -591,22 +630,38 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
         l[l < lambdav] = lambdav
 
         if coeff_visualizer:
-            for coeff, i in zip(coeffs, range(M)):
-                coeff.set_height(u[i])
-            lthresh[0].set_data(range(M), list(l) * M)
-            lthresh2[0].set_data(range(M), list(-l) * M)
 
-            plt.subplot(311)
+            for coeff, i in zip(coeffs, range(M)):
+                coeff.set_height(abs(u[i]))
+            lthresh[0].set_data(range(M+1), list(l) * (M+1))
+            #lthresh2[0].set_data(range(M), list(-l) * M)
+
+            plt.subplot(221)
             recon = tdot(Phi, a)
             plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+            plt.title('Iter=%d\nReconstruct' % frame_idx)
+            #plt.title('Iter=%d/%d' % (t, num_iterations))
 
-            plt.title('Iter=%d/%d' % (t, num_iterations))
+            # Plot SNR
+            global prev_snr
+            plt.subplot(222)
+            var = I.var().mean()
+            R = I - recon
+            mse = (R ** 2).mean()
+            snr = 10 * log(var/mse, 10)
+            color = 'r' if t == 0 else 'g'
+            plt.scatter(frame_idx, snr, s=8, c=color)
+            prev_snr = snr
+
             plt.draw()
-            plt.show()
+            if showme:
+                plt.show()
+            plt.savefig('animation/%d.png' % frame_idx)
+            frame_idx += 1
             # Do some clf magic?
 
-    if coeff_visualizer:
-        plt.close()
+    #if coeff_visualizer:
+        #plt.close()
 
     return u, a
 
