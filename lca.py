@@ -3,7 +3,8 @@ import matplotlib
 import socket
 if socket.gethostname() == 'redwood2':
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
-matplotlib.use('TkAgg') # For tight_layout()
+matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
+#matplotlib.use('TkAgg') # For tight_layout() # Invalidates Jpeg
 
 import scipy.io
 import sys
@@ -40,7 +41,7 @@ sz     = np.sqrt(patch_dim)
 
 # More Parameters
 runtype            = RunType.vReconstruct # Learning, vLearning, vReconstruct
-coeff_visualizer   = True # Visualize potentials of neurons
+coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 1  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'soft'
 coeff_eta          = 0.07
@@ -416,7 +417,7 @@ def vReconstruct():
                     % (t, labels[run], lambdav, SNR[t], 100.0 * AC[t] / max_active)
         elapsed = (datetime.now() - start).seconds
 
-        np.save('coeff_S193__initP20_100t', activity_log)
+        #np.save('coeff_S193__initP20_100t', activity_log)
         x_num = 59
         y_num = 98
         #x_num = 868
@@ -517,6 +518,7 @@ def visualizer_code():
     pass
 
 fig = None
+ax = None
 coeffs = None
 lthresh = None
 initialized = False
@@ -561,57 +563,60 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
 
     a = g(u, l)
 
+    showme = False
 
-    showme = True
-
+    global fg, ax
     global initialized
     #if not initialized and coeff_visualizer:
     if coeff_visualizer:
         assert batch_size == 1
         if not initialized:
-            plt.figure(figsize=(16,6))
+            fg, ax = plt.subplots(2,2)
 
-        plt.subplot(223)
-        plt.imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
-        plt.axis('off')
-        plt.title('Image')
+        ax[1,0].imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
+        #ax[1,0].set_axes('off')
+        ax[1,0].set_title('Image')
 
         if not initialized:
             initialized = True
             global frame_idx, coeffs, lthresh
-            plt.subplot(224)
-            plt.title('Coefficients')
+            ax[1,1].set_title('Coefficients')
+            ax[1,1].set_xlabel('Coefficient Index')
+            ax[1,1].set_ylabel('Activity')
 
-            coeffs = plt.bar(range(M), np.abs(u), color='r', lw=0)
-            lthresh = plt.plot(range(M+1), list(l) * (M+1), color='g')
-            #lthresh2 = plt.plot(range(M), list(-l) * M, color='r')
-            #plt.plot(range(M), [0] * (M, color='k') 0 line
+            coeffs = ax[1,1].bar(range(M), np.abs(u), color='r', lw=0)
+            lthresh = ax[1,1].plot(range(M+1), list(l) * (M+1), color='g')
+            #lthresh2 = ax[1,1].plot(range(M), list(-l) * M, color='r')
+            #ax[1,1].plot(range(M), [0] * (M, color='k') 0 line
 
             if runtype == RunType.Learning:
-                #plt.axis([0, M, -1.05, 1.05]) Negative taken out because set_height(neg) is glitchy
-                plt.axis([0, M, 0, 1.05])
+                #ax[1,1].axis([0, M, -1.05, 1.05]) Negative taken out because set_height(neg) is glitchy
+                ax[1,1].axis([0, M, 0, 1.05])
             else:
-                #plt.axis([0, M, -lambdav * 10, lambdav * 10])
-                plt.axis([0, M, 0, lambdav * 10])
+                #ax[1,1].axis([0, M, -lambdav * 10, lambdav * 10])
+                ax[1,1].axis([0, M, 0, lambdav * 5])
 
-
-            plt.subplot(221)
-            plt.axis('off')
-            plt.title('Iter=%d\nReconstruct' % frame_idx)
             recon = tdot(Phi, a)
-            plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+            ax[0,0].imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+            #ax[0,0].set_axes('off')
+            ax[0,0].set_title('Iter=%d\nReconstruct' % frame_idx)
 
-            plt.subplot(222)
-            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-            plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
-            plt.axis([0, frame_end, 0.0, 22])
+            ax[0,1].set_title('Reconstruction Error')
+            ax[0,1].set_xlabel('Time (steps)')
+            ax[0,1].set_ylabel('SNR (dB)')
+            ax[0,1].axis([0, frame_end, 0.0, 22])
 
-            plt.tight_layout()
+            #plt.tight_layout()
+            # The subplots move around if I don't do this lol...
+            for i in range(6):
+                plt.savefig('animation/junk.png')
+            plt.savefig('animation/%d.jpeg' % frame_idx)
+            frame_idx += 1
+            #plt.clf()
 
-        plt.draw()
         if showme:
+            plt.draw()
             plt.show()
-            time.sleep(1)
 
     for t in range(num_iterations):
         u = coeff_eta * (b - tdot(G,a)) + (1 - coeff_eta) * u
@@ -636,27 +641,27 @@ def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
             lthresh[0].set_data(range(M+1), list(l) * (M+1))
             #lthresh2[0].set_data(range(M), list(-l) * M)
 
-            plt.subplot(221)
             recon = tdot(Phi, a)
-            plt.imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
-            plt.title('Iter=%d\nReconstruct' % frame_idx)
+            ax[0,0].imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
+            ax[0,0].set_title('Iter=%d\nReconstruct' % frame_idx)
             #plt.title('Iter=%d/%d' % (t, num_iterations))
 
             # Plot SNR
             global prev_snr
-            plt.subplot(222)
             var = I.var().mean()
             R = I - recon
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
             color = 'r' if t == 0 else 'g'
-            plt.scatter(frame_idx, snr, s=8, c=color)
+            ax[0,1].scatter(frame_idx, snr, s=8, c=color)
             prev_snr = snr
 
-            plt.draw()
+            time.sleep(1)
+
             if showme:
+                plt.draw()
                 plt.show()
-            plt.savefig('animation/%d.png' % frame_idx)
+            plt.savefig('animation/%d.jpeg' % frame_idx)
             frame_idx += 1
             # Do some clf magic?
 
