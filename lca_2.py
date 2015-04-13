@@ -48,8 +48,8 @@ class LcaNetwork():
     border       = 4
     num_trials   = 20000
 
-    #init_phi_name = '' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_193_37.0.mat'
+    init_phi_name = '' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_193_37.0.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -65,10 +65,10 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    runtype            = RunType.vReconstruct # Learning, vLearning, vReconstruct
+    runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 2 # Number of frames to visualize
     if coeff_visualizer:
@@ -133,16 +133,19 @@ class LcaNetwork():
                     i = i + 1
         return I
 
-    def load_videos():
+    def load_videos(self):
         '(3) Load a batch_size number of Space-Time boxes of individual random patches. Used by vLearning()'
-        VI = np.zeros((patch_dim, batch_size, time_batch_size))
+
         #TODO do I need a coeff_visualizer here?
-        for x in range(batch_size):
+
+        border, imsize, sz, tbs = self.border, self.imsize, self.sz, self.time_batch_size
+        VI = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        for x in range(self.batch_size):
             # Choose a random image less than time_batch_size images away from the end
-            imi = np.floor((num_images - time_batch_size) * random.uniform(0, 1))
+            imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
             r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
             c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-            VI[:,x,:] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi:imi+time_batch_size], (patch_dim, time_batch_size), 1)
+            VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
         return VI
 
     def init_Phi(self):
@@ -151,7 +154,7 @@ class LcaNetwork():
             Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)
             Phi = Phi['Phi']
         else:
-            Phi = np.random.randn(patch_dim, neurons)
+            Phi = np.random.randn(self.patch_dim, self.neurons)
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
         return Phi
 
@@ -161,13 +164,13 @@ class LcaNetwork():
         Phi = self.init_Phi()
 
         # Initialize batch of images
-        I = np.zeros((patch_dim, batch_size))
+        I = np.zeros((self.patch_dim, self.batch_size))
 
-        max_active = float(neurons * batch_size)
+        max_active = float(self.neurons * selfbatch_size)
         start = datetime.now()
 
         if runtype == RunType.Learning:
-            for t in range(start_t, num_trials):
+            for t in range(self.start_t, self.num_trials):
                 I = load_images(I)
                 u, ahat = self.sparsify(I) # Coefficient Inference
 
@@ -175,7 +178,7 @@ class LcaNetwork():
                 R = I - tdot(Phi, ahat)
 
                 # Update Basis Functions
-                dPhi = get_eta(t, neurons, runtype, batch_size) * (tdot(R, ahat.T))
+                dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (tdot(R, ahat.T))
 
                 Phi = Phi + dPhi
                 Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -187,19 +190,19 @@ class LcaNetwork():
                     snr = 10 * log(var/mse, 10)
 
                     ahat_c = np.copy(ahat)
-                    ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                    ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
                     ac = np.sum(ahat_c)
 
                     print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                            % (t, lambdav, snr, 100.0 * ac / max_active,
+                            % (t, self.lambdav, snr, 100.0 * ac / max_active,
                                (datetime.now() - start).seconds)
 
                     sys.stdout.flush()
-                    showbfs(Phi, get_eta(t, neurons, runtype, batch_size))
+                    showbfs(Phi, get_eta(t, self.neurons, self.runtype, self.batch_size))
                     plt.show()
 
                 if np.mod(t, 20) == 0:
-                    log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
+                    log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
 
         log_and_save_dict(Phi, 100.0)
         plt.show()
@@ -209,38 +212,38 @@ class LcaNetwork():
         Phi = self.init_Phi()
 
         # Initialize batch of images
-        I = np.zeros((patch_dim, batch_size))
+        I = np.zeros((self.patch_dim, self.batch_size))
 
-        max_active = float(neurons * batch_size)
+        max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
 
-        for t in range(start_t, num_trials):
-            VI = load_videos()
+        for t in range(self.start_t, self.num_trials):
+            VI = self.load_videos()
 
             u_prev = None # Neurons keep state from previous frame
-            for i in range(time_batch_size):
+            for i in range(self.time_batch_size):
                 I = VI[:,:,i]
 
-                u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev,
-                                    num_iterations=iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=self.iters_per_frame)
                 u_prev = u
 
                 # Calculate Residual
                 R = I - tdot(Phi, ahat)
 
-                if i >= skip_frames/iters_per_frame: # Don't learn on the first skip_frames
+                if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
                     # Update Basis Functions
-                    dPhi = get_veta(batch_size * t, neurons, runtype, time_batch_size) * (tdot(R, ahat.T))
+                    dPhi = get_veta(self.batch_size * t, self.neurons,
+                                    self.runtype, self.time_batch_size) * (tdot(R, ahat.T))
 
                     Phi = Phi + dPhi
                     Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
-                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
                 if i % 50 == 0:
-                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, lambdav, 100.0 * ac / max_active)
+                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, self.lambdav, 100.0 * ac / max_active)
 
             var = I.var().mean()
             mse = (R ** 2).mean()
@@ -249,12 +252,12 @@ class LcaNetwork():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                showbfs(Phi, get_veta(batch_size * t, neurons, runtype, time_batch_size))
-                log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
+                showbfs(Phi, get_veta(self.batch_size * t, self.neurons, self.runtype, self.time_batch_size))
+                log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
             plt.show()
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, lambdav, snr, 100.0 * ac / max_active,
+                        % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
         log_and_save_dict(Phi, 100.0)
@@ -395,9 +398,7 @@ class LcaNetwork():
         u = u_prev if u_prev is not None else np.zeros((self.neurons, self.batch_size))
         a = self.thresh(u, l)
 
-        showme = True
-
-        #if not initialized and coeff_visualizer:
+        showme = True # set to false if you just want to save the images
         if self.coeff_visualizer:
             if not self.graphics_initialized:
                 self.graphics_initialized = True
@@ -446,9 +447,8 @@ class LcaNetwork():
             l[l < self.lambdav] = self.lambdav
 
             if self.coeff_visualizer:
-                # Update the potentials
                 for coeff, i in zip(self.coeffs, range(self.neurons)):
-                    coeff.set_height(abs(u[i]))
+                    coeff.set_height(abs(u[i]))  # Update the potentials
                 self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
                 # Update Reconstruction
@@ -563,7 +563,7 @@ class LcaNetwork():
     def run(self):
         if self.runtype == RunType.vReconstruct:
             self.vReconstruct()
-        elif self.runtype == Runtype.Learning:
+        elif self.runtype == RunType.Learning:
             self.Learning()
         else:
             self.vLearning()
