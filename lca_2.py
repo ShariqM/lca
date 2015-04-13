@@ -65,7 +65,7 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    runtype            = RunType.Learning # Learning, vLearning, vReconstruct
+    runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
