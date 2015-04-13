@@ -16,8 +16,7 @@ parser.add_argument("-d", "--idx", dest="dict_idx", default=1,
                     type=int, help="Dictionary index to show")
 args = parser.parse_args()
 
-name = 'Phi_?'
-def showbfs(Phi, eta=-1.0):
+def showbfs(Phi, idx=-1, eta=-1.0):
     L,M = Phi.shape
 
     sz = sqrt(L) # sz of one side of basis
@@ -39,7 +38,7 @@ def showbfs(Phi, eta=-1.0):
         arr[index(i):index(i)+sz, index(j):index(j)+sz] = img
 
     plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
-    plt.title(name)
+    plt.title('Phi_%d' % idx)
     plt.draw()
 
 if __name__ == "__main__":
@@ -49,6 +48,9 @@ if __name__ == "__main__":
     name = 'Phi_208_0.7.mat'
     name = 'Phi_209_0.1.mat'
     #name = 'Phi_198_0.6.mat'
+
+    idx = int(name.split('_')[1])
+
     Phi = scipy.io.loadmat('dict/%s' % name)['Phi']
-    showbfs(Phi)
+    showbfs(Phi, idx)
     plt.show()

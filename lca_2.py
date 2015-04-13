@@ -65,7 +65,7 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
+    runtype            = RunType.Learning # Learning, vLearning, vReconstruct
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
@@ -85,6 +85,14 @@ class LcaNetwork():
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
 
+        if init_phi_name == '':
+            try:
+                self.phi_idx = self.get_phi_idx()
+            except Exception as e:
+                raise Exception('Corrupted log.txt file, please fix manually')
+        else:
+            self.phi_idx = int(init_phi_name.split('_')[1])
+
         if self.coeff_visualizer:
             self.batch_size = 1
         print 'num images %d, num trials %d' % (self.num_images, self.num_trials)
@@ -102,16 +110,17 @@ class LcaNetwork():
         return IMAGES
 
     # Image Loaders
-    def load_rimages(I):
+    def load_rimages(self, I):
         '(1) Choose a batch_size number of random images. Used by Learning()'
 
-        imi = np.ceil(num_images * random.uniform(0, 1))
+        border, imsize, sz = self.border, self.imsize, self.sz
+        imi = np.ceil(self.num_images * random.uniform(0, 1))
         # Pick batch_size random patches from the random image
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
             c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
 
-            I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1], patch_dim, 1)
+            I[:,i] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi-1], self.patch_dim, 1)
 
         return I
 
@@ -166,45 +175,44 @@ class LcaNetwork():
         # Initialize batch of images
         I = np.zeros((self.patch_dim, self.batch_size))
 
-        max_active = float(self.neurons * selfbatch_size)
+        max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
 
-        if runtype == RunType.Learning:
-            for t in range(self.start_t, self.num_trials):
-                I = load_images(I)
-                u, ahat = self.sparsify(I) # Coefficient Inference
+        for t in range(self.start_t, self.num_trials):
+            I = self.load_rimages(I)
+            u, ahat = self.sparsify(I, Phi) # Coefficient Inference
 
-                # Calculate Residual
-                R = I - tdot(Phi, ahat)
+            # Calculate Residual
+            R = I - tdot(Phi, ahat)
 
-                # Update Basis Functions
-                dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (tdot(R, ahat.T))
+            # Update Basis Functions
+            dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (tdot(R, ahat.T))
 
-                Phi = Phi + dPhi
-                Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            Phi = Phi + dPhi
+            Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
-                # Plot every 200 iterations
-                if np.mod(t, 20  ) == 0:
-                    var = I.var().mean()
-                    mse = (R ** 2).mean()
-                    snr = 10 * log(var/mse, 10)
+            # Plot every 200 iterations
+            if np.mod(t, 20  ) == 0:
+                var = I.var().mean()
+                mse = (R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
 
-                    ahat_c = np.copy(ahat)
-                    ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
-                    ac = np.sum(ahat_c)
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
 
-                    print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                            % (t, self.lambdav, snr, 100.0 * ac / max_active,
-                               (datetime.now() - start).seconds)
+                print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (t, self.lambdav, snr, 100.0 * ac / max_active,
+                           (datetime.now() - start).seconds)
 
-                    sys.stdout.flush()
-                    showbfs(Phi, get_eta(t, self.neurons, self.runtype, self.batch_size))
-                    plt.show()
+                sys.stdout.flush()
+                showbfs(Phi, get_eta(t, self.neurons, self.runtype, self.batch_size))
+                plt.show()
 
-                if np.mod(t, 20) == 0:
-                    log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
+            if np.mod(t, 20) == 0:
+                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
 
-        log_and_save_dict(Phi, 100.0)
+        self.log_and_save_dict(Phi, 100.0)
         plt.show()
 
     def vLearning(self):
@@ -253,14 +261,14 @@ class LcaNetwork():
 
             if np.mod(t, 5) == 0:
                 showbfs(Phi, get_veta(self.batch_size * t, self.neurons, self.runtype, self.time_batch_size))
-                log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
+                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
             plt.show()
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
-        log_and_save_dict(Phi, 100.0)
+        self.log_and_save_dict(Phi, 100.0)
         plt.show()
 
     def vReconstruct(self):
@@ -509,7 +517,6 @@ class LcaNetwork():
 
     def log_and_save_dict(self, Phi, comp):
         'Log dictionary and Save Mat file'
-        phi_idx = self.get_phi_idx()
 
         if comp == 0.0: # Only log on first write
             name = 'Phi_%d' % (phi_idx + 1)
@@ -522,26 +529,26 @@ class LcaNetwork():
 
             f.write('\n*** %s ***\n' % name)
             f.write('Time=%s\n' % datetime.now())
-            f.write('RunType=%s\n' % get_RunType_name(runtype))
-            f.write('IMAGES=%s\n' % image_data_name)
-            f.write('patch_dim=%d\n' % patch_dim)
-            f.write('neurons=%d\n' % neurons)
-            f.write('lambdav=%.3f\n' % lambdav)
-            f.write('Lambda Decay=%.2f\n' % lambda_decay)
-            f.write('num_trials=%d\n' % num_trials)
-            f.write('batch_size=%d\n' % batch_size)
-            f.write('time_batch_size=%d\n' % time_batch_size)
-            f.write('NUM_IMAGES=%d\n' % num_images)
-            f.write('iter_per_frame=%d\n' % iters_per_frame)
-            f.write('thresh_type=%s\n' % thresh_type)
+            f.write('RunType=%s\n' % get_RunType_name(self.runtype))
+            f.write('IMAGES=%s\n' % self.image_data_name)
+            f.write('patch_dim=%d\n' % self.patch_dim)
+            f.write('neurons=%d\n' % self.neurons)
+            f.write('lambdav=%.3f\n' % self.lambdav)
+            f.write('Lambda Decay=%.2f\n' % self.lambda_decay)
+            f.write('num_trials=%d\n' % self.num_trials)
+            f.write('batch_size=%d\n' % self.batch_size)
+            f.write('time_batch_size=%d\n' % self.time_batch_size)
+            f.write('NUM_IMAGES=%d\n' % self.num_images)
+            f.write('iter_per_frame=%d\n' % self.iters_per_frame)
+            f.write('thresh_type=%s\n' % self.thresh_type)
             f.write('coeff_eta=%.3f\n' % self.coeff_eta)
-            f.write('lambda_type=[%s]\n' % lambda_type)
-            f.write('InitPhi=%s\n' % init_phi_name)
-            f.write('Load Sequentially=%s\n' % load_sequentially)
-            f.write('Skip initial frames=%s\n' % skip_frames)
-            f.write('Group Sparse=%d\n' % group_sparse)
+            f.write('lambda_type=[%s]\n' % self.lambda_type)
+            f.write('InitPhi=%s\n' % self.init_phi_name)
+            f.write('Load Sequentially=%s\n' % self.load_sequentially)
+            f.write('Skip initial frames=%s\n' % self.skip_frames)
+            f.write('Group Sparse=%d\n' % self.group_sparse)
 
-            f.write('%d\n' % (int(rr)+1))
+            f.write('%d\n' % (phi_idx+1))
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
@@ -552,7 +559,7 @@ class LcaNetwork():
             print inspect.getsource(get_eta)
             print inspect.getsource(get_veta)
         else:
-            name = 'Phi_%d' % (int(rr))
+            name = 'Phi_%d' % phi_idx
             path = 'dict/%s' % name
 
         fname = '%s/%s_%.1f' % (path, name, comp)
