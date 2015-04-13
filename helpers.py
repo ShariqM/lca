@@ -1,7 +1,24 @@
+class RunP():
+    def __init__(self, initP, iters, lambdav):
+        self.initP   = initP # Initialize coeff to previous frame
+        self.iters   = iters # Number of iterations per frame
+        self.lambdav = lambdav
+
 class RunType():
     Learning = 1
     vLearning = 2
     vReconstruct = 3
+
+def get_images(image_data_name):
+    if 'LONG' or '120' in image_data_name:
+        f = h5py.File('mat/%s.mat' % image_data_name, 'r',) # Need h5py for big file
+        IMAGES = np.array(f.get(image_data_name))
+        IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
+    else:
+        IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+    return IMAGES
+
+
 
 def get_eta_old(t, runtype, batch_size):
     start = 8000
