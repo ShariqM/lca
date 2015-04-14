@@ -560,10 +560,10 @@ class LcaNetwork():
             a = self.thresh(u, l)
 
             check_activity_m(b, Zb, tdot(G, a), tdot(ZG, a), u)
-            ahat_c = np.copy(a)
-            ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
-            ac = np.sum(ahat_c)
-            print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
+            #ahat_c = np.copy(a)
+            #ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+            #ac = np.sum(ahat_c)
+            #print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
 
 
             l = self.lambda_decay * l
