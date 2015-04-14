@@ -4115,3 +4115,25 @@ Load Sequentially=False
 Skip initial frames=80
 Group Sparse=1
 213
+
+*** Phi_214 ***
+Time=2015-04-13 18:01:33.977857
+RunType=vmLearning
+IMAGES=IMAGES_DUCK_SHORT
+patch_dim=144
+neurons=576
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=450
+iter_per_frame=30
+thresh_type=soft
+coeff_eta=0.070
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+214
