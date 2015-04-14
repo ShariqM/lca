@@ -46,8 +46,9 @@ class LcaNetwork():
     border       = 4
     num_trials   = 20000
 
-    init_phi_name = '' # Blank if you want to start from scratch
+    #init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_193_37.0.mat'
+    init_phi_name = 'Phi_198_9.6.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -315,7 +316,7 @@ class LcaNetwork():
                     Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                     # Update Transformation Matrix
-                    dZ = tdot(tdot(Phi.T, nI), ahat.T) - tdot(tdot(tdot(Phi.T, ZPhi), ahat), ahat.T)
+                    dZ = eta * (tdot(tdot(Phi.T, nI), ahat.T) - tdot(tdot(tdot(Phi.T, ZPhi), ahat), ahat.T))
                     Z = Z + dZ
 
                 ahat_c = np.copy(ahat)
