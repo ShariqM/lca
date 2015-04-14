@@ -41,7 +41,7 @@ class LcaNetwork():
     neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
-    lambdav      = 0.50  # Minimum Threshold
+    lambdav      = 0.40  # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -49,6 +49,7 @@ class LcaNetwork():
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_193_37.0.mat'
     #init_phi_name = 'Phi_198_9.6.mat'
+    init_phi_name = 'Phi_198/Phi_198_9.6.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -58,13 +59,14 @@ class LcaNetwork():
     coeff_eta    = 0.05
     lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
-    iters_per_frame = 30 # Only for vLearning
+    iters_per_frame = 10 # Only for vLearning
     time_batch_size = 100
     load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
     runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
@@ -90,7 +92,7 @@ class LcaNetwork():
             except Exception as e:
                 raise Exception('Corrupted log.txt file, please fix manually')
         else:
-            self.phi_idx = int(self.init_phi_name.split('_')[1])
+            self.phi_idx = int(self.init_phi_name.split('/')[0].split('_')[1])
 
         if self.coeff_visualizer:
             self.batch_size = 1
@@ -741,6 +743,8 @@ class LcaNetwork():
 
     def log_and_save_dict(self, Phi, comp):
         'Log dictionary and Save Mat file'
+        if not self.log_and_save:
+            return
 
         if comp == 0.0: # Only log on first write
             self.phi_idx = self.phi_idx + 1
