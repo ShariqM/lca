@@ -21,14 +21,43 @@ def get_images(image_data_name):
         IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
     return IMAGES
 
-def check_activity(b, G, u, a):
-    if np.sum(u) > 1000: # Coeff explosion check
+def check_activity_old(b, G, u, a):
+    if np.sum(np.abs(u)) > 0000: # Coeff explosion check
         print 'Activity Explosion!!!'
         print 'Data:'
-        x = tdot(G,a)
+        x = np.abs(tdot(G,a))
         print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
         print 'f(G,a) (sum, min, max)', np.sum(x), np.min(x), np.max(x)
         print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
+
+def check_activity(b, G, u, a):
+    if np.sum(np.abs(u)) > 20000: # Coeff explosion check
+        print 'Activity Explosion!!!'
+        print 'Data:'
+        Ga = np.abs(tdot(G,a))
+
+        bc = np.abs(np.copy(b))
+        Gac = np.abs(np.copy(Ga))
+        uc = np.abs(np.copy(u))
+        print 'bc (sum, min, max)',np.sum(bc), np.min(bc), np.max(bc)
+        print 'Gac (sum, min, max)',np.sum(Gac), np.min(Gac), np.max(Gac)
+        print 'uc (sum, min, max)',np.sum(uc), np.min(uc), np.max(uc)
+
+def check_activity_m(b, Zb, Ga, ZGa, u):
+    if np.sum(np.abs(u)) > 0000: # Coeff explosion check
+        print 'Activity Explosion!!!'
+        print 'Data:'
+        bc = np.abs(np.copy(b))
+        Zbc = np.abs(np.copy(Zb))
+        Gac = np.abs(np.copy(Ga))
+        ZGac = np.abs(np.copy(ZGa))
+        uc = np.abs(np.copy(u))
+        print 'bc (sum, min, max)',np.sum(bc), np.min(bc), np.max(bc)
+        print 'Zbc (sum, min, max)',np.sum(Zbc), np.min(Zbc), np.max(Zbc)
+        print 'Gac (sum, min, max)',np.sum(Gac), np.min(Gac), np.max(Gac)
+        print 'ZGac (sum, min, max)',np.sum(ZGac), np.min(ZGac), np.max(ZGac)
+        print 'uc (sum, min, max)',np.sum(uc), np.min(uc), np.max(uc)
+
 
 
 # Simulated Annealing functions

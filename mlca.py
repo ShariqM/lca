@@ -41,18 +41,18 @@ class LcaNetwork():
     neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
-    lambdav      = 0.35  # Minimum Threshold
+    lambdav      = 0.50  # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
 
-    #init_phi_name = '' # Blank if you want to start from scratch
+    init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_193_37.0.mat'
-    init_phi_name = 'Phi_198_9.6.mat'
+    #init_phi_name = 'Phi_198_9.6.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
+    fixed_lambda = False # Don't initialize the threshold above lambdav and decay down
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05
@@ -67,7 +67,7 @@ class LcaNetwork():
     runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 10 # Number of frames to visualize
     if coeff_visualizer:
@@ -75,7 +75,7 @@ class LcaNetwork():
     graphics_initialized = False
     save_cgraphs = False
 
-    random_patch_index = 1                    # Patch for coeff_visualizer
+    random_patch_index = 3                    # Patch for coeff_visualizer
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
@@ -313,11 +313,17 @@ class LcaNetwork():
                     dPhi =  eta * (tdot(R, ahat.T) + tdot(ZR, Zahat.T))
 
                     Phi = Phi + dPhi
-                    Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+                    Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
 
                     # Update Transformation Matrix
                     dZ = eta * (tdot(tdot(Phi.T, nI), ahat.T) - tdot(tdot(tdot(Phi.T, ZPhi), ahat), ahat.T))
-                    Z = Z + dZ
+                    #Z = Z + dZ
+                    #Z = tdot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
+
+                    # Check new error
+                    R2 = I - tdot(Phi, ahat)
+                    ZPhi2 = tdot(Phi, Z)
+                    ZR2 = nI - tdot(ZPhi2, ahat)
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
@@ -330,9 +336,16 @@ class LcaNetwork():
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
 
+            mse_a = (R2 ** 2).mean()
+            snr_a = 10 * log(var/mse_a, 10)
+
+
             p_var = nI.var().mean()
             p_mse = (ZR ** 2).mean()
             p_snr = 10 * log(p_var/p_mse, 10)
+
+            p_mse_a = (ZR2 ** 2).mean()
+            p_snr_a = 10 * log(var/p_mse_a, 10)
 
             sys.stdout.flush()
 
@@ -341,8 +354,8 @@ class LcaNetwork():
                 self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
             plt.show()
 
-            print '%.4d) lambdav=%.3f || snr=%.2fdB || p_snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, self.lambdav, snr, p_snr, 100.0 * ac / max_active,
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (t, self.lambdav, snr, snr_a, p_snr, p_snr_a, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
         self.log_and_save_dict(Phi, 100.0)
@@ -546,7 +559,12 @@ class LcaNetwork():
             u = self.coeff_eta * (b + Zb - tdot(G,a) - tdot(ZG, a)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
-            check_activity(b, G, u, a)
+            check_activity_m(b, Zb, tdot(G, a), tdot(ZG, a), u)
+            ahat_c = np.copy(a)
+            ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+            ac = np.sum(ahat_c)
+            print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
+
 
             l = self.lambda_decay * l
             l[l < self.lambdav] = self.lambdav
@@ -759,8 +777,8 @@ class LcaNetwork():
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
-            print 'Assigning stdout to %s' % logfile
-            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+            #print 'Assigning stdout to %s' % logfile
+            #sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
 
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)
