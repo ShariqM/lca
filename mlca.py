@@ -52,7 +52,7 @@ class LcaNetwork():
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    fixed_lambda = False # Don't initialize the threshold above lambdav and decay down
+    fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05
