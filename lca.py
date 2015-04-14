@@ -19,6 +19,7 @@ from math import isnan
 from colors import COLORS
 from datetime import datetime
 from helpers import *
+from runtype import *
 from theano import *
 import theano.tensor as T
 import h5py
@@ -40,7 +41,7 @@ border      = 4
 sz     = np.sqrt(patch_dim)
 
 # More Parameters
-runtype            = RunType.vReconstruct # Learning, vLearning, vReconstruct
+runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
 coeff_visualizer   = False # Visualize potentials of neurons
 random_patch_index = 1  # For coeff visualizer we watch a single patch over time
 thresh_type        = 'soft'
@@ -70,7 +71,7 @@ start_t = 0
 init_Phi = ''
 #init_Phi = 'Phi_206/Phi_206_0.4.mat'
 #init_Phi = 'Bruno_FIELD_Phi144x200.mat'
-init_Phi = 'Phi_193_37.0.mat'
+#init_Phi = 'Phi_193_37.0.mat'
 #init_Phi = 'Bruno_FIELD_Phi256x1024.mat'
 #init_Phi = 'Phi_169_45.0.mat'
 #init_Phi = 'Phi_192/Phi_192_36.8.mat'

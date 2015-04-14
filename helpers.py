@@ -1,5 +1,7 @@
 import socket
 import numpy as np
+from theano import *
+import theano.tensor as T
 
 # Theano Matrix Multiplication Optimization
 if socket.gethostname() == 'redwood2':

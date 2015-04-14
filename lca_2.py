@@ -21,8 +21,6 @@ import sys
 import os
 import h5py
 import inspect
-from theano import *
-import theano.tensor as T
 
 from showbfs import showbfs
 from helpers import *
@@ -40,7 +38,7 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 1024 # Number of basis functions
+    neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     lambdav      = 0.15  # Minimum Threshold
@@ -85,13 +83,13 @@ class LcaNetwork():
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
 
-        if init_phi_name == '':
+        if self.init_phi_name == '':
             try:
                 self.phi_idx = self.get_phi_idx()
             except Exception as e:
                 raise Exception('Corrupted log.txt file, please fix manually')
         else:
-            self.phi_idx = int(init_phi_name.split('_')[1])
+            self.phi_idx = int(self.init_phi_name.split('_')[1])
 
         if self.coeff_visualizer:
             self.batch_size = 1
@@ -519,7 +517,8 @@ class LcaNetwork():
         'Log dictionary and Save Mat file'
 
         if comp == 0.0: # Only log on first write
-            name = 'Phi_%d' % (phi_idx + 1)
+            self.phi_idx = self.phi_idx + 1
+            name = 'Phi_%d' % self.phi_idx
 
             path = 'dict/%s' % name
             if not os.path.exists(path):
@@ -548,7 +547,7 @@ class LcaNetwork():
             f.write('Skip initial frames=%s\n' % self.skip_frames)
             f.write('Group Sparse=%d\n' % self.group_sparse)
 
-            f.write('%d\n' % (phi_idx+1))
+            f.write('%d\n' % (self.phi_idx))
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
@@ -559,7 +558,7 @@ class LcaNetwork():
             print inspect.getsource(get_eta)
             print inspect.getsource(get_veta)
         else:
-            name = 'Phi_%d' % phi_idx
+            name = 'Phi_%d' % self.phi_idx
             path = 'dict/%s' % name
 
         fname = '%s/%s_%.1f' % (path, name, comp)
