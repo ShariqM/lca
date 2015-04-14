@@ -41,7 +41,7 @@ class LcaNetwork():
     neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
-    lambdav      = 0.15  # Minimum Threshold
+    lambdav      = 0.35  # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -54,7 +54,7 @@ class LcaNetwork():
     fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
     lambda_decay = 0.95
     thresh_type  = 'soft'
-    coeff_eta    = 0.07
+    coeff_eta    = 0.05
     lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
     iters_per_frame = 30 # Only for vLearning
@@ -66,9 +66,9 @@ class LcaNetwork():
     runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
-    num_frames      = 2 # Number of frames to visualize
+    num_frames      = 10 # Number of frames to visualize
     if coeff_visualizer:
         matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
     graphics_initialized = False
@@ -143,16 +143,19 @@ class LcaNetwork():
     def load_videos(self):
         '(3) Load a batch_size number of Space-Time boxes of individual random patches. Used by vLearning()'
 
-        #TODO do I need a coeff_visualizer here?
-
         border, imsize, sz, tbs = self.border, self.imsize, self.sz, self.time_batch_size
         VI = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
-        for x in range(self.batch_size):
-            # Choose a random image less than time_batch_size images away from the end
-            imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
-            r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-            c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-            VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
+        if self.coeff_visualizer:
+            r = self.random_patch_index * sz
+            c = self.random_patch_index * sz
+            VI[:,0,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, 0:tbs], (self.patch_dim, tbs), 1)
+        else:
+            for x in range(self.batch_size):
+                # Choose a random image less than time_batch_size images away from the end
+                imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
+                r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
         return VI
 
     def init_Phi(self):
@@ -286,7 +289,7 @@ class LcaNetwork():
             VI = self.load_videos()
 
             u_prev = None # Neurons keep state from previous frame
-            for i in range(self.time_batch_size - 1):
+            for i in range(0, self.time_batch_size - 1):
                 I = VI[:,:,i]
                 nI = VI[:,:,i+1] # Next image
 
@@ -298,7 +301,7 @@ class LcaNetwork():
 
                 # Prediction Residual
                 ZPhi = tdot(Phi, Z)
-                RZ = nI - tdot(ZPhi, ahat)
+                ZR = nI - tdot(ZPhi, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
                     # Update Basis Functions
@@ -306,7 +309,7 @@ class LcaNetwork():
                                    self.runtype, self.time_batch_size)
 
                     Zahat = tdot(Z, ahat)
-                    dPhi =  eta * (tdot(R, ahat.T) + tdot(RZ, Zahat.T))
+                    dPhi =  eta * (tdot(R, ahat.T) + tdot(ZR, Zahat.T))
 
                     Phi = Phi + dPhi
                     Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
@@ -326,8 +329,9 @@ class LcaNetwork():
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
 
-            p_mse = (RZ ** 2).mean()
-            p_snr = 10 * log(var/p_mse, 10)
+            p_var = nI.var().mean()
+            p_mse = (ZR ** 2).mean()
+            p_snr = 10 * log(p_var/p_mse, 10)
 
             sys.stdout.flush()
 
@@ -485,26 +489,40 @@ class LcaNetwork():
         if self.coeff_visualizer:
             if not self.graphics_initialized:
                 self.graphics_initialized = True
-                fg, self.ax = plt.subplots(2,2)
+                fg, self.ax = plt.subplots(3,3, figsize=(10,10))
+                #fg.set_size_inches(08.0,8.0)
 
-                self.ax[1,1].set_title('Coefficients')
-                self.ax[1,1].set_xlabel('Coefficient Index')
-                self.ax[1,1].set_ylabel('Activity')
 
-                self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
-                self.lthresh = self.ax[1,1].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
+                self.ax[1,2].set_title('Coefficients')
+                self.ax[1,2].set_xlabel('Coefficient Index')
+                self.ax[1,2].set_ylabel('Activity')
+
+                self.coeffs = self.ax[1,2].bar(range(self.neurons), np.abs(u), color='r', lw=0)
+                self.lthresh = self.ax[1,2].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
 
                 axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
-                self.ax[1,1].axis([0, self.neurons, 0, axis_height])
+                self.ax[1,2].axis([0, self.neurons, 0, axis_height])
 
+                # Present
                 recon = tdot(Phi, a)
-                self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
-                self.ax[0,0].set_title('Iter=%d\nReconstruct' % 0)
+                self.ax[1,1].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,1].set_title('Iter=%d\nReconstruct (t)' % 0)
 
-                self.ax[0,1].set_title('Reconstruction Error')
+                self.ax[0,1].set_title('Reconstruction Error (t)')
                 self.ax[0,1].set_xlabel('Time (steps)')
                 self.ax[0,1].set_ylabel('SNR (dB)')
                 self.ax[0,1].axis([0, self.num_frames * num_iterations, 0.0, 22])
+
+                # Prediction
+                p_recon = tdot(ZPhi, a)
+                self.ax[1,0].imshow(np.reshape(p_recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,0].set_title('Iter=%d\nReconstruct (t+1)' % 0)
+
+                self.ax[0,0].set_title('Reconstruction Error (t+1)')
+                self.ax[0,0].set_xlabel('Time (steps)')
+                self.ax[0,0].set_ylabel('SNR (dB)')
+                self.ax[0,0].axis([0, self.num_frames * num_iterations, 0.0, 22])
+
 
                 # The subplots move around if I don't do this lol...
                 for i in range(6):
@@ -513,8 +531,11 @@ class LcaNetwork():
                     plt.savefig('animation/%d.jpeg' % self.iter_idx)
                 self.iter_idx += 1
 
-            self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
-            self.ax[1,0].set_title('Image')
+            self.ax[2,1].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[2,1].set_title('Image (t)')
+
+            self.ax[2,0].imshow(np.reshape(nI[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[2,0].set_title('Image (t+1)')
 
             if showme:
                 plt.draw()
@@ -530,14 +551,24 @@ class LcaNetwork():
             l[l < self.lambdav] = self.lambdav
 
             if self.coeff_visualizer:
+                ahat_c = np.copy(a)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+                self.ax[1,2].set_title('Coefficients Active=%.2f%%' % (100 * float(ac)/self.neurons))
+
                 for coeff, i in zip(self.coeffs, range(self.neurons)):
                     coeff.set_height(abs(u[i]))  # Update the potentials
                 self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
+
                 # Update Reconstruction
                 recon = tdot(Phi, a)
-                self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
-                self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
+                self.ax[1,1].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,1].set_title('Iter=%d\nReconstruct (t)' % self.iter_idx)
+
+                p_recon = tdot(ZPhi, a)
+                self.ax[1,0].imshow(np.reshape(p_recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,0].set_title('Iter=%d\nReconstruct (t+1)' % self.iter_idx)
 
                 # Plot SNR
                 var = I.var().mean()
@@ -546,6 +577,13 @@ class LcaNetwork():
                 snr = 10 * log(var/mse, 10)
                 color = 'r' if t == 0 else 'g'
                 self.ax[0,1].scatter(self.iter_idx, snr, s=8, c=color)
+
+                p_var = nI.var().mean()
+                ZR = I - p_recon
+                p_mse = (ZR ** 2).mean()
+                p_snr = 10 * log(p_var/p_mse, 10)
+                color = 'r' if t == 0 else 'g'
+                self.ax[0,0].scatter(self.iter_idx, p_snr, s=8, c=color)
 
                 if showme:
                     plt.draw()
