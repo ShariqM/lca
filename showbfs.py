@@ -16,7 +16,7 @@ parser.add_argument("-d", "--idx", dest="dict_idx", default=1,
                     type=int, help="Dictionary index to show")
 args = parser.parse_args()
 
-def showbfs(Phi, idx=-1, eta=-1.0):
+def showbfs(Phi, idx=-1):
     L,M = Phi.shape
 
     sz = sqrt(L) # sz of one side of basis

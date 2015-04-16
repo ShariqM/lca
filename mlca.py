@@ -215,14 +215,13 @@ class LcaNetwork():
                            (datetime.now() - start).seconds)
 
                 sys.stdout.flush()
-                showbfs(Phi, get_eta(t, self.neurons, self.runtype, self.batch_size))
+                showbfs(Phi)
                 plt.show()
 
             if np.mod(t, 20) == 0:
                 self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
 
         self.log_and_save_dict(Phi, 100.0)
-        plt.show()
 
     def vLearning(self):
         'Run the video, inertia, LCA learning algorithm'
@@ -269,16 +268,13 @@ class LcaNetwork():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                showbfs(Phi, get_veta(self.batch_size * t, self.neurons, self.runtype, self.time_batch_size))
                 self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
-            plt.show()
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
         self.log_and_save_dict(Phi, 100.0)
-        plt.show()
 
     def vmLearning(self):
         'Run the video, inertia, transformation, LCA learning algorithm'
@@ -360,16 +356,13 @@ class LcaNetwork():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                showbfs(Phi, get_veta(self.batch_size * t, self.neurons, self.runtype, self.time_batch_size))
-                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
-            plt.show()
+                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials, Z)
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, snr_a, p_snr, p_snr_a, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
-        self.log_and_save_dict(Phi, 100.0)
-        plt.show()
+        self.log_and_save_dict(Phi, 100.0, Z)
 
     def vReconstruct(self):
         # Load dict from Learning run
@@ -752,10 +745,13 @@ class LcaNetwork():
         f.close()
         return int(rr)
 
-    def log_and_save_dict(self, Phi, comp):
+    def log_and_save_dict(self, Phi, comp, Z=None):
         'Log dictionary and Save Mat file'
-        if not self.log_and_save:
-            return
+        showbfs(Phi)
+        plt.show()
+
+        #if not self.log_and_save:
+            #return
 
         if comp == 0.0: # Only log on first write
             self.phi_idx = self.phi_idx + 1
@@ -804,7 +800,15 @@ class LcaNetwork():
 
         fname = '%s/%s_%.1f' % (path, name, comp)
         plt.savefig('%s.png' % fname)
-        scipy.io.savemat(fname, {'Phi':Phi})
+        if Z is not None:
+            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.seismic)
+            plt.colorbar()
+            plt.draw()
+            plt.savefig('%s_Z.png' % fname)
+            plt.show()
+
+
+        scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
         print '%s_%.1f successfully written.' % (name, comp)
 
     def run(self):
