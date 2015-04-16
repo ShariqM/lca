@@ -41,7 +41,7 @@ class LcaNetwork():
     neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
-    lambdav      = 0.40  # Minimum Threshold
+    lambdav      = 0.15   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -56,7 +56,11 @@ class LcaNetwork():
     fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
     lambda_decay = 0.95
     thresh_type  = 'soft'
-    coeff_eta    = 0.05
+    #coeff_eta    = 0.25 # Wack point
+    coeff_eta    = 0.05 # Normal
+    #coeff_eta    = 0.01 # Normal
+    u_factor = 0.8
+
     lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
     iters_per_frame = 10 # Only for vLearning
@@ -65,6 +69,7 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
+    #runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
     runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
@@ -297,6 +302,7 @@ class LcaNetwork():
                 nI = VI[:,:,i+1] # Next image
 
                 u, ahat = self.msparsify(I, nI, Phi, Z, u_prev=u_prev, num_iterations=self.iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=self.iters_per_frame)
                 u_prev = u
 
                 # Calculate Residual
@@ -307,20 +313,22 @@ class LcaNetwork():
                 ZR = nI - tdot(ZPhi, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
+                    #print 'Updating Phi'
                     # Update Basis Functions
                     eta = get_veta(self.batch_size * t, self.neurons,
                                    self.runtype, self.time_batch_size)
 
-                    Zahat = tdot(Z, ahat)
-                    dPhi =  eta * (tdot(R, ahat.T) + tdot(ZR, Zahat.T))
+                    #Zahat = tdot(Z, ahat)
+                    #dPhi =  eta * (tdot(R, ahat.T) + tdot(ZR, Zahat.T))
 
-                    Phi = Phi + dPhi
-                    Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    #Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    #Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
 
                     # Update Transformation Matrix
+                    eta = .006 # This works for whatever reason...
                     dZ = eta * (tdot(tdot(Phi.T, nI), ahat.T) - tdot(tdot(tdot(Phi.T, ZPhi), ahat), ahat.T))
-                    #Z = Z + dZ
-                    #Z = tdot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
+                    Z = Z + dZ
+                    Z = tdot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
 
                     # Check new error
                     R2 = I - tdot(Phi, ahat)
@@ -558,14 +566,17 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            u = self.coeff_eta * (b + Zb - tdot(G,a) - tdot(ZG, a)) + (1 - self.coeff_eta) * u
+            #u = self.u_factor * (self.coeff_eta * (b + Zb - tdot(G,a) - tdot(ZG, a)) + (1 - self.coeff_eta) * u)
+            #u = self.coeff_eta * 2.0 * (b - tdot(G,a)) + 2.0 * (1 - self.coeff_eta) * u
+            u = self.coeff_eta * (b - tdot(G,a)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
-            check_activity_m(b, Zb, tdot(G, a), tdot(ZG, a), u)
-            #ahat_c = np.copy(a)
-            #ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
-            #ac = np.sum(ahat_c)
-            #print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
+            explode = check_activity_m(b, Zb, tdot(G, a), tdot(ZG, a), u)
+            if explode:
+                ahat_c = np.copy(a)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+                print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
 
 
             l = self.lambda_decay * l

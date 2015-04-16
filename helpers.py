@@ -44,7 +44,7 @@ def check_activity(b, G, u, a):
         print 'uc (sum, min, max)',np.sum(uc), np.min(uc), np.max(uc)
 
 def check_activity_m(b, Zb, Ga, ZGa, u):
-    if np.sum(np.abs(u)) > 20000: # Coeff explosion check
+    if np.sum(np.abs(np.max(u))) > 20: # Coeff explosion check
         print 'Activity Explosion!!!'
         print 'Data:'
         bc = np.abs(np.copy(b))
@@ -57,6 +57,8 @@ def check_activity_m(b, Zb, Ga, ZGa, u):
         print 'Gac (sum, min, max)',np.sum(Gac), np.min(Gac), np.max(Gac)
         print 'ZGac (sum, min, max)',np.sum(ZGac), np.min(ZGac), np.max(ZGac)
         print 'uc (sum, min, max)',np.sum(uc), np.min(uc), np.max(uc)
+        return True
+    return False
 
 
 
