@@ -219,9 +219,9 @@ class LcaNetwork():
                 plt.show()
 
             if np.mod(t, 20) == 0:
-                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials)
 
-        self.log_and_save_dict(Phi, 100.0)
+        self.view_log_save(Phi, 100.0)
 
     def vLearning(self):
         'Run the video, inertia, LCA learning algorithm'
@@ -268,13 +268,13 @@ class LcaNetwork():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials)
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials)
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
-        self.log_and_save_dict(Phi, 100.0)
+        self.view_log_save(Phi, 100.0)
 
     def vmLearning(self):
         'Run the video, inertia, transformation, LCA learning algorithm'
@@ -356,13 +356,13 @@ class LcaNetwork():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                self.log_and_save_dict(Phi, 100.0 * float(t)/self.num_trials, Z)
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Z)
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, snr_a, p_snr, p_snr_a, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
-        self.log_and_save_dict(Phi, 100.0, Z)
+        self.view_log_save(Phi, 100.0, Z)
 
     def vReconstruct(self):
         # Load dict from Learning run
@@ -745,8 +745,8 @@ class LcaNetwork():
         f.close()
         return int(rr)
 
-    def log_and_save_dict(self, Phi, comp, Z=None):
-        'Log dictionary and Save Mat file'
+    def view_log_save(self, Phi, comp, Z=None):
+        'View Phi, Z, log parameters, and save the matrices '
         showbfs(Phi)
         plt.show()
 
