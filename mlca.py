@@ -215,7 +215,7 @@ class LcaNetwork():
                            (datetime.now() - start).seconds)
 
                 sys.stdout.flush()
-                showbfs(Phi)
+                showbfs(Phi, self.phi_idx)
                 plt.show()
 
             if np.mod(t, 20) == 0:
@@ -747,7 +747,7 @@ class LcaNetwork():
 
     def view_log_save(self, Phi, comp, Z=None):
         'View Phi, Z, log parameters, and save the matrices '
-        showbfs(Phi)
+        showbfs(Phi, self.phi_idx)
         plt.show()
 
         #if not self.log_and_save:
