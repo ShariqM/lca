@@ -41,7 +41,7 @@ class LcaNetwork():
     neurons      = 576 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
-    lambdav      = 0.15   # Minimum Threshold
+    lambdav      = 0.07   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -49,7 +49,7 @@ class LcaNetwork():
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_193_37.0.mat'
     #init_phi_name = 'Phi_198_9.6.mat'
-    init_phi_name = 'Phi_198/Phi_198_9.6.mat'
+    init_phi_name = 'Phi_209/Phi_209_0.4.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -76,7 +76,7 @@ class LcaNetwork():
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
-    num_frames      = 10 # Number of frames to visualize
+    num_frames      = 100 # Number of frames to visualize
     if coeff_visualizer:
         matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
     graphics_initialized = False
@@ -91,13 +91,10 @@ class LcaNetwork():
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
 
-        if self.init_phi_name == '':
-            try:
-                self.phi_idx = self.get_phi_idx()
-            except Exception as e:
-                raise Exception('Corrupted log.txt file, please fix manually')
-        else:
-            self.phi_idx = int(self.init_phi_name.split('/')[0].split('_')[1])
+        try:
+            self.phi_idx = self.get_phi_idx()
+        except Exception as e:
+            raise Exception('Corrupted log.txt file, please fix manually')
 
         if self.coeff_visualizer:
             self.batch_size = 1
@@ -192,13 +189,13 @@ class LcaNetwork():
             u, ahat = self.sparsify(I, Phi) # Coefficient Inference
 
             # Calculate Residual
-            R = I - tdot(Phi, ahat)
+            R = I - t2dot(Phi, ahat)
 
             # Update Basis Functions
-            dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (tdot(R, ahat.T))
+            dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (t2dot(R, ahat.T))
 
             Phi = Phi + dPhi
-            Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
             # Plot every 200 iterations
             if np.mod(t, 20  ) == 0:
@@ -297,19 +294,17 @@ class LcaNetwork():
                 I = VI[:,:,i]
                 nI = VI[:,:,i+1] # Next image
 
-                u, ahat = self.msparsify(I, nI, Phi, Z, u_prev=u_prev, num_iterations=self.iters_per_frame)
+                #u, ahat = self.msparsify(I, nI, Phi, Z, u_prev=u_prev, num_iterations=self.iters_per_frame)
                 u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=self.iters_per_frame)
                 u_prev = u
 
                 # Calculate Residual
-                R = I - tdot(Phi, ahat)
+                R = I - t2dot(Phi, ahat)
 
                 # Prediction Residual
-                ZPhi = tdot(Phi, Z)
-                ZR = nI - tdot(ZPhi, ahat)
+                ZR = nI - t3dot(Phi, Z, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
-                    #print 'Updating Phi'
                     # Update Basis Functions
                     eta = get_veta(self.batch_size * t, self.neurons,
                                    self.runtype, self.time_batch_size)
@@ -321,15 +316,14 @@ class LcaNetwork():
                     #Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
 
                     # Update Transformation Matrix
-                    eta = .006 # This works for whatever reason...
-                    dZ = eta * (tdot(tdot(Phi.T, nI), ahat.T) - tdot(tdot(tdot(Phi.T, ZPhi), ahat), ahat.T))
+                    eta /= 11 # This works for whatever reason...
+                    dZ = eta * (t3dot(Phi.T, nI, ahat.T) - t5dot(Phi.T, Phi, Z, ahat, ahat.T))
                     Z = Z + dZ
-                    Z = tdot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
+                    Z = t2dot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
 
                     # Check new error
-                    R2 = I - tdot(Phi, ahat)
-                    ZPhi2 = tdot(Phi, Z)
-                    ZR2 = nI - tdot(ZPhi2, ahat)
+                    R2 = I - t2dot(Phi, ahat)
+                    ZR2 = nI - t3dot(Phi, Z, ahat)
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
@@ -622,8 +616,8 @@ class LcaNetwork():
     def sparsify(self, I, Phi, u_prev=None, num_iterations=80):
         'Run the LCA coefficient dynamics'
 
-        b = tdot(Phi.T, I)
-        G = tdot(Phi.T, Phi) - np.eye(self.neurons)
+        b = t2dot(Phi.T, I)
+        G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
 
         if self.fixed_lambda:
             l = np.ones(self.batch_size)
@@ -652,7 +646,7 @@ class LcaNetwork():
                 axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
                 self.ax[1,1].axis([0, self.neurons, 0, axis_height])
 
-                recon = tdot(Phi, a)
+                recon = t2dot(Phi, a)
                 self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
                 self.ax[0,0].set_title('Iter=%d\nReconstruct' % 0)
 
@@ -676,7 +670,7 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            u = self.coeff_eta * (b - tdot(G,a)) + (1 - self.coeff_eta) * u
+            u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
             check_activity(b, G, u, a)
@@ -690,7 +684,7 @@ class LcaNetwork():
                 self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
                 # Update Reconstruction
-                recon = tdot(Phi, a)
+                recon = t2dot(Phi, a)
                 self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
                 self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
 
@@ -788,8 +782,8 @@ class LcaNetwork():
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
-            #print 'Assigning stdout to %s' % logfile
-            #sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+            print 'Assigning stdout to %s' % logfile
+            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
 
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)
@@ -800,15 +794,18 @@ class LcaNetwork():
 
         fname = '%s/%s_%.1f' % (path, name, comp)
         plt.savefig('%s.png' % fname)
+
         if Z is not None:
+            scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
             plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.seismic)
             plt.colorbar()
             plt.draw()
             plt.savefig('%s_Z.png' % fname)
             plt.show()
+            plt.clf()
+        else:
+            scipy.io.savemat(fname, {'Phi':Phi})
 
-
-        scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
         print '%s_%.1f successfully written.' % (name, comp)
 
     def run(self):

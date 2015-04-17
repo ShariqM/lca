@@ -5,12 +5,39 @@ import theano.tensor as T
 
 # Theano Matrix Multiplication Optimization
 if socket.gethostname() == 'redwood2':
+    Av = T.fmatrix('A')
+    Bv = T.fmatrix('B')
+    o2 = T.dot(Av, Bv)
+    t2dot = theano.function([Av, Bv], o2, allow_input_downcast=True)
+
+    Cv = T.fmatrix('C')
+    Dv = T.fmatrix('D')
+    Ev = T.fmatrix('E')
+    o3 = T.dot(T.dot(Cv, Dv), Ev)
+    t3dot = theano.function([Cv, Dv, Ev], o3, allow_input_downcast=True)
+
+    Dv = T.fmatrix('D')
+    Ev = T.fmatrix('E')
+    Fv = T.fmatrix('F')
     Gv = T.fmatrix('G')
-    av = T.fmatrix('a')
-    o  = T.dot(Gv, av)
-    tdot = theano.function([Gv, av], o, allow_input_downcast=True)
+    o4 = T.dot(T.dot(Dv, Ev), T.dot(Fv, Gv))
+    t4dot = theano.function([Dv, Ev, Fv, Gv], o4, allow_input_downcast=True)
+
+    Hv = T.fmatrix('H')
+    Iv = T.fmatrix('I')
+    Jv = T.fmatrix('J')
+    Kv = T.fmatrix('K')
+    Lv = T.fmatrix('L')
+    o5 = T.dot(T.dot(Hv, T.dot(Iv, Jv)), T.dot(Kv, Lv))
+    t5dot = theano.function([Hv, Iv, Jv, Kv, Lv], o5, allow_input_downcast=True)
+
 else:
-    tdot = np.dot
+    def dot_many(*args):
+        A = []
+        for a in args:
+            A.append(a)
+        return reduce(nump.dot, A)
+    t2dot = t3dot = t4dot = t5dot = np.dot
 
 def get_images(image_data_name):
     if 'LONG' or '120' in image_data_name:
