@@ -138,3 +138,27 @@ def get_veta(t, neurons, runtype, batch_size):
     if t < start + 5*inc:
         return 0.18/batch_size
     return 0.10/batch_size
+
+import scipy.stats as stats
+
+def my_dist(mean, point):
+    sign = np.sign(mean - point)
+    diff = np.abs(mean - point)
+    if diff == 0:
+        return 0.8
+    elif diff == 1:
+        return sign * 0.3
+    elif diff == 2:
+        return sign * 0.1
+    return 0.0
+
+def gauss(mean, point):
+    return stats.norm(loc=mean,scale=1.00).pdf(point)
+
+def initZ(neurons):
+    Z = np.zeros((neurons, neurons))
+    for r in range(neurons):
+        for c in range(neurons):
+            Z[r,c] = my_dist(r, c)
+    return Z
+

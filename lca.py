@@ -38,7 +38,7 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 576 # Number of basis functions
+    neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
@@ -64,7 +64,7 @@ class LcaNetwork():
 
     lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
-    iters_per_frame = 10 # Only for vLearning
+    iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
     load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
     save_activity = False # Only supported for vReconstruct
@@ -283,6 +283,10 @@ class LcaNetwork():
 
         # Transformation matrix
         Z = np.eye(self.neurons)
+        Z = initZ(self.neurons)
+        #Z = np.random.randn(self.neurons, self.neurons)
+        #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
+        #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
 
         max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
@@ -316,8 +320,9 @@ class LcaNetwork():
                     #dPhi =  eta * (t2dot(R, ahat.T) + tdot(ZR, Zahat.T))
 
                     # Calculate dZ
-                    #eta /= 11 # This works for whatever reason...
+                    eta /= 3   # This works for whatever reason...
                     dZ = eta * t2dot(UR, u_prev.T)
+                    #print 'norm :', np.linalg.norm(dZ)
                     #dZ = eta * (t3dot(Phi.T, nI, ahat.T) - t5dot(Phi.T, Phi, Z, ahat, ahat.T))
 
                     # Update
@@ -330,7 +335,13 @@ class LcaNetwork():
                     R2 = I - t2dot(Phi, ahat)
                     tmp_u_pred = t2dot(Z, u_prev) # Recalculate
                     tmp_a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
+                    UR2 = u - tmp_u_pred
+                    nUR = np.linalg.norm(UR)
+                    nUR2 = np.linalg.norm(UR2)
+                    if nUR2 > nUR:
+                        print 'Fail: UR: %f, UR2: %f' % (np.linalg.norm(UR), np.linalg.norm(UR2))
                     ZR2 = I - t2dot(Phi, tmp_a_pred)
+                    IR = I - t2dot(Phi, self.thresh(u_prev, np.ones(self.batch_size) * self.lambdav))
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
@@ -356,13 +367,16 @@ class LcaNetwork():
             p_mse_a = (ZR2 ** 2).mean()
             p_snr_a = 10 * log(var/p_mse_a, 10)
 
+            i_mse = (IR ** 2).mean()
+            i_snr = 10 * log(var/i_mse, 10)
+
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
                 self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Z)
 
-            print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, self.lambdav, snr, snr_a, p_snr, p_snr_a, 100.0 * ac / max_active,
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || i_snr=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (t, self.lambdav, snr, snr_a, i_snr, p_snr, p_snr_a, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
         self.view_log_save(Phi, 100.0, Z)
@@ -791,8 +805,9 @@ class LcaNetwork():
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
-            print 'Assigning stdout to %s' % logfile
-            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+            print 'Not Assigning stdout to %s' % logfile
+            #print 'Assigning stdout to %s' % logfile
+            #sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
 
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)
@@ -806,7 +821,7 @@ class LcaNetwork():
 
         if Z is not None:
             scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
-            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.seismic)
+            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.brg)
             plt.colorbar()
             plt.draw()
             plt.savefig('%s_Z.png' % fname)
