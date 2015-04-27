@@ -11,7 +11,7 @@ import h5py
 import argparse
 
 orig_show = True
-smooth_show = True
+smooth_show = False
 
 #oname = 'IMAGES_DUCK_LONG'
 #sname = 'IMAGES_DUCK_LONG_SMOOTH_0.7'
@@ -20,7 +20,7 @@ smooth_show = True
 #sname = 'IMAGES_DUCK_LONG_FAKE_SMOOTH_0.7'
 
 oname = 'IMAGES_DUCK'
-sname = 'IMAGES_DUCK_SMOOTH_0.7'
+#sname = 'IMAGES_DUCK_SMOOTH_0.7'
 
 #oname = 'IMAGES_DUCK_SHORT'
 #sname = 'IMAGES_DUCK_SHORT_SMOOTH_0.7'
