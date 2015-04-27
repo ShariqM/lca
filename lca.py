@@ -1,254 +1,201 @@
-" Run LCA on a data set g"
+" Run LCA on a data set"
 import matplotlib
 import socket
 if socket.gethostname() == 'redwood2':
     matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
-matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
-#matplotlib.use('TkAgg') # For tight_layout() # Invalidates Jpeg
 
-import scipy.io
-import sys
 import pdb
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-from matplotlib import cm
-import time
+
 from math import log
 from math import isnan
-from colors import COLORS
+import random
+import scipy.io
+import numpy as np
 from datetime import datetime
-from helpers import *
-from runtype import *
-from theano import *
-import theano.tensor as T
+import time
+
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+import sys
+import os
 import h5py
 import inspect
 
-# Parameters
-patch_dim   = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 288 # Number of basis functions
-neurons     = 1024 # Number of basis functions
-#neurons     = 576 # Number of basis functions
-
-#patch_dim   = 256 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-#neurons     = 1024  # Number of basis functions
-lambdav     = 1.60  # Minimum Threshold
-lambda_decay= 0.95
-num_trials  = 20000
-batch_size  = 100
-border      = 4
-sz     = np.sqrt(patch_dim)
-
-# More Parameters
-runtype            = RunType.vLearning # Learning, vLearning, vReconstruct
-coeff_visualizer   = False # Visualize potentials of neurons
-random_patch_index = 1  # For coeff visualizer we watch a single patch over time
-thresh_type        = 'soft'
-coeff_eta          = 0.07
-fixed_lambda       = True
-lambda_type        = ''
-group_sparse       = 1
-
-#image_data_name    = 'IMAGES_FIELD'
-image_data_name    = 'IMAGES_DUCK'
-image_data_name    = 'IMAGES_DUCK_SHORT'
-#image_data_name    = 'IMAGES_DUCK_120'
-iters_per_frame    = 30 # Only for vLearning
-if image_data_name == 'IMAGES_DUCK_LONG' or \
-     image_data_name == 'IMAGES_DUCK_120':
-    # Load data, have to use h5py because had to use v7.3 because .mat is so big.
-    f = h5py.File('mat/%s.mat' % image_data_name, 'r',)
-    IMAGES = np.array(f.get(image_data_name))
-    IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
-else:
-    IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
-(imsize, imsize, num_images) = np.shape(IMAGES)
-
-skip_frames = True
-start_t = 0
-#start_t = 6000
-init_Phi = ''
-#init_Phi = 'Phi_206/Phi_206_0.4.mat'
-#init_Phi = 'Bruno_FIELD_Phi144x200.mat'
-#init_Phi = 'Phi_193_37.0.mat'
-#init_Phi = 'Bruno_FIELD_Phi256x1024.mat'
-#init_Phi = 'Phi_169_45.0.mat'
-#init_Phi = 'Phi_192/Phi_192_36.8.mat'
-#init_Phi = 'Phi_166/Phi_166_59.4.mat'
-
-#init_Phi = 'Phi_.mat/Phi_6/Phi_67/Phi_67_1.2.mat'
-#init_Phi = 'Phi_71/Phi_71_7.5'
-#init_Phi = 'Phi_IMAGES_DUCK_OC=4.0_lambda=0.007.mat' # Solid dictionary
-
-load_sequentially = False # False unsupported at the moment 2-6-15
-time_batch_size = 100
-
-print 'num images %d, num trials %d' % (num_images, num_trials)
-
-if coeff_visualizer:
-    print 'Setting batch size to 1'
-    batch_size = 1
-
-# Don't block when showing images
-plt.ion()
-
-# Theano Matrix Multiplication Optimization
-if socket.gethostname() == 'redwood2':
-    Gv = T.fmatrix('G')
-    av = T.fmatrix('a')
-    o  = T.dot(Gv, av)
-    tdot = theano.function([Gv, av], o, allow_input_downcast=True)
-else:
-    tdot = np.dot
-
-# Load video images from sequential time points
-def load_vImages(I, t, patch_per_dim):
-    if coeff_visualizer: # Pick 1 specified patch
-        print 'coeff visualizer'
-        rr = random_patch_index * sz
-        cc = random_patch_index * sz
-        I[:,0] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
-    else: # Grab all the patches
-        i = 0
-        for r in range(patch_per_dim):
-            for c in range(patch_per_dim):
-                rr = r * sz
-                cc = c * sz
-                I[:,i] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, t], patch_dim, 1)
-                i = i + 1
-    return I
-
-# Load video images from random starting points
-def load_vrImages(I):
-    # Choose a random image less than batch_size images away from the end
-    imi = np.ceil((num_images - batch_size) * random.uniform(0, 1))
-
-    if coeff_visualizer: # Pick 1 specified patch
-        print 'coeff visualizer'
-        rr = random_patch_index * sz
-        cc = random_patch_index * sz
-        I[:,0] = np.reshape(IMAGES[rr:rr+sz, cc:cc+sz, imi], patch_dim, 1)
-    else:
-        r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-        c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-        for i in range(batch_size):
-            pdb.set_trace()
-            I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1+i], patch_dim, 1)
-            i = i + 1
-    return I
-
-def load_images(I):
-    # Choose a random image
-    imi = np.ceil(num_images * random.uniform(0, 1))
-
-    # Pick batch_size random patches from the random image
-    for i in range(batch_size):
-        r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-        c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-
-        I[:,i] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi-1], patch_dim, 1)
-
-    return I
-
-import os
-def log_and_save_dict(Phi, comp):
-    # Log dictionary and Save Mat file
-    f = open('log.txt', 'r')
-    rr = 0
-    while True:
-        r = f.readline()
-        if r == '':
-            break
-        rr = r
-    f.close()
-
-    if comp == 0.0: # Only log on first write
-        name = 'Phi_%d' % (int(rr) + 1)
-
-        path = 'dict/%s' % name
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        f = open('log.txt', 'a')
-
-        f.write('\n*** %s ***\n' % name)
-        f.write('Time=%s\n' % datetime.now())
-        f.write('RunType=%s\n' % get_RunType_name(runtype))
-        f.write('IMAGES=%s\n' % image_data_name)
-        f.write('patch_dim=%d\n' % patch_dim)
-        f.write('neurons=%d\n' % neurons)
-        f.write('lambdav=%.3f\n' % lambdav)
-        f.write('Lambda Decay=%.2f\n' % lambda_decay)
-        f.write('num_trials=%d\n' % num_trials)
-        f.write('batch_size=%d\n' % batch_size)
-        f.write('time_batch_size=%d\n' % time_batch_size)
-        f.write('NUM_IMAGES=%d\n' % num_images)
-        f.write('iter_per_frame=%d\n' % iters_per_frame)
-        f.write('thresh_type=%s\n' % thresh_type)
-        f.write('coeff_eta=%.3f\n' % coeff_eta)
-        f.write('lambda_type=[%s]\n' % lambda_type)
-        f.write('InitPhi=%s\n' % init_Phi)
-        f.write('Load Sequentially=%s\n' % load_sequentially)
-        f.write('Skip initial frames=%s\n' % skip_frames)
-        f.write('Group Sparse=%d\n' % group_sparse)
-
-        f.write('%d\n' % (int(rr)+1))
-        f.close()
-
-        logfile = '%s/%s_log.txt' % (path, name)
-        print 'Assigning stdout to %s' % logfile
-        sys.stdout = open(logfile, 'w')
-        print inspect.getsource(get_eta)
-        print inspect.getsource(get_veta)
-    else:
-        name = 'Phi_%d' % (int(rr))
-        path = 'dict/%s' % name
-
-    fname = '%s/%s_%.1f' % (path, name, comp)
-    plt.savefig('%s.png' % fname)
-    scipy.io.savemat(fname, {'Phi':Phi})
-    print '%s_%.1f successfully written.' % (name, comp)
-
 from showbfs import showbfs
-def Learning():
-    global batch_size # Wow epic fail http://bugs.python.org/issue9049
-    global lambdav
-    global num_images
+from helpers import *
+from runtype import *
+from runp import *
+from colors import COLORS
 
-    # Initialize basis functions
-    if init_Phi != '':
-        Phi = scipy.io.loadmat('dict/%s' % init_Phi)
-        Phi = Phi['Phi']
-    else:
-        Phi = np.random.randn(patch_dim, neurons)
-        Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+class LcaNetwork():
 
-    ahat_prev = None # For reusing coefficients of the last frame
-    if runtype == RunType.vLearning:
-        patch_per_dim = int(np.floor(imsize / sz))
-        if not coeff_visualizer and load_sequentially:
-            batch_size = patch_per_dim**2
+    datasets = {0:'IMAGES_FIELD',
+                1:'IMAGES_DUCK_SHORT',
+                2:'IMAGES_DUCK',
+                3:'IMAGE_DUCK_LONG',
+                4:'IMAGES_DUCK_120'}
 
-    # Initialize batch of images
-    I = np.zeros((patch_dim, batch_size))
+    # Sparse Coding Parameters
+    patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+    neurons      = 576 # Number of basis functions
+    sz           = np.sqrt(patch_dim)
 
-    max_active = float(neurons * batch_size)
-    start = datetime.now()
+    lambdav      = 0.07   # Minimum Threshold
+    batch_size   = 100
+    border       = 4
+    num_trials   = 20000
 
-    if runtype == RunType.Learning:
-        for t in range(start_t, num_trials):
-            I = load_images(I)
-            u, ahat = sparsify(I, Phi, lambdav) # Coefficient Inference
+    init_phi_name = '' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_193_37.0.mat'
+    #init_phi_name = 'Phi_198_9.6.mat'
+    init_phi_name = 'Phi_209/Phi_209_0.4.mat'
+
+    # LCA Parameters
+    skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
+    fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
+    lambda_decay = 0.95
+    thresh_type  = 'soft'
+    #coeff_eta    = 0.25 # Wack point
+    coeff_eta    = 0.05 # Normal
+    #coeff_eta    = 0.01 # Normal
+    u_factor = 0.8
+
+    lambda_type  = ''
+    group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
+    iters_per_frame = 10 # Only for vLearning
+    time_batch_size = 100
+    load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
+    save_activity = False # Only supported for vReconstruct
+
+    # General Parameters
+    #runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    log_and_save = False # Log parameters save dictionaries
+
+    # Visualizer parameters
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    iter_idx        = 0
+    num_frames      = 100 # Number of frames to visualize
+    if coeff_visualizer:
+        matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
+    graphics_initialized = False
+    save_cgraphs = False
+
+    random_patch_index = 3                    # Patch for coeff_visualizer
+    start_t = 0                               # Used if you want to continue learning of an existing dictionary
+
+    def __init__(self):
+        self.image_data_name = self.datasets[1]
+        self.IMAGES = self.get_images(self.image_data_name)
+        (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
+        self.patch_per_dim = int(np.floor(imsize / self.sz))
+
+        try:
+            self.phi_idx = self.get_phi_idx()
+        except Exception as e:
+            raise Exception('Corrupted log.txt file, please fix manually')
+
+        if self.coeff_visualizer:
+            self.batch_size = 1
+        print 'num images %d, num trials %d' % (self.num_images, self.num_trials)
+
+        # Don't block when showing images
+        plt.ion()
+
+    def get_images(self, image_data_name):
+        if 'LONG' in image_data_name or '120' in image_data_name:
+            f = h5py.File('mat/%s.mat' % image_data_name, 'r',) # Need h5py for big file
+            IMAGES = np.array(f.get(image_data_name))
+            IMAGES = np.swapaxes(IMAGES, 0, 2) # v7.3 reorders for some reason, or h5?
+        else:
+            IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+        return IMAGES
+
+    # Image Loaders
+    def load_rimages(self, I):
+        '(1) Choose a batch_size number of random images. Used by Learning()'
+
+        border, imsize, sz = self.border, self.imsize, self.sz
+        imi = np.ceil(self.num_images * random.uniform(0, 1))
+        # Pick batch_size random patches from the random image
+        for i in range(self.batch_size):
+            r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+            c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+
+            I[:,i] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi-1], self.patch_dim, 1)
+
+        return I
+
+    def load_image(self, I, t):
+        '(2) Load all patches for image $t$. Used by vReconstruct()'
+
+        sz = self.sz
+        if self.coeff_visualizer: # Pick 1 patch insteadj
+            rr = self.random_patch_index * sz
+            cc = self.random_patch_index * sz
+            I[:,0] = np.reshape(self.IMAGES[rr:rr+sz, cc:cc+sz, t], self.patch_dim, 1)
+        else:
+            i = 0
+            for r in range(self.patch_per_dim):
+                for c in range(self.patch_per_dim):
+                    rr = r * sz
+                    cc = c * sz
+                    I[:,i] = np.reshape(self.IMAGES[rr:rr+sz, cc:cc+sz, t], self.patch_dim, 1)
+                    i = i + 1
+        return I
+
+    def load_videos(self):
+        '(3) Load a batch_size number of Space-Time boxes of individual random patches. Used by vLearning()'
+
+        border, imsize, sz, tbs = self.border, self.imsize, self.sz, self.time_batch_size
+        VI = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        if self.coeff_visualizer:
+            r = self.random_patch_index * sz
+            c = self.random_patch_index * sz
+            VI[:,0,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, 0:tbs], (self.patch_dim, tbs), 1)
+        else:
+            for x in range(self.batch_size):
+                # Choose a random image less than time_batch_size images away from the end
+                imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
+                r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
+                VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
+        return VI
+
+    def init_Phi(self):
+        # Initialize basis functions
+        if self.init_phi_name != '':
+            Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)
+            Phi = Phi['Phi']
+        else:
+            Phi = np.random.randn(self.patch_dim, self.neurons)
+            Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+        return Phi
+
+
+    def Learning(self):
+        'Run the normal, no inertia, LCA learning algorithm'
+        Phi = self.init_Phi()
+
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        max_active = float(self.neurons * self.batch_size)
+        start = datetime.now()
+
+        for t in range(self.start_t, self.num_trials):
+            I = self.load_rimages(I)
+            u, ahat = self.sparsify(I, Phi) # Coefficient Inference
 
             # Calculate Residual
-            R = I - tdot(Phi, ahat)
+            R = I - t2dot(Phi, ahat)
 
             # Update Basis Functions
-            dPhi = get_eta(t, neurons, runtype, batch_size) * (tdot(R, ahat.T))
+            dPhi = get_eta(t, self.neurons, self.runtype, self.batch_size) * (t2dot(R, ahat.T))
 
             Phi = Phi + dPhi
-            Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+            Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
             # Plot every 200 iterations
             if np.mod(t, 20  ) == 0:
@@ -257,57 +204,59 @@ def Learning():
                 snr = 10 * log(var/mse, 10)
 
                 ahat_c = np.copy(ahat)
-                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
                 print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, lambdav, snr, 100.0 * ac / max_active,
+                        % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
                 sys.stdout.flush()
-                showbfs(Phi, get_eta(t, neurons, runtype, batch_size))
+                showbfs(Phi, self.phi_idx)
                 plt.show()
 
             if np.mod(t, 20) == 0:
-                log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
-    else:
-        for t in range(start_t, num_trials):
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials)
 
-            VI = np.zeros((patch_dim, batch_size, time_batch_size)) # Batch_size videos of time_batch_size frames
-            for x in range(batch_size):
-                # Choose a random image less than time_batch_size images away from the end
-                imi = np.floor((num_images - time_batch_size) * random.uniform(0, 1))
-                r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-                c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-                VI[:,x,:] = np.reshape(IMAGES[r:r+sz, c:c+sz, imi:imi+time_batch_size], (patch_dim, time_batch_size), 1)
-                #showbfs(VI[:,x,:])
-                #pdb.set_trace()
+        self.view_log_save(Phi, 100.0)
 
-            u_prev = None
-            for i in range(time_batch_size):
+    def vLearning(self):
+        'Run the video, inertia, LCA learning algorithm'
+        Phi = self.init_Phi()
+
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        max_active = float(self.neurons * self.batch_size)
+        start = datetime.now()
+
+        for t in range(self.start_t, self.num_trials):
+            VI = self.load_videos()
+
+            u_prev = None # Neurons keep state from previous frame
+            for i in range(self.time_batch_size):
                 I = VI[:,:,i]
 
-                u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev,
-                                    num_iterations=iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=self.iters_per_frame)
                 u_prev = u
 
                 # Calculate Residual
                 R = I - tdot(Phi, ahat)
 
-                if not skip_frames or i > 80/iters_per_frame:
+                if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
                     # Update Basis Functions
-                    dPhi = get_veta(batch_size * t, neurons, runtype, time_batch_size) * (tdot(R, ahat.T))
+                    dPhi = get_veta(self.batch_size * t, self.neurons,
+                                    self.runtype, self.time_batch_size) * (tdot(R, ahat.T))
 
                     Phi = Phi + dPhi
                     Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
-                ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
                 if i % 50 == 0:
-                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, lambdav, 100.0 * ac / max_active)
-
+                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, self.lambdav, 100.0 * ac / max_active)
 
             var = I.var().mean()
             mse = (R ** 2).mean()
@@ -316,383 +265,558 @@ def Learning():
             sys.stdout.flush()
 
             if np.mod(t, 5) == 0:
-                showbfs(Phi, get_veta(batch_size * t, neurons, runtype, time_batch_size))
-                log_and_save_dict(Phi, 100.0 * float(t)/num_trials)
-            plt.show()
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials)
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, lambdav, snr, 100.0 * ac / max_active,
+                        % (t, self.lambdav, snr, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
 
-    log_and_save_dict(Phi, 100.0)
-    plt.show()
+        self.view_log_save(Phi, 100.0)
 
-def vReconstruct():
-    global batch_size
+    def vmLearning(self):
+        'Run the video, inertia, transformation, LCA learning algorithm'
+        Phi = self.init_Phi()
 
-    # Just look at first X frames
-    num_frames = 100
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
 
-    # Load dict from Learning run
-    Phi = scipy.io.loadmat('dict/%s' % init_Phi)['Phi']
+        # Transformation matrix
+        Z = np.eye(self.neurons)
 
-    # Tile the entire image with patches
-    patch_per_dim = int(np.floor(imsize / sz))
-
-    # Set the batch_size to number of patches in an image
-    if not coeff_visualizer:
-        batch_size = patch_per_dim**2
-
-
-    # Initialize batch of images
-    I = np.zeros((patch_dim, batch_size))
-
-    # **** Hack? Diff lambda for training vs. reconstructing ****
-    global lambdav
-    lambdav = 0.15
-
-    max_active = float(neurons * batch_size)
-
-    # Run parameters: (bool=Initialize coeff to prev frame, int=iters_per_frame, float=lambdav)
-    #run_p = [(True, 10, 0.02), (True, 20, 0.02), (True, 40, 0.02)]
-    #run_p = [(False, 80, lambdav)]
-    run_p = [(True, 10, lambdav)]
-    #run_p = [(False, 80, lambdav)]
-    #run_p = [(False, 80, lambdav)]
-
-    labels = []
-    for (initP, x, y) in run_p:
-        if initP == True:
-            labels += ["InitP (%d)" % x]
-        else:
-            labels += ["Init0 (%d)" % x]
-
-    runs = len(labels)
-    rcolor = [COLORS['red'], COLORS['green'], COLORS['blue'], COLORS['black'],
-              COLORS['yellow2'], COLORS['purple']]
-    top_CC_AC=0 # [C]hanged [C]oefficients, [A]ctive [C]oefficients
-
-    for run in range(runs):
-        # Record data
-        MSE = [] # Mean Squared Error
-        SNR = [] # Signal to Noise ratio
-        AC  = np.zeros(num_frames) # Active coefficients
-        CC  = np.zeros(num_frames) # Changing coefficients
-        activity_log = np.zeros((neurons, batch_size, num_frames))
-
-        u_prev = None
-        ahat_prev = np.zeros((neurons, batch_size))
-        ahat_prev_c = np.zeros((neurons, batch_size))
-
-        #lambdav = run_p[run][2]
-
+        max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
-        for t in range(num_frames):
-            I = load_vImages(I, t, patch_per_dim)
 
-            if run_p[run][0] == True: # InitP
-                u, ahat = sparsify(I, Phi, lambdav, u_prev=u_prev, num_iterations=run_p[run][1])
-            else:
-                u, ahat = sparsify(I, Phi, lambdav, num_iterations=run_p[run][1])
+        for t in range(self.start_t, self.num_trials):
+            VI = self.load_videos()
 
-            #activity_log[:,:,t] = np.abs(ahat) # Use magnitude
-            activity_log[:,:,t] = ahat
+            u_prev = None # Neurons keep state from previous frame
+            for i in range(0, self.time_batch_size - 1):
+                I = VI[:,:,i]
+                nI = VI[:,:,i+1] # Next image
 
-            # Calculate Residual Error
-            R = I - tdot(Phi, ahat)
-            mse = (R ** 2).mean()
-            MSE.append(mse)
+                #u, ahat = self.msparsify(I, nI, Phi, Z, u_prev=u_prev, num_iterations=self.iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=self.iters_per_frame)
+                u_prev = u
+
+                # Calculate Residual
+                R = I - t2dot(Phi, ahat)
+
+                # Prediction Residual
+                ZR = nI - t3dot(Phi, Z, ahat)
+
+                if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
+                    # Update Basis Functions
+                    eta = get_veta(self.batch_size * t, self.neurons,
+                                   self.runtype, self.time_batch_size)
+
+                    #Zahat = tdot(Z, ahat)
+                    #dPhi =  eta * (tdot(R, ahat.T) + tdot(ZR, Zahat.T))
+
+                    #Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    #Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+
+                    # Update Transformation Matrix
+                    eta /= 11 # This works for whatever reason...
+                    dZ = eta * (t3dot(Phi.T, nI, ahat.T) - t5dot(Phi.T, Phi, Z, ahat, ahat.T))
+                    Z = Z + dZ
+                    Z = t2dot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
+
+                    # Check new error
+                    R2 = I - t2dot(Phi, ahat)
+                    ZR2 = nI - t3dot(Phi, Z, ahat)
+
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+
+                if i % 50 == 0:
+                    print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, self.lambdav, 100.0 * ac / max_active)
+
             var = I.var().mean()
-            SNR.append(10 * log(var/mse, 10))
-
-            ahat_prev = ahat
-
-            ahat_c = np.copy(ahat)
-            ahat_c[np.abs(ahat_c) > lambdav/1000.0] = 1
-            AC[t] = np.sum(ahat_c)
-            CC[t] = np.sum(ahat_c!=ahat_prev_c)
-            ahat_prev_c = ahat_c
-            u_prev = u
-
-            print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
-                    % (t, labels[run], lambdav, SNR[t], 100.0 * AC[t] / max_active)
-        elapsed = (datetime.now() - start).seconds
-
-        #np.save('coeff_S193__initP20_100t', activity_log)
-        x_num = 59
-        y_num = 98
-        #x_num = 868
-        #y_num = 919
-        #x_num = 117
-        #y_num = 132
-        log_x = np.zeros(0)
-        log_y = np.zeros(0)
-        batch_size = 10
-        colors = np.linspace(0, 1, batch_size)
-        for i in range(batch_size):
-            #log_x = np.concatenate((log_x, activity_log[x_num, i, :]))
-            #log_y = np.concatenate((log_y, activity_log[y_num, i, :]))
-            #log_x = activity_log[x_num, i, :] + 9 * np.random.rand()
-            #log_y = activity_log[y_num, i, :] + 3 * np.random.rand()
-            log_x = activity_log[x_num, i, :]
-            log_y = activity_log[y_num, i, :]
-            #cc = [colors[i]] * len(log_x)
-            colors = np.linspace(0, 1, len(log_x))
-            color = COLORS[COLORS.keys()[i]]
-            plt.scatter(log_x, log_y, s=8, c=color, label=str(i), cmap=plt.get_cmap('autumn'), lw=0)
-            #plt.scatter(log_x, log_y, s=8, c=COLORS['green'], label=str(i), cmap=plt.get_cmap('autumn'), lw=0)
-        plt.xlabel("%d Activity" % x_num)
-        plt.ylabel("%d Activity" % y_num)
-        plt.legend(loc=4, prop={'size':6})
-        plt.show(block=True)
-        plt.savefig('plots/%s.png' % datetime.now())
-
-        plt.subplot(231)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('MSE', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0.0, max(MSE) * 1.1])
-        plt.plot(range(num_frames), MSE, color=rcolor[run], label=labels[run])
-        lg = plt.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
-        lg.draw_frame(False)
-
-        #top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
-        #plt.subplot(232)
-        #plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        #plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
-        #plt.axis([0, num_frames, 0, top_CC_AC])
-        #plt.plot(range(num_frames), AC, color=rcolor[run])
-
-        top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
-
-        plt.subplot(232)
-        act_a = np.average(activity_log[29 -1, :, :], axis=0)
-        act_b = np.average(activity_log[434 -1, :, :], axis=0)
-        #act_c = np.average(activity_log[288 -1, :, :], axis=0)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('Activity', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0, max(max(act_a), max(act_b),)])
-        #plt.axis([0, num_frames, 0, max(max(act_a), max(act_b), max(act_c))])
-        plt.plot(range(num_frames), act_a, color=rcolor[run])
-        plt.plot(range(num_frames), act_b, color=COLORS['green'])
-        #plt.plot(range(num_frames), act_c, color=COLORS['blue'])
-
-
-        plt.subplot(233)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('# Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0, top_CC_AC])
-        plt.plot(range(num_frames), CC, color=rcolor[run])
-
-        plt.subplot(234)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0.0, 22])
-        plt.plot(range(num_frames), SNR, color=rcolor[run], label=labels[run])
-        lg = plt.legend(bbox_to_anchor=(-0.6 , 0.60), loc=2, fontsize=10)
-        lg.draw_frame(False)
-
-        # % plots
-        top_p = 100 * top_CC_AC / max_active
-        plt.subplot(235)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('% Active Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0, top_p])
-        plt.plot(range(num_frames), 100 * AC / max_active, color=rcolor[run])
-
-        plt.subplot(236)
-        plt.xlabel('Time (steps)', fontdict={'fontsize':12})
-        plt.ylabel('% Changed Coeff', fontdict={'fontsize':12})
-        plt.axis([0, num_frames, 0, top_p])
-        plt.plot(range(num_frames), 100 * CC / max_active, color=rcolor[run])
-
-    plt.suptitle("DATA=%s, LAMBDAV=%.3f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
-                    (image_data_name, lambdav, imsize, imsize, sz, sz, neurons, patch_per_dim ** 2, elapsed), fontsize=18)
-    plt.show(block=True)
-
-def sparsenet():
-    if runtype == RunType.vReconstruct:
-        vReconstruct()
-    else:
-        Learning()
-
-def visualizer_code():
-    pass
-
-fig = None
-ax = None
-coeffs = None
-lthresh = None
-initialized = False
-frame_idx = 0
-frame_end = 200
-def sparsify(I, Phi, lambdav, u_prev=None, num_iterations=80):
-    """
-    LCA Inference.
-    I: Image batch (dim x batch)
-    Phi: Dictionary (dim x dictionary element)
-    lambdav: Sparsity coefficient
-    coeff_eta: Update rate
-    """
-    global lambda_type
-    batch_size = np.shape(I)[1]
-
-    (N, M) = np.shape(Phi)
-    sz = np.sqrt(N)
-
-    b = tdot(Phi.T, I)
-    G = tdot(Phi.T, Phi) - np.eye(M)
-
-    if runtype == RunType.Learning:
-        lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
-        l = 0.5 * np.max(np.abs(b), axis = 0)
-        #lambda_type = 'l = 0.1 * np.max(np.abs(b), axis = 0)'
-        #l = 0.1 * np.max(np.abs(b), axis = 0)
-    else:
-        if fixed_lambda:
-            #l = 0.1 * np.max(np.abs(b), axis = 0)
-            l = np.ones(batch_size)
-            l *= lambdav
-            lambda_type = 'Fixed and lambdav'
-        else:
-            l = 0.5 * np.max(np.abs(b), axis = 0)
-            lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
-
-    if u_prev is not None:
-        u = u_prev
-    else:
-        u = np.zeros((M,batch_size))
-
-    a = g(u, l)
-
-    showme = False
-
-    global fg, ax
-    global initialized
-    #if not initialized and coeff_visualizer:
-    if coeff_visualizer:
-        assert batch_size == 1
-        if not initialized:
-            fg, ax = plt.subplots(2,2)
-
-        ax[1,0].imshow(np.reshape(I[:,0], (sz, sz)),cmap = cm.binary, interpolation='nearest')
-        #ax[1,0].set_axes('off')
-        ax[1,0].set_title('Image')
-
-        if not initialized:
-            initialized = True
-            global frame_idx, coeffs, lthresh
-            ax[1,1].set_title('Coefficients')
-            ax[1,1].set_xlabel('Coefficient Index')
-            ax[1,1].set_ylabel('Activity')
-
-            coeffs = ax[1,1].bar(range(M), np.abs(u), color='r', lw=0)
-            lthresh = ax[1,1].plot(range(M+1), list(l) * (M+1), color='g')
-            #lthresh2 = ax[1,1].plot(range(M), list(-l) * M, color='r')
-            #ax[1,1].plot(range(M), [0] * (M, color='k') 0 line
-
-            if runtype == RunType.Learning:
-                #ax[1,1].axis([0, M, -1.05, 1.05]) Negative taken out because set_height(neg) is glitchy
-                ax[1,1].axis([0, M, 0, 1.05])
-            else:
-                #ax[1,1].axis([0, M, -lambdav * 10, lambdav * 10])
-                ax[1,1].axis([0, M, 0, lambdav * 5])
-
-            recon = tdot(Phi, a)
-            ax[0,0].imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
-            #ax[0,0].set_axes('off')
-            ax[0,0].set_title('Iter=%d\nReconstruct' % frame_idx)
-
-            ax[0,1].set_title('Reconstruction Error')
-            ax[0,1].set_xlabel('Time (steps)')
-            ax[0,1].set_ylabel('SNR (dB)')
-            ax[0,1].axis([0, frame_end, 0.0, 22])
-
-            #plt.tight_layout()
-            # The subplots move around if I don't do this lol...
-            for i in range(6):
-                plt.savefig('animation/junk.png')
-            plt.savefig('animation/%d.jpeg' % frame_idx)
-            frame_idx += 1
-            #plt.clf()
-
-        if showme:
-            plt.draw()
-            plt.show()
-
-    for t in range(num_iterations):
-        u = coeff_eta * (b - tdot(G,a)) + (1 - coeff_eta) * u
-        #u += coeff_eta * (b - u - tdot(G,a)) # (Can also be written)
-        a = g(u, l)
-
-        if np.sum(u) > 1000: # Coeff explosion check
-            print 'Activity Explosion!!!'
-            print 'Data:'
-            x = tdot(G,a)
-            print 'b (sum, min, max)', np.sum(b), np.min(b), np.max(b)
-            print 'f(G,a) (sum, min, max)', np.sum(x), np.min(x), np.max(x)
-            print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
-
-        l = lambda_decay * l
-        l[l < lambdav] = lambdav
-
-        if coeff_visualizer:
-
-            for coeff, i in zip(coeffs, range(M)):
-                coeff.set_height(abs(u[i]))
-            lthresh[0].set_data(range(M+1), list(l) * (M+1))
-            #lthresh2[0].set_data(range(M), list(-l) * M)
-
-            recon = tdot(Phi, a)
-            ax[0,0].imshow(np.reshape(recon, (sz, sz)),cmap = cm.binary, interpolation='nearest')
-            ax[0,0].set_title('Iter=%d\nReconstruct' % frame_idx)
-            #plt.title('Iter=%d/%d' % (t, num_iterations))
-
-            # Plot SNR
-            global prev_snr
-            var = I.var().mean()
-            R = I - recon
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
-            color = 'r' if t == 0 else 'g'
-            ax[0,1].scatter(frame_idx, snr, s=8, c=color)
-            prev_snr = snr
 
-            time.sleep(1)
+            mse_a = (R2 ** 2).mean()
+            snr_a = 10 * log(var/mse_a, 10)
+
+
+            p_var = nI.var().mean()
+            p_mse = (ZR ** 2).mean()
+            p_snr = 10 * log(p_var/p_mse, 10)
+
+            p_mse_a = (ZR2 ** 2).mean()
+            p_snr_a = 10 * log(var/p_mse_a, 10)
+
+            sys.stdout.flush()
+
+            if np.mod(t, 5) == 0:
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Z)
+
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        % (t, self.lambdav, snr, snr_a, p_snr, p_snr_a, 100.0 * ac / max_active,
+                           (datetime.now() - start).seconds)
+
+        self.view_log_save(Phi, 100.0, Z)
+
+    def vReconstruct(self):
+        # Load dict from Learning run
+        Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
+
+        # Set the batch_size to number of patches in an image
+        if not self.coeff_visualizer:
+            self.batch_size = self.patch_per_dim**2
+
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        max_active = float(self.neurons * self.batch_size)
+
+        run_p = [RunP(True, 10, self.lambdav)]
+        labels = get_labels(run_p)
+
+        runs = len(labels)
+        rcolor = [COLORS['red'], COLORS['green'], COLORS['blue'], COLORS['black'],
+                  COLORS['yellow2'], COLORS['purple']]
+        top_CC_AC = 0 # [C]hanged [C]oefficients, [A]ctive [C]oefficients
+
+        for run in range(runs):
+            # Record data
+            MSE = [] # Mean Squared Error
+            SNR = [] # Signal to Noise ratio
+            AC  = np.zeros(self.num_frames) # Active coefficients
+            CC  = np.zeros(self.num_frames) # Changing coefficients
+            activity_log = np.zeros((self.neurons, self.batch_size, self.num_frames))
+
+            u_prev = None
+            ahat_prev = np.zeros((self.neurons, self.batch_size))
+            ahat_prev_c = np.zeros((self.neurons, self.batch_size))
+
+            start = datetime.now()
+            for t in range(self.num_frames):
+                I = self.load_image(I, t)
+
+                if run_p[run].initP == True:
+                    u, ahat = self.sparsify(I, Phi, u_prev=u_prev, num_iterations=run_p[run].iters)
+                else:
+                    u, ahat = self.sparsify(I, Phi, num_iterations=run_p[run].iters)
+
+                activity_log[:,:,t] = ahat
+
+                # Calculate Residual Error
+                R = I - tdot(Phi, ahat)
+                mse = (R ** 2).mean()
+                MSE.append(mse)
+                var = I.var().mean()
+                SNR.append(10 * log(var/mse, 10))
+
+                ahat_prev = ahat
+
+                ahat_c = np.copy(ahat)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                AC[t] = np.sum(ahat_c)
+                CC[t] = np.sum(ahat_c!=ahat_prev_c)
+                ahat_prev_c = ahat_c
+                u_prev = u
+
+                print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
+                        % (t, labels[run], self.lambdav, SNR[t], 100.0 * AC[t] / max_active)
+            elapsed = (datetime.now() - start).seconds
+
+            if self.save_activity:
+                np.save('coeff_S193__initP20_100t', activity_log)
+            plt.close()
+            matplotlib.rcParams.update({'figure.autolayout': False})
+
+            plt.subplot(231)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('MSE', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0.0, max(MSE) * 1.1])
+            plt.plot(range(self.num_frames), MSE, color=rcolor[run], label=labels[run])
+            lg = plt.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
+            lg.draw_frame(False)
+
+            top_CC_AC = max(max(CC),max(AC),top_CC_AC) * 1.1
+            plt.subplot(232)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('# Active Coeff', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0, top_CC_AC])
+            plt.plot(range(self.num_frames), AC, color=rcolor[run])
+
+            plt.subplot(233)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('# Changed Coeff', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0, top_CC_AC])
+            plt.plot(range(self.num_frames), CC, color=rcolor[run])
+
+            plt.subplot(234)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('SNR (dB)', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0.0, 22])
+            plt.plot(range(self.num_frames), SNR, color=rcolor[run], label=labels[run])
+            lg = plt.legend(bbox_to_anchor=(-0.6 , 0.60), loc=2, fontsize=10)
+            lg.draw_frame(False)
+
+            # % plots
+            top_p = 100 * top_CC_AC / max_active
+            plt.subplot(235)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('% Active Coeff', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0, top_p])
+            plt.plot(range(self.num_frames), 100 * AC / max_active, color=rcolor[run])
+
+            plt.subplot(236)
+            plt.xlabel('Time (steps)', fontdict={'fontsize':12})
+            plt.ylabel('% Changed Coeff', fontdict={'fontsize':12})
+            plt.axis([0, self.num_frames, 0, top_p])
+            plt.plot(range(self.num_frames), 100 * CC / max_active, color=rcolor[run])
+
+        plt.suptitle("DATA=%s, LAMBDAV=%.3f, IMG=%dx%d, PAT=%dx%d, DICT=%d, PAT/IMG=%d ELAP=%d" %
+                        (self.image_data_name, self.lambdav, self.imsize, self.imsize,
+                        self.sz, self.sz, self.neurons, self.batch_size, elapsed), fontsize=18)
+        plt.show(block=True)
+
+    def msparsify(self, I, nI, Phi, Z, u_prev=None, num_iterations=80):
+        'Run the LCA coefficient dynamics'
+
+        b = tdot(Phi.T, I)
+        G = tdot(Phi.T, Phi) - np.eye(self.neurons)
+
+        ZPhi = tdot(Phi, Z)
+        Zb = tdot(ZPhi.T, nI)
+        ZG = tdot(ZPhi.T, ZPhi) - np.eye(self.neurons)
+
+        if self.fixed_lambda:
+            l = np.ones(self.batch_size)
+            l *= self.lambdav
+            self.lambda_type = 'Fixed and lambdav'
+        else:
+            l = 0.5 * np.max(np.abs(b), axis = 0)
+            self.lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
+
+        u = u_prev if u_prev is not None else np.zeros((self.neurons, self.batch_size))
+        a = self.thresh(u, l)
+
+        showme = True # set to false if you just want to save the images
+        if self.coeff_visualizer:
+            if not self.graphics_initialized:
+                self.graphics_initialized = True
+                fg, self.ax = plt.subplots(3,3, figsize=(10,10))
+                #fg.set_size_inches(08.0,8.0)
+
+
+                self.ax[1,2].set_title('Coefficients')
+                self.ax[1,2].set_xlabel('Coefficient Index')
+                self.ax[1,2].set_ylabel('Activity')
+
+                self.coeffs = self.ax[1,2].bar(range(self.neurons), np.abs(u), color='r', lw=0)
+                self.lthresh = self.ax[1,2].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
+
+                axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
+                self.ax[1,2].axis([0, self.neurons, 0, axis_height])
+
+                # Present
+                recon = tdot(Phi, a)
+                self.ax[1,1].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,1].set_title('Iter=%d\nReconstruct (t)' % 0)
+
+                self.ax[0,1].set_title('Reconstruction Error (t)')
+                self.ax[0,1].set_xlabel('Time (steps)')
+                self.ax[0,1].set_ylabel('SNR (dB)')
+                self.ax[0,1].axis([0, self.num_frames * num_iterations, 0.0, 22])
+
+                # Prediction
+                p_recon = tdot(ZPhi, a)
+                self.ax[1,0].imshow(np.reshape(p_recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,0].set_title('Iter=%d\nReconstruct (t+1)' % 0)
+
+                self.ax[0,0].set_title('Reconstruction Error (t+1)')
+                self.ax[0,0].set_xlabel('Time (steps)')
+                self.ax[0,0].set_ylabel('SNR (dB)')
+                self.ax[0,0].axis([0, self.num_frames * num_iterations, 0.0, 22])
+
+
+                # The subplots move around if I don't do this lol...
+                for i in range(6):
+                    plt.savefig('animation/junk.png')
+                if self.save_cgraphs:
+                    plt.savefig('animation/%d.jpeg' % self.iter_idx)
+                self.iter_idx += 1
+
+            self.ax[2,1].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[2,1].set_title('Image (t)')
+
+            self.ax[2,0].imshow(np.reshape(nI[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[2,0].set_title('Image (t+1)')
 
             if showme:
                 plt.draw()
                 plt.show()
-            plt.savefig('animation/%d.jpeg' % frame_idx)
-            frame_idx += 1
-            # Do some clf magic?
 
-    #if coeff_visualizer:
-        #plt.close()
+        for t in range(num_iterations):
+            #u = self.u_factor * (self.coeff_eta * (b + Zb - tdot(G,a) - tdot(ZG, a)) + (1 - self.coeff_eta) * u)
+            #u = self.coeff_eta * 2.0 * (b - tdot(G,a)) + 2.0 * (1 - self.coeff_eta) * u
+            u = self.coeff_eta * (b - tdot(G,a)) + (1 - self.coeff_eta) * u
+            a = self.thresh(u, l)
 
-    return u, a
+            explode = check_activity_m(b, Zb, tdot(G, a), tdot(ZG, a), u)
+            if explode:
+                ahat_c = np.copy(a)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+                print 'Coefficients Active=%.2f%%' % (100 * float(ac)/(self.neurons * self.batch_size))
 
-def g(u,theta):
-    """
-    LCA threshold function
-    u: coefficients
-    theta: threshold value
-    """
-    if thresh_type=='hard': # L0 Approximation
-        a = u;
-        if group_sparse > 1:
-            if len(a) % group_sparse != 0:
-                raise Exception('len(a) %% group_sparse = %d' % (len(a) % group_sparse))
-            size = len(a)/group_sparse
-            chunks = [np.array(a[x:x+size]) for x in range(0, len(a), size)]
-            for c in chunks:
-                c[np.sum(np.abs(chunks), axis=0) < theta] = 0
-            a = np.concatenate(chunks)
+
+            l = self.lambda_decay * l
+            l[l < self.lambdav] = self.lambdav
+
+            if self.coeff_visualizer:
+                ahat_c = np.copy(a)
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ac = np.sum(ahat_c)
+                self.ax[1,2].set_title('Coefficients Active=%.2f%%' % (100 * float(ac)/self.neurons))
+
+                for coeff, i in zip(self.coeffs, range(self.neurons)):
+                    coeff.set_height(abs(u[i]))  # Update the potentials
+                self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
+
+
+                # Update Reconstruction
+                recon = tdot(Phi, a)
+                self.ax[1,1].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,1].set_title('Iter=%d\nReconstruct (t)' % self.iter_idx)
+
+                p_recon = tdot(ZPhi, a)
+                self.ax[1,0].imshow(np.reshape(p_recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[1,0].set_title('Iter=%d\nReconstruct (t+1)' % self.iter_idx)
+
+                # Plot SNR
+                var = I.var().mean()
+                R = I - recon
+                mse = (R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
+                color = 'r' if t == 0 else 'g'
+                self.ax[0,1].scatter(self.iter_idx, snr, s=8, c=color)
+
+                p_var = nI.var().mean()
+                ZR = I - p_recon
+                p_mse = (ZR ** 2).mean()
+                p_snr = 10 * log(p_var/p_mse, 10)
+                color = 'r' if t == 0 else 'g'
+                self.ax[0,0].scatter(self.iter_idx, p_snr, s=8, c=color)
+
+                if showme:
+                    plt.draw()
+                    plt.show()
+                if self.save_cgraphs:
+                    plt.savefig('animation/%d.jpeg' % self.iter_idx)
+                self.iter_idx += 1
+
+        return u, a
+
+    def sparsify(self, I, Phi, u_prev=None, num_iterations=80):
+        'Run the LCA coefficient dynamics'
+
+        b = t2dot(Phi.T, I)
+        G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
+
+        if self.fixed_lambda:
+            l = np.ones(self.batch_size)
+            l *= self.lambdav
+            self.lambda_type = 'Fixed and lambdav'
         else:
-            a[np.abs(a) < theta] = 0
-    elif thresh_type=='soft': # L1 Approximation
-        a = abs(u) - theta;
-        a[a < 0] = 0
-        a = np.sign(u) * a
-    return a
+            l = 0.5 * np.max(np.abs(b), axis = 0)
+            self.lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
 
-sparsenet()
+        u = u_prev if u_prev is not None else np.zeros((self.neurons, self.batch_size))
+        a = self.thresh(u, l)
+
+        showme = True # set to false if you just want to save the images
+        if self.coeff_visualizer:
+            if not self.graphics_initialized:
+                self.graphics_initialized = True
+                fg, self.ax = plt.subplots(2,2)
+
+                self.ax[1,1].set_title('Coefficients')
+                self.ax[1,1].set_xlabel('Coefficient Index')
+                self.ax[1,1].set_ylabel('Activity')
+
+                self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
+                self.lthresh = self.ax[1,1].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
+
+                axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
+                self.ax[1,1].axis([0, self.neurons, 0, axis_height])
+
+                recon = t2dot(Phi, a)
+                self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[0,0].set_title('Iter=%d\nReconstruct' % 0)
+
+                self.ax[0,1].set_title('Reconstruction Error')
+                self.ax[0,1].set_xlabel('Time (steps)')
+                self.ax[0,1].set_ylabel('SNR (dB)')
+                self.ax[0,1].axis([0, self.num_frames * num_iterations, 0.0, 22])
+
+                # The subplots move around if I don't do this lol...
+                for i in range(6):
+                    plt.savefig('animation/junk.png')
+                if self.save_cgraphs:
+                    plt.savefig('animation/%d.jpeg' % self.iter_idx)
+                self.iter_idx += 1
+
+            self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[1,0].set_title('Image')
+
+            if showme:
+                plt.draw()
+                plt.show()
+
+        for t in range(num_iterations):
+            u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
+            a = self.thresh(u, l)
+
+            check_activity(b, G, u, a)
+
+            l = self.lambda_decay * l
+            l[l < self.lambdav] = self.lambdav
+
+            if self.coeff_visualizer:
+                for coeff, i in zip(self.coeffs, range(self.neurons)):
+                    coeff.set_height(abs(u[i]))  # Update the potentials
+                self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
+
+                # Update Reconstruction
+                recon = t2dot(Phi, a)
+                self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+                self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
+
+                # Plot SNR
+                var = I.var().mean()
+                R = I - recon
+                mse = (R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
+                color = 'r' if t == 0 else 'g'
+                self.ax[0,1].scatter(self.iter_idx, snr, s=8, c=color)
+
+                if showme:
+                    plt.draw()
+                    plt.show()
+                if self.save_cgraphs:
+                    plt.savefig('animation/%d.jpeg' % self.iter_idx)
+                self.iter_idx += 1
+
+        return u, a
+
+    def group_thresh(self, a, theta):
+        if len(a) % self.group_sparse != 0:
+            raise Exception('len(a) %% group_sparse = %d' % (len(a) % selfgroup_sparse))
+        size = len(a)/self.group_sparse
+        chunks = [np.array(a[x:x+size]) for x in range(0, len(a), size)]
+        for c in chunks:
+            c[np.sum(np.abs(chunks), axis=0) < theta] = 0
+        return np.concatenate(chunks)
+
+    def thresh(self, u, theta):
+        'LCA threshold function'
+        if self.thresh_type=='hard': # L0 Approximation
+            a = u;
+            if group_sparse > 1:
+                a = self.group_thresh(u, theta)
+            else:
+                a[np.abs(a) < theta] = 0
+        elif self.thresh_type=='soft': # L1 Approximation
+            a = abs(u) - theta;
+            a[a < 0] = 0
+            a = np.sign(u) * a
+        return a
+
+    def get_phi_idx(self):
+        f = open('log.txt', 'r')
+        rr = 0
+        while True:
+            r = f.readline()
+            if r == '':
+                break
+            rr = r
+        f.close()
+        return int(rr)
+
+    def view_log_save(self, Phi, comp, Z=None):
+        'View Phi, Z, log parameters, and save the matrices '
+        showbfs(Phi, self.phi_idx)
+        plt.show()
+
+        #if not self.log_and_save:
+            #return
+
+        if comp == 0.0: # Only log on first write
+            self.phi_idx = self.phi_idx + 1
+            name = 'Phi_%d' % self.phi_idx
+
+            path = 'dict/%s' % name
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            f = open('log.txt', 'a') # append to the log
+
+            f.write('\n*** %s ***\n' % name)
+            f.write('Time=%s\n' % datetime.now())
+            f.write('RunType=%s\n' % get_RunType_name(self.runtype))
+            f.write('IMAGES=%s\n' % self.image_data_name)
+            f.write('patch_dim=%d\n' % self.patch_dim)
+            f.write('neurons=%d\n' % self.neurons)
+            f.write('lambdav=%.3f\n' % self.lambdav)
+            f.write('Lambda Decay=%.2f\n' % self.lambda_decay)
+            f.write('num_trials=%d\n' % self.num_trials)
+            f.write('batch_size=%d\n' % self.batch_size)
+            f.write('time_batch_size=%d\n' % self.time_batch_size)
+            f.write('NUM_IMAGES=%d\n' % self.num_images)
+            f.write('iter_per_frame=%d\n' % self.iters_per_frame)
+            f.write('thresh_type=%s\n' % self.thresh_type)
+            f.write('coeff_eta=%.3f\n' % self.coeff_eta)
+            f.write('lambda_type=[%s]\n' % self.lambda_type)
+            f.write('InitPhi=%s\n' % self.init_phi_name)
+            f.write('Load Sequentially=%s\n' % self.load_sequentially)
+            f.write('Skip initial frames=%s\n' % self.skip_frames)
+            f.write('Group Sparse=%d\n' % self.group_sparse)
+
+            f.write('%d\n' % (self.phi_idx))
+            f.close()
+
+            logfile = '%s/%s_log.txt' % (path, name)
+            print 'Assigning stdout to %s' % logfile
+            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+
+            # print these methods so we know the simulated annealing parameters
+            print inspect.getsource(get_eta)
+            print inspect.getsource(get_veta)
+        else:
+            name = 'Phi_%d' % self.phi_idx
+            path = 'dict/%s' % name
+
+        fname = '%s/%s_%.1f' % (path, name, comp)
+        plt.savefig('%s.png' % fname)
+
+        if Z is not None:
+            scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
+            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.seismic)
+            plt.colorbar()
+            plt.draw()
+            plt.savefig('%s_Z.png' % fname)
+            plt.show()
+            plt.clf()
+        else:
+            scipy.io.savemat(fname, {'Phi':Phi})
+
+        print '%s_%.1f successfully written.' % (name, comp)
+
+    def run(self):
+        if self.runtype == RunType.vReconstruct:
+            self.vReconstruct()
+        elif self.runtype == RunType.Learning:
+            self.Learning()
+        elif self.runtype == RunType.vLearning:
+            self.vLearning()
+        else:
+            self.vmLearning()
+
+lca = LcaNetwork()
+lca.run()
