@@ -49,7 +49,7 @@ class LcaNetwork():
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.15   # Minimum Threshold
+    lambdav      = 0.25   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -58,6 +58,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_271_2.7.mat'
     #init_phi_name = 'Phi_272_0.5.mat'
     #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
+    init_phi_name = 'Phi_299/Phi_299_1.0.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -77,8 +78,8 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    #runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
