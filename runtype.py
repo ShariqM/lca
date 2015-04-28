@@ -3,6 +3,7 @@ class RunType():
     vLearning    = 2
     vmLearning   = 3
     vReconstruct = 4
+    vPredict     = 5
 
 def get_RunType_name(rt):
     if rt == RunType.Learning:
@@ -13,3 +14,5 @@ def get_RunType_name(rt):
         return 'vmLearning'
     if rt == RunType.vReconstruct:
         return 'vReconstruct'
+    if rt == RunType.vPredict:
+        return 'vPredict'

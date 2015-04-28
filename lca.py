@@ -34,11 +34,14 @@ class LcaNetwork():
                 1:'IMAGES_DUCK_SHORT',
                 2:'IMAGES_DUCK',
                 3:'IMAGE_DUCK_LONG',
-                4:'IMAGES_DUCK_120'}
+                4:'IMAGES_DUCK_120',
+                5:'IMAGES_MOVE_RIGHT'}
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = patch_dim * 8 # Number of basis functions
+    #neurons      = patch_dim * 1 # Number of basis functions
+    neurons      = 36 # Number of basis functions
+    #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
@@ -51,6 +54,8 @@ class LcaNetwork():
     #init_phi_name = 'Phi_193_37.0.mat'
     #init_phi_name = 'Phi_198_9.6.mat'
     #init_phi_name = 'Phi_209/Phi_209_0.4.mat'
+    #init_phi_name = 'Phi_271_2.7.mat'
+    init_phi_name = 'Phi_271/Phi_271_2.7.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -75,7 +80,7 @@ class LcaNetwork():
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     if coeff_visualizer:
@@ -87,7 +92,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[1]
+        self.image_data_name = self.datasets[5]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -173,7 +178,6 @@ class LcaNetwork():
             Phi = np.random.randn(self.patch_dim, self.neurons)
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
         return Phi
-
 
     def Learning(self):
         'Run the normal, no inertia, LCA learning algorithm'
@@ -283,7 +287,7 @@ class LcaNetwork():
 
         # Transformation matrix
         Z = np.eye(self.neurons)
-        Z = initZ(self.neurons)
+        #Z = initZ(self.neurons)
         #Z = np.random.randn(self.neurons, self.neurons)
         #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
         #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
@@ -301,7 +305,10 @@ class LcaNetwork():
                 I = VI[:,:,i]
 
                 #u, ahat = self.msparsify(I, nI, Phi, Z, u_pred=u_pred, num_iterations=self.iters_per_frame)
-                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                if False and t > 15 and i > 20:
+                    u, ahat = u_pred, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
+                else:
+                    u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
 
                 # Calculate Residual
                 R = I - t2dot(Phi, ahat)
@@ -317,19 +324,15 @@ class LcaNetwork():
                                    self.runtype, self.time_batch_size)
                     Zahat = t2dot(Z, ahat)
                     dPhi =  eta * (t2dot(R, ahat.T))
-                    #dPhi =  eta * (t2dot(R, ahat.T) + tdot(ZR, Zahat.T))
 
                     # Calculate dZ
-                    eta /= 3   # This works for whatever reason...
+                    eta /= 8   # Hmmmmm...
                     dZ = eta * t2dot(UR, u_prev.T)
-                    #print 'norm :', np.linalg.norm(dZ)
-                    #dZ = eta * (t3dot(Phi.T, nI, ahat.T) - t5dot(Phi.T, Phi, Z, ahat, ahat.T))
 
                     # Update
                     Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
                     Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
                     Z = Z + dZ
-                    #Z = t2dot(Z, np.diag(1/np.sqrt(np.sum(Z**2, axis = 0))))
 
                     # Check new error
                     R2 = I - t2dot(Phi, ahat)
@@ -380,6 +383,39 @@ class LcaNetwork():
                            (datetime.now() - start).seconds)
 
         self.view_log_save(Phi, 100.0, Z)
+
+    def vPredict(self):
+        # Load dict from Learning run
+        Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
+        Z   = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
+
+        # Set the batch_size to number of patches in an image
+        if not self.coeff_visualizer:
+            self.batch_size = self.patch_per_dim**2
+
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        u_pred = None
+        for t in range(self.num_frames):
+            I = self.load_image(I, t)
+
+            if t < 10:
+                # Let the system settle to the correct dynamics
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=10)
+            else:
+                # XXX Small hack - little dynamics
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=1)
+            #activity_log[:,:,t] = ahat
+
+            # Calculate Residual Error
+            R = I - tdot(Phi, ahat)
+            mse = (R ** 2).mean()
+            var = I.var().mean()
+            snr = 10 * log(var/mse, 10)
+
+            print '%.3d) Predict || lambdav=%.3f || snr=%.2fdB'\
+                    % (t, self.lambdav, snr)
 
     def vReconstruct(self):
         # Load dict from Learning run
@@ -821,7 +857,7 @@ class LcaNetwork():
 
         if Z is not None:
             scipy.io.savemat(fname, {'Phi':Phi, 'Z': Z})
-            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True), cmap=plt.cm.brg)
+            plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True))
             plt.colorbar()
             plt.draw()
             plt.savefig('%s_Z.png' % fname)
@@ -833,14 +869,18 @@ class LcaNetwork():
         print '%s_%.1f successfully written.' % (name, comp)
 
     def run(self):
-        if self.runtype == RunType.vReconstruct:
-            self.vReconstruct()
-        elif self.runtype == RunType.Learning:
+        if self.runtype == RunType.Learning:
             self.Learning()
         elif self.runtype == RunType.vLearning:
             self.vLearning()
-        else:
+        elif self.runtype == RunType.vmLearning:
             self.vmLearning()
+        elif self.runtype == RunType.vReconstruct:
+            self.vReconstruct()
+        elif self.runtype == RunType.vPredict:
+            self.vPredict()
+        else:
+            raise Exception("Unknown runtype specified")
 
 lca = LcaNetwork()
 lca.run()
