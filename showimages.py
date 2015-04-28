@@ -19,7 +19,8 @@ smooth_show = False
 #oname = 'IMAGES_DUCK_LONG'
 #sname = 'IMAGES_DUCK_LONG_FAKE_SMOOTH_0.7'
 
-oname = 'IMAGES_DUCK'
+oname = 'IMAGES_PATCH_DUCK'
+#oname = 'IMAGES_DUCK_SHORT'
 #sname = 'IMAGES_DUCK_SMOOTH_0.7'
 
 #oname = 'IMAGES_DUCK_SHORT'
@@ -48,9 +49,11 @@ if orig_show:
 print 'Shape:', shape
 
 plt.ion()
-for i in range(150, shape[2], interval):
+start, stop = 150, shape[2]
+for i in range(start, stop, interval):
     if orig_show:
         plt.subplot(211)
+        #plt.imshow(OIMAGES[12*(r_idx-1):12*r_idx, 12*(c_idx-1):12*c_idx,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
         plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
         plt.title('Original %d Var=%.4f' % (i, OIMAGES[:,:,i].var().mean()))
 

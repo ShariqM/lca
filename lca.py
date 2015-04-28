@@ -35,7 +35,7 @@ class LcaNetwork():
                 2:'IMAGES_DUCK',
                 3:'IMAGE_DUCK_LONG',
                 4:'IMAGES_DUCK_120',
-                5:'IMAGES_MOVE_RIGHT'}
+                5:'IMAGES_MOVE_RIGHT',
                 6:'IMAGES_BOUNCE'}
 
     # Sparse Coding Parameters
@@ -46,17 +46,14 @@ class LcaNetwork():
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.15   # Minimum Threshold
+    lambdav      = 0.25   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
 
     init_phi_name = '' # Blank if you want to start from scratch
-    #init_phi_name = 'Phi_193_37.0.mat'
-    #init_phi_name = 'Phi_198_9.6.mat'
-    #init_phi_name = 'Phi_209/Phi_209_0.4.mat'
     #init_phi_name = 'Phi_271_2.7.mat'
-    init_phi_name = 'Phi_271_2.7.mat'
+    #init_phi_name = 'Phi_272_0.5.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -309,11 +306,11 @@ class LcaNetwork():
             for i in range(0, self.time_batch_size - 1):
                 I = VI[:,:,i]
 
-                #u, ahat = self.msparsify(I, nI, Phi, Z, u_pred=u_pred, num_iterations=self.iters_per_frame)
-                if False and t > 15 and i > 20:
-                    u, ahat = u_pred, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
-                else:
-                    u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                #if False and t > 15 and i > 20:
+                    #u, ahat = u_pred, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
+                #else:
+                    #u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
 
                 # Calculate Residual
                 R = I - t2dot(Phi, ahat)
@@ -403,6 +400,7 @@ class LcaNetwork():
 
         u_pred = None
         for t in range(self.num_frames):
+            print 'herro'
             I = self.load_image(I, t)
 
             if t < self.lb4predict:
@@ -410,7 +408,6 @@ class LcaNetwork():
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=10)
             else:
                 print 'Predict'
-                # XXX Small hack - little dynamics
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
             #activity_log[:,:,t] = ahat
 
@@ -804,11 +801,13 @@ class LcaNetwork():
         'LCA threshold function'
         if self.thresh_type=='hard': # L0 Approximation
             a = u;
-            if group_sparse > 1:
+            if self.group_sparse > 1:
                 a = self.group_thresh(u, theta)
             else:
                 a[np.abs(a) < theta] = 0
         elif self.thresh_type=='soft': # L1 Approximation
+            if self.group_sparse > 1:
+                raise Exception("Group sparsity with soft threshold not supported")
             a = abs(u) - theta;
             a[a < 0] = 0
             a = np.sign(u) * a
