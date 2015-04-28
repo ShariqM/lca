@@ -36,6 +36,7 @@ class LcaNetwork():
                 3:'IMAGE_DUCK_LONG',
                 4:'IMAGES_DUCK_120',
                 5:'IMAGES_MOVE_RIGHT'}
+                6:'IMAGES_BOUNCE'}
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
@@ -55,7 +56,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_198_9.6.mat'
     #init_phi_name = 'Phi_209/Phi_209_0.4.mat'
     #init_phi_name = 'Phi_271_2.7.mat'
-    init_phi_name = 'Phi_271/Phi_271_2.7.mat'
+    init_phi_name = 'Phi_271_2.7.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -80,9 +81,13 @@ class LcaNetwork():
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
+    #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
+    lb4predict      = 8 # Number of frames to let the dynamics settle before predicting
+    num_coeff_upd   = lb4predict * 10 + num_frames - lb4predict #  Special case for vPredict
+
     if coeff_visualizer:
         matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
     graphics_initialized = False
@@ -92,7 +97,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[5]
+        self.image_data_name = self.datasets[6]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -400,22 +405,26 @@ class LcaNetwork():
         for t in range(self.num_frames):
             I = self.load_image(I, t)
 
-            if t < 10:
+            if t < self.lb4predict:
                 # Let the system settle to the correct dynamics
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=10)
             else:
+                print 'Predict'
                 # XXX Small hack - little dynamics
-                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=1)
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
             #activity_log[:,:,t] = ahat
 
             # Calculate Residual Error
-            R = I - tdot(Phi, ahat)
+            R = I - t2dot(Phi, ahat)
             mse = (R ** 2).mean()
             var = I.var().mean()
             snr = 10 * log(var/mse, 10)
 
             print '%.3d) Predict || lambdav=%.3f || snr=%.2fdB'\
                     % (t, self.lambdav, snr)
+
+            u_prev = u
+            u_pred = t2dot(Z, u_prev)
 
     def vReconstruct(self):
         # Load dict from Learning run
@@ -712,7 +721,7 @@ class LcaNetwork():
                 self.ax[0,1].set_title('Reconstruction Error')
                 self.ax[0,1].set_xlabel('Time (steps)')
                 self.ax[0,1].set_ylabel('SNR (dB)')
-                self.ax[0,1].axis([0, self.num_frames * num_iterations, 0.0, 22])
+                self.ax[0,1].axis([0, self.num_coeff_upd, 0.0, 40])
 
                 # The subplots move around if I don't do this lol...
                 for i in range(6):
@@ -721,8 +730,26 @@ class LcaNetwork():
                     plt.savefig('animation/%d.jpeg' % self.iter_idx)
                 self.iter_idx += 1
 
+            for coeff, i in zip(self.coeffs, range(self.neurons)):
+                coeff.set_height(abs(u[i]))  # Update the potentials
+            self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
+
             self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
             self.ax[1,0].set_title('Image')
+
+            # Update Reconstruction
+            recon = t2dot(Phi, a)
+            self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
+
+            # Plot SNR
+            var = I.var().mean()
+            R = I - recon
+            mse = (R ** 2).mean()
+            snr = 10 * log(var/mse, 10)
+            color = 'r'
+            self.ax[0,1].scatter(self.iter_idx, snr, s=8, c=color)
+            self.iter_idx += 1 # XXX Need to fix savfig + iter_idx
 
             if showme:
                 plt.draw()
