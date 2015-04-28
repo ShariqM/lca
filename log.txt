@@ -6403,3 +6403,223 @@ Load Sequentially=False
 Skip initial frames=80
 Group Sparse=1
 299
+
+*** Phi_300 ***
+Time=2015-04-28 16:11:42.282553
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+300
+
+*** Phi_301 ***
+Time=2015-04-28 16:15:48.344386
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+301
+
+*** Phi_302 ***
+Time=2015-04-28 16:16:12.653442
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+302
+
+*** Phi_303 ***
+Time=2015-04-28 16:19:39.026885
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+303
+
+*** Phi_304 ***
+Time=2015-04-28 16:24:48.605057
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+304
+
+*** Phi_305 ***
+Time=2015-04-28 16:26:56.630297
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+305
+
+*** Phi_306 ***
+Time=2015-04-28 16:27:10.870732
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+306
+
+*** Phi_307 ***
+Time=2015-04-28 16:27:29.882283
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+307
+
+*** Phi_308 ***
+Time=2015-04-28 16:29:38.469370
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_RIGHT_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+308
+
+*** Phi_309 ***
+Time=2015-04-28 16:32:44.288781
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+309

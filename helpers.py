@@ -145,12 +145,22 @@ import scipy.stats as stats
 def my_dist(mean, point):
     sign = np.sign(mean - point)
     diff = np.abs(mean - point)
+
+    max_dist = 20
+    if diff > max_dist:
+        return 0.0
+    return sign * 1.0/(max_dist)
+
     if diff == 0:
-        return 0.8
+        return 0.2
     elif diff == 1:
-        return sign * 0.3
+        return sign * 0.2
     elif diff == 2:
-        return sign * 0.1
+        return sign * 0.2
+    elif diff == 3:
+        return sign * 0.2
+    elif diff == 5:
+        return sign * 0.2
     return 0.0
 
 def gauss(mean, point):

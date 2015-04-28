@@ -49,7 +49,7 @@ class LcaNetwork():
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.25   # Minimum Threshold
+    lambdav      = 0.15   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -58,7 +58,8 @@ class LcaNetwork():
     #init_phi_name = 'Phi_271_2.7.mat'
     #init_phi_name = 'Phi_272_0.5.mat'
     #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
-    init_phi_name = 'Phi_299/Phi_299_1.0.mat'
+    #init_phi_name = 'Phi_299/Phi_299_1.0.mat'
+    #init_phi_name = 'Phi_299_1.0.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -87,8 +88,8 @@ class LcaNetwork():
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
-    lb4predict      = 8 # Number of frames to let the dynamics settle before predicting
-    num_coeff_upd   = lb4predict * 10 + num_frames - lb4predict #  Special case for vPredict
+    lb4predict      = 80/iters_per_frame # Number of frames to let the dynamics settle before predicting
+    num_coeff_upd   = lb4predict * iters_per_frame + num_frames - lb4predict #  Special case for vPredict
 
     if coeff_visualizer:
         matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
@@ -99,7 +100,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[9]
+        self.image_data_name = self.datasets[8]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -294,7 +295,7 @@ class LcaNetwork():
 
         # Transformation matrix
         Z = np.eye(self.neurons)
-        #Z = initZ(self.neurons)
+        Z = initZ(self.neurons)
         #Z = np.random.randn(self.neurons, self.neurons)
         #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
         #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
@@ -405,16 +406,14 @@ class LcaNetwork():
 
         u_pred = None
         for t in range(self.num_frames):
-            print 'herro'
             I = self.load_image(I, t)
 
             predict_mode = False
             if t < self.lb4predict:
                 # Let the system settle to the correct dynamics
-                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=10)
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
             else:
                 predict_mode = True
-                print 'Predict'
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
             #activity_log[:,:,t] = ahat
 
@@ -429,6 +428,7 @@ class LcaNetwork():
                     % (t, name, self.lambdav, snr)
 
             u_prev = u
+            #u_pred = u
             u_pred = t2dot(Z, u_prev)
 
     def vReconstruct(self):
@@ -875,9 +875,9 @@ class LcaNetwork():
             f.close()
 
             logfile = '%s/%s_log.txt' % (path, name)
-            print 'Not Assigning stdout to %s' % logfile
-            #print 'Assigning stdout to %s' % logfile
-            #sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+            #print 'Not Assigning stdout to %s' % logfile
+            print 'Assigning stdout to %s' % logfile
+            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
 
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)
