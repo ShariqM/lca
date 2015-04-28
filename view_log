@@ -1,0 +1,2 @@
+#! /bin/bash
+tail -f dict/Phi_$1/Phi_$1_log.txt
