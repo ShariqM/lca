@@ -37,16 +37,17 @@ def showbfs(Phi, idx=-1):
         img = reshape(Phi[:,k], (sz, sz), order='C').transpose()/maxA
         arr[index(i):index(i)+sz, index(j):index(j)+sz] = img
 
-    plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
+    #plt.imshow(arr, cmap = cm.binary, interpolation='nearest')
+    plt.imshow(arr, cmap = cm.binary, interpolation='none')
     plt.title('Phi_%d' % idx)
     plt.draw()
 
 if __name__ == "__main__":
     i = args.dict_idx
-    #name = 'Phi_197_1.9.mat'
+    name = 'Phi_197_1.9.mat'
     #name = 'Phi_207_0.8.mat'
-    name = 'Phi_208_0.7.mat'
-    name = 'Phi_209_0.1.mat'
+    #name = 'Phi_208_0.7.mat'
+    #name = 'Phi_209_0.1.mat'
     #name = 'Phi_198_0.6.mat'
 
     idx = int(name.split('_')[1])

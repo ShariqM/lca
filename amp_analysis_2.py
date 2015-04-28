@@ -12,8 +12,8 @@ from showbfs import showbfs
 
 # vLCA
 #Phi, gs = scipy.io.loadmat('dict/Phi_205_36.6.mat')['Phi'],  16
-Phi, gs = scipy.io.loadmat('dict/Phi_198_0.6.mat')['Phi'], 8
-#Phi, gs = scipy.io.loadmat('dict/Phi_197_0.8.mat')['Phi'], 4
+#Phi, gs = scipy.io.loadmat('dict/Phi_198_0.6.mat')['Phi'], 8
+Phi, gs = scipy.io.loadmat('dict/Phi_197_0.8.mat')['Phi'], 4
 #Phi, gs = scipy.io.loadmat('dict/Phi_194_1.2.mat')['Phi'], 2
 
 group_sparse = gs

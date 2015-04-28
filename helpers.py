@@ -9,6 +9,7 @@ if socket.gethostname() == 'redwood2':
     Bv = T.fmatrix('B')
     o2 = T.dot(Av, Bv)
     t2dot = theano.function([Av, Bv], o2, allow_input_downcast=True)
+    tdot = t2dot
 
     Cv = T.fmatrix('C')
     Dv = T.fmatrix('D')
@@ -37,7 +38,7 @@ else:
         for a in args:
             A.append(a)
         return reduce(nump.dot, A)
-    t2dot = t3dot = t4dot = t5dot = np.dot
+    tdot = t2dot = t3dot = t4dot = t5dot = np.dot
 
 def get_images(image_data_name):
     if 'LONG' or '120' in image_data_name:

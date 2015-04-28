@@ -36,17 +36,20 @@ class LcaNetwork():
                 3:'IMAGE_DUCK_LONG',
                 4:'IMAGES_DUCK_120',
                 5:'IMAGES_MOVE_RIGHT',
-                6:'IMAGES_BOUNCE'}
+                6:'IMAGES_BOUNCE',
+                7:'IMAGES_PATCH_DUCK',
+                8:'IMAGES_EDGE_DUCK',
+                9:'IMAGES_EDGE_RIGHT_DUCK'}
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = patch_dim * 1 # Number of basis functions
-    neurons      = 36 # Number of basis functions
+    neurons      = 144 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.25   # Minimum Threshold
+    lambdav      = 0.15   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -54,6 +57,7 @@ class LcaNetwork():
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_271_2.7.mat'
     #init_phi_name = 'Phi_272_0.5.mat'
+    #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -73,8 +77,8 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    #runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
+    #runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
@@ -94,7 +98,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[6]
+        self.image_data_name = self.datasets[9]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -403,10 +407,12 @@ class LcaNetwork():
             print 'herro'
             I = self.load_image(I, t)
 
+            predict_mode = False
             if t < self.lb4predict:
                 # Let the system settle to the correct dynamics
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=10)
             else:
+                predict_mode = True
                 print 'Predict'
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
             #activity_log[:,:,t] = ahat
@@ -417,8 +423,9 @@ class LcaNetwork():
             var = I.var().mean()
             snr = 10 * log(var/mse, 10)
 
-            print '%.3d) Predict || lambdav=%.3f || snr=%.2fdB'\
-                    % (t, self.lambdav, snr)
+            name = 'Predicting' if predict_mode else 'Loading...'
+            print '%.3d) %s || lambdav=%.3f || snr=%.2fdB'\
+                    % (t, name, self.lambdav, snr)
 
             u_prev = u
             u_pred = t2dot(Z, u_prev)
