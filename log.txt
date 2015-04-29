@@ -6887,3 +6887,157 @@ Load Sequentially=False
 Skip initial frames=80
 Group Sparse=1
 321
+
+*** Phi_322 ***
+Time=2015-04-29 11:59:05.797518
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=576
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=Phi_317/Phi_317_50.0.mat
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+322
+
+*** Phi_323 ***
+Time=2015-04-29 12:24:13.191640
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+323
+
+*** Phi_324 ***
+Time=2015-04-29 12:24:38.858705
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+324
+
+*** Phi_325 ***
+Time=2015-04-29 12:25:26.858535
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+325
+
+*** Phi_326 ***
+Time=2015-04-29 12:25:45.305624
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+326
+
+*** Phi_327 ***
+Time=2015-04-29 12:26:20.228257
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+327
+
+*** Phi_328 ***
+Time=2015-04-29 12:27:12.177387
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=144
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed and lambdav]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+328
