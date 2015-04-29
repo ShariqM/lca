@@ -6,3 +6,7 @@ data = [5.18, 5.34, 5.47, 5.18, 5.61, 5.37, 5.42, 5.98, 5.56, 5.60, 5.92, 5.82, 
 
 
 plt.plot(data)
+plt.title("SNR of prediction in dictionary 317")
+plt.xlabel("Time")
+plt.ylabel("P_SNR")
+plt.show()
