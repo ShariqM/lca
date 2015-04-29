@@ -141,20 +141,36 @@ def get_veta(t, neurons, runtype, batch_size):
     return 0.10/batch_size
 
 def get_zeta(t, neurons, runtype, batch_size):
-    start = 3000
-    inc = 2000
+    #start = 3000
+    #inc = 2000
+    start = 1000
+    inc = 1000
+
+    eta_start = 1.5
 
     if t < start:
-        return 1.5/batch_size
+        return (eta_start)/batch_size
     if t < start + 1*inc:
-        return 0.75/batch_size
+        return (eta_start/2)/batch_size
     if t < start + 2*inc:
-        return 0.375/batch_size
+        return (eta_start/4)/batch_size
     if t < start + 3*inc:
-        return 0.15/batch_size
+        return (eta_start/8)/batch_size
     if t < start + 4*inc:
-        return 0.07/batch_size
-    return 0.03/batch_size
+        return (eta_start/16)/batch_size
+    if t < start + 5*inc:
+        return (eta_start/32)/batch_size
+    if t < start + 6*inc:
+        return (eta_start/64)/batch_size
+    if t < start + 7*inc:
+        return (eta_start/128)/batch_size
+    if t < start + 8*inc:
+        return (eta_start/256)/batch_size
+    if t < start + 9*inc:
+        return (eta_start/512)/batch_size
+    if t < start + 10*inc:
+        return (eta_start/1024)/batch_size
+    return (eta_start/1024)/batch_size
 
 import scipy.stats as stats
 

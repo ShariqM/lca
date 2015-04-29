@@ -60,6 +60,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
     #init_phi_name = 'Phi_299/Phi_299_1.0.mat'
     #init_phi_name = 'Phi_299_1.0.mat'
+    init_phi_name = 'Phi_317/Phi_317_50.0.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -294,11 +295,14 @@ class LcaNetwork():
         I = np.zeros((self.patch_dim, self.batch_size))
 
         # Transformation matrix
-        Z = np.eye(self.neurons)
-        Z = initZ(self.neurons)
-        #Z = np.random.randn(self.neurons, self.neurons)
-        #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
-        #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
+        if self.init_phi_name != '':
+            Z = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
+        else:
+            Z = np.eye(self.neurons)
+            Z = initZ(self.neurons)
+            #Z = np.random.randn(self.neurons, self.neurons)
+            #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
+            #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
 
         max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
@@ -336,6 +340,8 @@ class LcaNetwork():
                     # Calculate dZ
                     eta = get_zeta(self.batch_size * t, self.neurons,
                                    self.runtype, self.time_batch_size)
+                    #if random.random() < 0.01:
+                        #print 'zeta: ', eta
                     dZ = eta * t2dot(UR, u_prev.T)
 
                     # Update
