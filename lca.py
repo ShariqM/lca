@@ -43,8 +43,8 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    #neurons      = patch_dim * 1 # Number of basis functions
-    neurons      = 144 # Number of basis functions
+    neurons      = patch_dim * 4 # Number of basis functions
+    #neurons      = 288 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
@@ -334,7 +334,8 @@ class LcaNetwork():
                     dPhi =  eta * (t2dot(R, ahat.T))
 
                     # Calculate dZ
-                    eta /= 8   # Hmmmmm...
+                    eta = get_zeta(self.batch_size * t, self.neurons,
+                                   self.runtype, self.time_batch_size)
                     dZ = eta * t2dot(UR, u_prev.T)
 
                     # Update
