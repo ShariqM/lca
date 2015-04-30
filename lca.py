@@ -43,7 +43,8 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = patch_dim # Number of basis functions
+    neurons      = 36 # Number of basis functions
+    #neurons      = patch_dim # Number of basis functions
     #neurons      = 288 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
@@ -69,8 +70,7 @@ class LcaNetwork():
     thresh_type  = 'soft'
     #coeff_eta    = 0.25 # Wack point
     coeff_eta    = 0.05 # Normal
-    #coeff_eta    = 0.01 # Normal
-    u_factor = 0.8
+    #u_factor = 0.8
 
     lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
@@ -101,7 +101,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[8]
+        self.image_data_name = self.datasets[5]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -266,7 +266,7 @@ class LcaNetwork():
                     Phi = tdot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
 
                 ahat_c = np.copy(ahat)
-                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
+                ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1 # XXX FIXME
                 ac = np.sum(ahat_c)
 
                 if i % 50 == 0:
@@ -298,8 +298,8 @@ class LcaNetwork():
         if False and self.init_phi_name != '':
             Z = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
         else:
-            Z = np.eye(self.neurons)
-            #Z = initZ(self.neurons)
+            #Z = np.eye(self.neurons)
+            Z = initZ(self.neurons)
             #Z = np.random.randn(self.neurons, self.neurons)
             #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
             #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))

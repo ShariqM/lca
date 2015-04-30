@@ -6,26 +6,36 @@ import time
 import pdb
 import random
 
+import matplotlib
+from matplotlib import cm
 import matplotlib.pyplot as plt
 from showbfs import showbfs
 import scipy.io
 import numpy as np
+from math import log
+
+if socket.gethostname() == 'redwood2':
+    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 class SparseCoding():
 
     patch_dim = 144
-    neurons = patch_dim
+    neurons = 72
+    #neurons = patch_dim
     batch_size = 100
     time_batch_size = 100
     border = 4
     sz = np.sqrt(patch_dim)
     omega = 0.5    # Reconstruction Penalty
-    lambdav = 0.25 # Sparsity penalty
-    gamma = 0.25   # Coeff Prediction Penalty
-    kappa = 0.1    # Smoothness penalty
+    lambdav = 0.35 # Sparsity penalty
+    gamma = 0.01    # Coeff Prediction Penalty
+    kappa = 0.01    # Smoothness penalty
 
     num_trials = 1000
-    coeff_iterations = 60
+    coeff_iterations = 100
+
+    visualize = False
+    initialized = False
 
     def __init__(self, obj):
         image_data_name = 'IMAGES_MOVE_RIGHT'
@@ -34,6 +44,10 @@ class SparseCoding():
         self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.obj = obj
+
+        if self.visualize:
+            plt.ion()
+            self.batch_size = 1
 
         I = T.fmatrix('I') # Image
         D = T.fmatrix('D') # Dictionary
@@ -102,7 +116,6 @@ class SparseCoding():
         for i in range(self.batch_size):
             r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
             c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
-
             I[:,i] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi-1], self.patch_dim, 1)
 
         return I
@@ -125,35 +138,72 @@ class SparseCoding():
 
         # Initialize batch of images
         I = np.zeros((self.patch_dim, self.batch_size))
-        A = np.zeros((self.neurons, self.batch_size))
 
-        coeff_eta = 0.0025
         start = datetime.now()
         for t in range(0, self.num_trials):
             I = self.load_rimages(I)
+            #showbfs(I, 111)
+            #plt.show()
 
-            for i in range(self.coeff_iterations):
-                grad = self.fgA(I, D, A, self.lambdav)
-                A = A - coeff_eta * grad
-                #print '%.3d) Error= %d' % (i, self.fE(I, D, A, self.lambdav))
+            A = self.sparsify(I, D)
 
-            print 'Activity for %d neurons is %f' % (self.neurons, np.sum(np.abs(A)))
             print '%.3d) Error_1 = %d' % (t, self.fE(I, D, A, self.lambdav))
-            eta = 1 * get_eta(t, self.neurons, -1, self.batch_size)
+            eta = 0.5 * get_eta(t, self.neurons, -1, self.batch_size)
             D = D - eta * self.fgD(I, D, A, self.lambdav)
             print '%.3d) Error_2 = %d' % (t, self.fE(I, D, A, self.lambdav))
             D = t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0))))
 
-            if t % 20 == 0:
+            if t % 200 == 0:
                 showbfs(D, -1)
                 plt.show()
+
+    def sparsify(self, I, D):
+        coeff_eta = 0.0050
+        A = np.zeros((self.neurons, self.batch_size))
+        for i in range(self.coeff_iterations):
+                grad = self.fgA(I, D, A, self.lambdav)
+                A = A - coeff_eta * grad
+                print '%.3d) Error= %d' % (i, self.fE(I, D, A, self.lambdav))
+
+        thresh = 0.05
+        G = np.copy(A)
+        G[G > thresh] = 1
+        G[G <= thresh] = 0
+
+        var = I.var().mean()
+        recon = tdot(D, G)
+        R = I - recon
+        mse = (R ** 2).mean()
+        snr = 10 * log(var/mse, 10)
+        print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (0, snr, np.sum(G)/self.batch_size)
+
+        if self.visualize:
+            if not self.initialized:
+                fg, self.ax = plt.subplots(2,1)
+                self.initialized = True
+
+            self.ax[0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[0].set_title('Image')
+
+            self.ax[1].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+            self.ax[1].set_title('Reconstruct')
+            plt.draw()
+            plt.show()
+
+        return A
+
+    def showZ(self, Z):
+        plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True))
+        plt.colorbar()
+        plt.show()
 
     def mscLearning(self):
         D = np.random.randn(self.patch_dim, self.neurons)
         Z = np.eye(self.neurons)
+        self.showZ(Z)
 
         old_coeff_eta = 0.0025
-        coeff_eta     = 0.00025
+        coeff_eta     = 0.01000
         for t in range(0, self.num_trials):
             VI = self.load_videos()
             I = VI[:,:,0]
@@ -161,18 +211,31 @@ class SparseCoding():
             A      = np.zeros((self.neurons, self.batch_size))
             A_past = np.zeros((self.neurons, self.batch_size))
             # Have to get an A_past loaded up before learning
+            print '%.3d) Old_Error_0 = %d' % (t, self.sc_fE(I, D, A_past, self.lambdav))
             for i in range(self.coeff_iterations):
                 grad = self.sc_fgA(I, D, A_past, self.lambdav)
+                #print 'A_past grad', grad
                 A_past = A_past - old_coeff_eta * grad
-
+            print '%.3d) Old_Error_1 = %d' % (t, self.sc_fE(I, D, A_past, self.lambdav))
             A = A_past
 
             for q in range(1, self.time_batch_size):
                 I = VI[:,:,q]
 
+                print '%.3d) Error_2 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
                 for i in range(self.coeff_iterations):
                     grad = self.fgA(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
+                    #print 'A', grad
                     A = A - coeff_eta * grad
+
+                var = I.var().mean()
+                R = I - tdot(D, A)
+                p_R = I - t3dot(D, Z, A_past)
+                mse = (R ** 2).mean()
+                p_mse = (p_R ** 2).mean()
+                snr = 10 * log(var/mse, 10)
+                p_snr = 10 * log(var/p_mse, 10)
+                print '%.3d) SNR=%.2fdB P_SNR=%.2fdB' % (t, snr, p_snr)
 
                 print '%.3d) Error_3 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
                 eta = get_zeta(self.batch_size * t, self.neurons, -1, self.batch_size)
@@ -182,15 +245,19 @@ class SparseCoding():
                 eta = get_veta(self.batch_size * t, self.neurons, -1, self.batch_size)
                 D = D - eta * self.fgD(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
                 D = t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0))))
+                print '%.3d) Error_5 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
+                print '\n'
 
                 A_past = A
 
             #if t % 20 == 0:
-            if False and t % 5 == 0:
+            if t % 5 == 0:
                 print '%.3d) Activity for %d neurons is %f' % (t, self.neurons, np.sum(np.abs(A)))
                 print '%.3d) Error_1 = %d\n' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
                 showbfs(D, -1)
                 plt.show()
+                self.showZ(Z)
+
 
         scipy.io.savemat('Dict_1', {'D':D, 'Z': Z})
 
@@ -202,5 +269,5 @@ class SparseCoding():
         else:
             self.mscLearning()
 
-sc = SparseCoding(2)
+sc = SparseCoding(1)
 sc.run()
