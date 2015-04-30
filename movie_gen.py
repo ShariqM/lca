@@ -48,7 +48,6 @@ class MovieGen():
         return stats.norm(loc=mean,scale=0.5).pdf(point)
 
     def interp_right(self):
-        raise Exception("Method not setup")
         t = 0
         for iters in range(self.frames/self.sz):
             for i in range(self.sz):
@@ -64,7 +63,6 @@ class MovieGen():
                     plt.show()
 
         self.save('IMAGES_INTERP_RIGHT')
-
     def movie_bounce(self):
         t = 0
         for iters in range(self.frames / (2 * self.sz)):
@@ -198,7 +196,7 @@ class MovieGen():
         else:
             self.duck_patch()
 
-mg = MovieGen(4)
+mg = MovieGen(2)
 mg.run()
 
 #plt.imshow(data[:,:,13] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)

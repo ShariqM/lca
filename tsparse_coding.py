@@ -13,31 +13,71 @@ from showbfs import showbfs
 import scipy.io
 import numpy as np
 from math import log
+#from Recurrnet import recurrnet
+#from recurrnet import optimizer
+#from optimizer import *
+from Recurrnet.recurrnet.optimizer import *
 
-if socket.gethostname() == 'redwood2':
-    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+dtype = theano.config.floatX
 
 class SparseCoding():
 
     patch_dim = 144
-    neurons = 72
+    neurons = 144
     #neurons = patch_dim
     batch_size = 100
     time_batch_size = 100
     border = 4
     sz = np.sqrt(patch_dim)
     omega = 0.5    # Reconstruction Penalty
-    lambdav = 0.35 # Sparsity penalty
+    lambdav = 0.15 # Sparsity penalty
     gamma = 0.01    # Coeff Prediction Penalty
     kappa = 0.01    # Smoothness penalty
 
-    num_trials = 1000
-    coeff_iterations = 100
+    num_trials = 10000
+    coeff_iterations = 60
 
     visualize = False
     initialized = False
 
     def __init__(self, obj):
+        #image_data_name = 'IMAGES_MOVE_RIGHT'
+        image_data_name = 'IMAGES_DUCK_SHORT'
+        self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+        (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
+        self.obj = obj
+
+        if self.visualize:
+            plt.ion()
+            self.batch_size = 1
+
+        I = T.fmatrix('I') # Image
+
+        Dm = np.random.randn(self.patch_dim, self.neurons)
+        D = self.D = theano.shared(Dm.astype(dtype))
+
+        Am = np.zeros((self.neurons, self.batch_size))
+        A = self.A = theano.shared(Am.astype(dtype))
+
+        l = T.dscalar('l') # Lambda (sparse penalty)
+
+        E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
+
+        params = [D, A]
+        gparams = T.grad(E, wrt=params)
+        updates = sgd_update(params, gparams, 0.005)
+
+        self.learn_D = theano.function(inputs = [I, l],
+                                outputs = E,
+                                updates = [[D, updates[D]]],
+                                allow_input_downcast=True) # Brian doesn't seem to use this
+
+        self.learn_A = theano.function(inputs = [I, l],
+                                outputs = E,
+                                updates = [[A, updates[A]]],
+                                allow_input_downcast=True) # Brian doesn't seem to use this
+
+    def __init___old(self, obj):
         image_data_name = 'IMAGES_MOVE_RIGHT'
         #image_data_name = 'IMAGES_EDGE_RIGHT_DUCK'
         #image_data_name = 'IMAGES_DUCK_SHORT' # XXX CHANGE TO DUCK
@@ -50,20 +90,25 @@ class SparseCoding():
             self.batch_size = 1
 
         I = T.fmatrix('I') # Image
-        D = T.fmatrix('D') # Dictionary
-        A = T.fmatrix('A') # Coefficients
+        D = self.D = T.fmatrix('D') # Dictionary
+        A = self.A = T.fmatrix('A') # Coefficients
         l = T.dscalar('l') # Lambda (sparse penalty)
 
         if self.obj == 1:
+
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
 
             self.fE = function([I, D, A, l], E, allow_input_downcast=True)
 
-            ga = T.grad(E, A)
+            gA = T.grad(E, A)
             gD = T.grad(E, D)
 
-            self.fgA = function([I, D, A, l], ga, allow_input_downcast=True)
+            self.fgA = function([I, D, A, l], gA, allow_input_downcast=True)
             self.fgD = function([I, D, A, l], gD, allow_input_downcast=True)
+
+            params = [D, A]
+            gparams = T.grad(E, wrt=params)
+            self.updates = adam_update(params, gparams)
         else:
 
             # Messy, need to get an initial A_past
@@ -133,49 +178,45 @@ class SparseCoding():
             VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
         return VI
 
-    def scLearning(self):
-        D = np.random.randn(self.patch_dim, self.neurons)
 
+    def scLearning(self):
         # Initialize batch of images
         I = np.zeros((self.patch_dim, self.batch_size))
 
-        start = datetime.now()
         for t in range(0, self.num_trials):
             I = self.load_rimages(I)
-            #showbfs(I, 111)
-            #plt.show()
 
-            A = self.sparsify(I, D)
+            A = self.sparsify(t, I)
 
-            print '%.3d) Error_1 = %d' % (t, self.fE(I, D, A, self.lambdav))
-            eta = 0.5 * get_eta(t, self.neurons, -1, self.batch_size)
-            D = D - eta * self.fgD(I, D, A, self.lambdav)
-            print '%.3d) Error_2 = %d' % (t, self.fE(I, D, A, self.lambdav))
-            D = t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0))))
+            self.learn_D(I, self.lambdav)
+            D = self.D.get_value()
+            self.D.set_value(t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0)))))
+            D = self.D.get_value()
 
             if t % 200 == 0:
                 showbfs(D, -1)
                 plt.show()
 
-    def sparsify(self, I, D):
-        coeff_eta = 0.0050
-        A = np.zeros((self.neurons, self.batch_size))
+    def sparsify(self, t, I):
+        self.A.set_value(np.zeros((self.neurons, self.batch_size)))
         for i in range(self.coeff_iterations):
-                grad = self.fgA(I, D, A, self.lambdav)
-                A = A - coeff_eta * grad
-                print '%.3d) Error= %d' % (i, self.fE(I, D, A, self.lambdav))
+            self.learn_A(I, self.lambdav)
+        A = self.A.get_value()
+        D = self.D.get_value()
 
-        thresh = 0.05
+        thresh = 0.01
         G = np.copy(A)
-        G[G > thresh] = 1
-        G[G <= thresh] = 0
+        G[np.abs(G) > thresh] = 1
+        G[np.abs(G) <= thresh] = 0
+        AT = np.copy(A)
+        #AT[np.abs(G) <= thresh] = 0
 
         var = I.var().mean()
-        recon = tdot(D, G)
+        recon = tdot(D, AT)
         R = I - recon
         mse = (R ** 2).mean()
         snr = 10 * log(var/mse, 10)
-        print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (0, snr, np.sum(G)/self.batch_size)
+        print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (t, snr, np.sum(G)/self.batch_size)
 
         if self.visualize:
             if not self.initialized:
