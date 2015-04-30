@@ -43,7 +43,7 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = patch_dim * 4 # Number of basis functions
+    neurons      = patch_dim # Number of basis functions
     #neurons      = 288 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
@@ -60,7 +60,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
     #init_phi_name = 'Phi_299/Phi_299_1.0.mat'
     #init_phi_name = 'Phi_299_1.0.mat'
-    init_phi_name = 'Phi_317/Phi_317_50.0.mat'
+    #init_phi_name = 'Phi_317/Phi_317_50.0.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -295,11 +295,11 @@ class LcaNetwork():
         I = np.zeros((self.patch_dim, self.batch_size))
 
         # Transformation matrix
-        if self.init_phi_name != '':
+        if False and self.init_phi_name != '':
             Z = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
         else:
             Z = np.eye(self.neurons)
-            Z = initZ(self.neurons)
+            #Z = initZ(self.neurons)
             #Z = np.random.randn(self.neurons, self.neurons)
             #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
             #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
@@ -345,8 +345,8 @@ class LcaNetwork():
                     dZ = eta * t2dot(UR, u_prev.T)
 
                     # Update
-                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
-                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    #Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    #Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
                     Z = Z + dZ
 
                     # Check new error
@@ -889,6 +889,7 @@ class LcaNetwork():
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)
             print inspect.getsource(get_veta)
+            print inspect.getsource(get_zeta)
         else:
             name = 'Phi_%d' % self.phi_idx
             path = 'dict/%s' % name
