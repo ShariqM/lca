@@ -18,7 +18,7 @@ class SparseCoding():
     batch_size = 100
     border = 4
     sz = np.sqrt(patch_dim)
-    lambdav = 0.15
+    lambdav = 0.25
 
     num_trials = 1000
 
@@ -75,16 +75,16 @@ class SparseCoding():
         for t in range(0, self.num_trials):
             I = self.load_rimages(I)
 
-            for i in range(100):
+            for i in range(60):
                 grad = self.fga(I, D, a, self.lambdav)
                 a = a - coeff_eta * grad
-                print '%.3d) Error= %d' % (i, self.fE(I, D, a, self.lambdav))
-                time.sleep(0.5)
+                #print '%.3d) Error= %d' % (i, self.fE(I, D, a, self.lambdav))
 
-            pdb.set_trace()
-
-            eta = get_eta(t, self.neurons, -1, self.batch_size)
+            print 'Activity for %d neurons is %d' % (self.neurons, np.sum(np.abs(a)))
+            print '%.3d) Error_1 = %d' % (t, self.fE(I, D, a, self.lambdav))
+            eta = 1 * get_eta(t, self.neurons, -1, self.batch_size)
             D = D - eta * self.fgD(I, D, a, self.lambdav)
+            print '%.3d) Error_2 = %d' % (t, self.fE(I, D, a, self.lambdav))
             D = t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0))))
 
             if t % 20 == 0:
