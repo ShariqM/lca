@@ -57,10 +57,6 @@ class LcaNetwork():
 
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_271_2.7.mat'
-    #init_phi_name = 'Phi_272_0.5.mat'
-    #init_phi_name = 'Phi_289/Phi_289_0.4.mat'
-    #init_phi_name = 'Phi_299/Phi_299_1.0.mat'
-    #init_phi_name = 'Phi_299_1.0.mat'
     #init_phi_name = 'Phi_317/Phi_317_50.0.mat'
 
     # LCA Parameters

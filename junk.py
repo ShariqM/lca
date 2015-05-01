@@ -33,6 +33,3 @@ plt.axis([0, num_frames, 0, max(max(act_a), max(act_b),)])
 plt.plot(range(num_frames), act_a, color=rcolor[run])
 plt.plot(range(num_frames), act_b, color=COLORS['green'])
 #plt.plot(range(num_frames), act_c, color=COLORS['blue'])
-
-
-

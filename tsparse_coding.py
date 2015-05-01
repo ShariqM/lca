@@ -31,11 +31,11 @@ class SparseCoding():
     sz = np.sqrt(patch_dim)
     omega = 0.5    # Reconstruction Penalty
     lambdav = 0.35 # Sparsity penalty
-    gamma = 0.01    # Coeff Prediction Penalty
-    kappa = 0.01    # Smoothness penalty
+    gamma = 0.25    # Coeff Prediction Penalty
+    kappa = 0.25    # Smoothness penalty
 
     num_trials = 10000
-    coeff_iterations = 10
+    coeff_iterations = 40
 
     visualize = False
     initialized = False
@@ -61,98 +61,71 @@ class SparseCoding():
 
         l = T.dscalar('l') # Lambda (sparse penalty)
 
-        E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
-        self.fE = function([I, l], E, allow_input_downcast=True)
-
-        params = [D, A]
-        gparams = T.grad(E, wrt=params)
-        #updates = sgd_update(params, gparams, 0.005)
-        #updates = adam_update(params, gparams)
-        updates = adadelta_update(params, gparams)
-
-        self.learn_D = theano.function(inputs = [I, l],
-                                outputs = E,
-                                updates = [[D, updates[D]]],
-                                allow_input_downcast=True) # Brian doesn't seem to use this
-
-        self.learn_A = theano.function(inputs = [I, l],
-                                outputs = E,
-                                updates = [[A, updates[A]]],
-                                allow_input_downcast=True) # Brian doesn't seem to use this
-
-    def __init___old(self, obj):
-        image_data_name = 'IMAGES_MOVE_RIGHT'
-        #image_data_name = 'IMAGES_EDGE_RIGHT_DUCK'
-        #image_data_name = 'IMAGES_DUCK_SHORT' # XXX CHANGE TO DUCK
-        self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
-        (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
-        self.obj = obj
-
-        if self.visualize:
-            plt.ion()
-            self.batch_size = 1
-
-        I = T.fmatrix('I') # Image
-        D = self.D = T.fmatrix('D') # Dictionary
-        A = self.A = T.fmatrix('A') # Coefficients
-        l = T.dscalar('l') # Lambda (sparse penalty)
-
-        if self.obj == 1:
-
+        if self.obj == 1 or self.obj == 2:
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
-
-            self.fE = function([I, D, A, l], E, allow_input_downcast=True)
-
-            gA = T.grad(E, A)
-            gD = T.grad(E, D)
-
-            self.fgA = function([I, D, A, l], gA, allow_input_downcast=True)
-            self.fgD = function([I, D, A, l], gD, allow_input_downcast=True)
-
+            self.fE = function([I, l], E, allow_input_downcast=True)
             params = [D, A]
             gparams = T.grad(E, wrt=params)
-            self.updates = adam_update(params, gparams)
+            updates = adadelta_update(params, gparams)
+
+            self.learn_D = theano.function(inputs = [I, l],
+                                    outputs = E,
+                                    updates = [[D, updates[D]]],
+                                    allow_input_downcast=True) # Brian doesn't seem to use this
+
+            self.learn_A = theano.function(inputs = [I, l],
+                                    outputs = E,
+                                    updates = [[A, updates[A]]],
+                                    allow_input_downcast=True) # Brian doesn't seem to use this
         else:
+            A_initm = np.zeros((self.neurons, self.batch_size))
+            A_init = self.A_init = theano.shared(A_initm.astype(dtype))
 
-            # Messy, need to get an initial A_past
-            sc_E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
-            self.sc_fE = function([I, D, A, l], sc_E, allow_input_downcast=True)
-            sc_ga = T.grad(sc_E, A)
-            self.sc_fgA = function([I, D, A, l], sc_ga, allow_input_downcast=True)
+            # Messy have to do this to init A_past
+            sc_E = 0.5 * ((I - T.dot(D, A_init)).norm(2) ** 2) + l * A_init.norm(1)
+            self.sc_fE = function([I, l], sc_E, allow_input_downcast=True)
+            params = [A_init]
+            gparams = T.grad(sc_E, wrt=params)
+            updates = adadelta_update(params, gparams)
 
+            self.learn_A_init = theano.function(inputs = [I, l],
+                                    outputs = sc_E,
+                                    updates = [[A_init, updates[A_init]]],
+                                    allow_input_downcast=True)
 
             A_past = T.fmatrix('A_past')
-            Z = T.fmatrix('Z')
+            Zm = np.eye(self.neurons)
+            Z = self.Z = theano.shared(Zm.astype(dtype))
+
             o = T.dscalar('o') # Omega (Reconstruction Penalty)
             g = T.dscalar('g') # Gamma (Coeff Prediction Penalty)
             k = T.dscalar('k') # Kappa (Smoothness Penalty)
 
             # Correct
-            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1) + g * (A - T.dot(Z, A_past)).norm(2) + k * (A - A_past).norm(2)
-
-            # Works
-            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1) + .0001 * g * k * Z.norm(1) * A_past.norm(1)
-
-            # Doesn't work with l2
-            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1) + g * (A - T.dot(Z, A_past)).norm(1) + .0001 * g * k * Z.norm(1) * A_past.norm(1)
-            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1) + k * (A - A_past).norm(1) + .0001 * g * k * Z.norm(1) * A_past.norm(1)
-
-            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1) + g * (A - T.dot(Z, A_past)).norm(2) + .0001 * g * k * Z.norm(1) * A_past.norm(1) # Nan
-
             E = o * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
             # L2 doesn't work
             E += g * (A - T.dot(Z, A_past)).norm(1) # Prediction Error
             E += k * (A - A_past).norm(1) # Smoothness penalty
 
-            self.fE = function([I, D, Z, A, A_past, o, l, g, k], E, allow_input_downcast=True)
+            self.fE = function([I, A_past, o, l, g, k], E, allow_input_downcast=True)
 
-            ga = T.grad(E, A)
-            gD = T.grad(E, D)
-            gZ = T.grad(E, Z)
+            params = [D, A, Z]
+            gparams = T.grad(E, wrt=params)
+            updates = adadelta_update(params, gparams)
 
-            self.fgA = function([I, D, Z, A, A_past, o, l, g, k], ga, allow_input_downcast=True)
-            self.fgD = function([I, D, Z, A, A_past, o, l, g, k], gD, allow_input_downcast=True)
-            self.fgZ = function([I, D, Z, A, A_past, o, l, g, k], gZ, allow_input_downcast=True)
+            self.learn_D = theano.function(inputs = [I, A_past, o, l, g, k],
+                                    outputs = E,
+                                    updates = [[D, updates[D]]],
+                                    allow_input_downcast=True)
+            self.learn_A = theano.function(inputs = [I, A_past, o, l, g, k],
+                                    outputs = E,
+                                    updates = [[A, updates[A]]],
+                                    allow_input_downcast=True)
+
+            self.learn_Z = theano.function(inputs = [I, A_past, o, l, g, k],
+                                    outputs = E,
+                                    updates = [[Z, updates[Z]]],
+                                    allow_input_downcast=True)
 
     # Image Loaders
     def load_rimages(self, I):
@@ -198,6 +171,35 @@ class SparseCoding():
         print '%.3d) SNR=%.2fdB, Activity=%.2f%%, Time=%ds' % \
                 (t, snr, np.sum(G)/self.batch_size, (datetime.now() - start).seconds)
 
+    def log_psnr_sparsity(self, t, I, A_past, start):
+        A = self.A.get_value()
+        D = self.D.get_value()
+        Z = self.Z.get_value()
+
+        # Sparsity
+        thresh = 0.01
+        G = np.copy(A)
+        G[np.abs(G) > thresh] = 1
+        G[np.abs(G) <= thresh] = 0
+
+        # SNR, P_SNR, I_SNR
+        var = I.var().mean()
+
+        R   = I - t2dot(D, A)
+        p_R = I - t2dot(D, t2dot(Z, A_past))
+        i_R = I - t2dot(D, A_past)
+
+        mse   = (R ** 2).mean()
+        p_mse = (p_R ** 2).mean()
+        i_mse = (i_R ** 2).mean()
+
+        snr   = 10 * log(var/mse, 10)
+        p_snr = 10 * log(var/p_mse, 10)
+        i_snr = 10 * log(var/i_mse, 10)
+
+        print '%.3d) SNR=%.2fdB, I_SNR=%.2fdB, P_SNR=%.2fdB, Activity=%.2f%%, Time=%ds' %  \
+                (t, snr, i_snr, p_snr, np.sum(G)/self.batch_size, (datetime.now() - start).seconds)
+
     def scLearning(self):
         # Initialize batch of images
         I = np.zeros((self.patch_dim, self.batch_size))
@@ -216,9 +218,6 @@ class SparseCoding():
                 plt.show()
 
     def vscLearning(self):
-        # Initialize batch of images
-        I = np.zeros((self.patch_dim, self.batch_size))
-
         start = datetime.now()
         for t in range(0, self.num_trials):
             VI = self.load_videos()
@@ -260,71 +259,38 @@ class SparseCoding():
         plt.colorbar()
         plt.show()
 
-    def mscLearning(self):
-        D = np.random.randn(self.patch_dim, self.neurons)
-        Z = np.eye(self.neurons)
-        self.showZ(Z)
-
-        old_coeff_eta = 0.0025
-        coeff_eta     = 0.01000
+    def vmscLearning(self):
+        start = datetime.now()
         for t in range(0, self.num_trials):
             VI = self.load_videos()
             I = VI[:,:,0]
 
-            A      = np.zeros((self.neurons, self.batch_size))
-            A_past = np.zeros((self.neurons, self.batch_size))
             # Have to get an A_past loaded up before learning
-            print '%.3d) Old_Error_0 = %d' % (t, self.sc_fE(I, D, A_past, self.lambdav))
             for i in range(self.coeff_iterations):
-                grad = self.sc_fgA(I, D, A_past, self.lambdav)
-                #print 'A_past grad', grad
-                A_past = A_past - old_coeff_eta * grad
-            print '%.3d) Old_Error_1 = %d' % (t, self.sc_fE(I, D, A_past, self.lambdav))
+                self.learn_A_init(I, self.lambdav)
+            A_past = self.A_init.get_value()
             A = A_past
 
             for q in range(1, self.time_batch_size):
                 I = VI[:,:,q]
 
-                print '%.3d) Error_2 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
+                print '%.3d) Error_2 = %d' % (t, self.fE(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
                 for i in range(self.coeff_iterations):
-                    grad = self.fgA(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
-                    #print 'A', grad
-                    A = A - coeff_eta * grad
+                    self.learn_A(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
 
-                var = I.var().mean()
-                R = I - tdot(D, A)
-                p_R = I - t3dot(D, Z, A_past)
-                mse = (R ** 2).mean()
-                p_mse = (p_R ** 2).mean()
-                snr = 10 * log(var/mse, 10)
-                p_snr = 10 * log(var/p_mse, 10)
-                print '%.3d) SNR=%.2fdB P_SNR=%.2fdB' % (t, snr, p_snr)
+                self.learn_Z(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
+                self.learn_D(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
 
-                print '%.3d) Error_3 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
-                eta = get_zeta(self.batch_size * t, self.neurons, -1, self.batch_size)
-                Z = Z - eta * self.fgZ(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
-                print '%.3d) Error_4 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
+                A_past = self.A.get_value()
 
-                eta = get_veta(self.batch_size * t, self.neurons, -1, self.batch_size)
-                D = D - eta * self.fgD(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa)
-                D = t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0))))
-                print '%.3d) Error_5 = %d' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
-                print '\n'
-
-                A_past = A
-
-            #if t % 20 == 0:
             if t % 5 == 0:
-                print '%.3d) Activity for %d neurons is %f' % (t, self.neurons, np.sum(np.abs(A)))
-                print '%.3d) Error_1 = %d\n' % (t, self.fE(I, D, Z, A, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
-                showbfs(D, -1)
+                self.log_psnr_sparsity(t, I, A_past, start)
+                print '%.3d) Error_1 = %d\n' % (t, self.fE(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
+                showbfs(self.D.get_value(0, -1))
                 plt.show()
-                self.showZ(Z)
+                self.showZ(self.Z.get_value())
 
-
-        scipy.io.savemat('Dict_1', {'D':D, 'Z': Z})
-
-
+        scipy.io.savemat('Dict_1', {'D':self.D.get_value(), 'Z': self.Z.get_value()})
 
     def run(self):
         if self.obj == 1:
@@ -334,5 +300,5 @@ class SparseCoding():
         else:
             self.vmscLearning()
 
-sc = SparseCoding(2)
+sc = SparseCoding(3)
 sc.run()

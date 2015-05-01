@@ -17,20 +17,20 @@ if socket.gethostname() == 'redwood2':
     o3 = T.dot(T.dot(Cv, Dv), Ev)
     t3dot = theano.function([Cv, Dv, Ev], o3, allow_input_downcast=True)
 
-    Dv = T.fmatrix('D')
-    Ev = T.fmatrix('E')
     Fv = T.fmatrix('F')
     Gv = T.fmatrix('G')
-    o4 = T.dot(T.dot(Dv, Ev), T.dot(Fv, Gv))
-    t4dot = theano.function([Dv, Ev, Fv, Gv], o4, allow_input_downcast=True)
-
     Hv = T.fmatrix('H')
     Iv = T.fmatrix('I')
+    o4 = T.dot(T.dot(Fv, Gv), T.dot(Hv, Iv))
+    t4dot = theano.function([Fv, Gv, Hv, Iv], o4, allow_input_downcast=True)
+
     Jv = T.fmatrix('J')
     Kv = T.fmatrix('K')
     Lv = T.fmatrix('L')
-    o5 = T.dot(T.dot(Hv, T.dot(Iv, Jv)), T.dot(Kv, Lv))
-    t5dot = theano.function([Hv, Iv, Jv, Kv, Lv], o5, allow_input_downcast=True)
+    Mv = T.fmatrix('M')
+    Nv = T.fmatrix('N')
+    o5 = T.dot(T.dot(Jv, T.dot(Kv, Lv)), T.dot(Mv, Nv))
+    t5dot = theano.function([Jv, Kv, Lv, Mv, Nv], o5, allow_input_downcast=True)
 
 else:
     def dot_many(*args):
