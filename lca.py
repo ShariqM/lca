@@ -43,7 +43,7 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 36 # Number of basis functions
+    neurons      = 144 # Number of basis functions
     #neurons      = patch_dim # Number of basis functions
     #neurons      = 288 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
@@ -81,7 +81,7 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
@@ -101,7 +101,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[5]
+        self.image_data_name = self.datasets[1]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))

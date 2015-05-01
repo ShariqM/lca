@@ -30,19 +30,19 @@ class SparseCoding():
     border = 4
     sz = np.sqrt(patch_dim)
     omega = 0.5    # Reconstruction Penalty
-    lambdav = 0.45 # Sparsity penalty
+    lambdav = 0.35 # Sparsity penalty
     gamma = 0.01    # Coeff Prediction Penalty
     kappa = 0.01    # Smoothness penalty
 
     num_trials = 10000
-    coeff_iterations = 50
+    coeff_iterations = 10
 
     visualize = False
     initialized = False
 
     def __init__(self, obj):
         #image_data_name = 'IMAGES_MOVE_RIGHT'
-        image_data_name = 'IMAGES_DUCK_SHORT'
+        image_data_name = 'IMAGES_DUCK'
         self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.obj = obj
@@ -67,8 +67,8 @@ class SparseCoding():
         params = [D, A]
         gparams = T.grad(E, wrt=params)
         #updates = sgd_update(params, gparams, 0.005)
-        updates = adam_update(params, gparams)
-        #updates = adadelta_update(params, gparams)
+        #updates = adam_update(params, gparams)
+        updates = adadelta_update(params, gparams)
 
         self.learn_D = theano.function(inputs = [I, l],
                                 outputs = E,
@@ -181,6 +181,22 @@ class SparseCoding():
             VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
         return VI
 
+    def log_snr_sparsity(self, t, I, start):
+        A = self.A.get_value()
+        D = self.D.get_value()
+
+        thresh = 0.01
+        G = np.copy(A)
+        G[np.abs(G) > thresh] = 1
+        G[np.abs(G) <= thresh] = 0
+
+        var = I.var().mean()
+        recon = tdot(D, A)
+        R = I - recon
+        mse = (R ** 2).mean()
+        snr = 10 * log(var/mse, 10)
+        print '%.3d) SNR=%.2fdB, Activity=%.2f%%, Time=%ds' % \
+                (t, snr, np.sum(G)/self.batch_size, (datetime.now() - start).seconds)
 
     def scLearning(self):
         # Initialize batch of images
@@ -189,54 +205,42 @@ class SparseCoding():
         for t in range(0, self.num_trials):
             I = self.load_rimages(I)
 
-            A = self.sparsify(t, I)
-
-            #print '%.3d) Error_D1 = %d' % (t, self.fE(I, self.lambdav))
+            self.sparsify(t, I)
             self.learn_D(I, self.lambdav)
             D = self.D.get_value()
             self.D.set_value(t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0)))))
-            D = self.D.get_value()
-            #print '%.3d) Error_D2 = %d' % (t, self.fE(I, self.lambdav))
 
-            #var = I.var().mean()
-            #recon = tdot(D, A)
-            #R = I - recon
-            #mse = (R ** 2).mean()
-            #snr = 10 * log(var/mse, 10)
-            #print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (t, snr, 0.0)
-
-            if t % 40 == 0:
-                showbfs(D, -1)
-                var = I.var().mean()
-                recon = tdot(D, A)
-                R = I - recon
-                mse = (R ** 2).mean()
-                snr = 10 * log(var/mse, 10)
-                print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (t, snr, 0.0)
+            if t % 80 == 0:
+                self.log_snr_sparsity(t, I)
+                showbfs(self.D.get_value(), -1)
                 plt.show()
 
-    def sparsify(self, t, I):
-        self.A.set_value(np.zeros((self.neurons, self.batch_size)))
+    def vscLearning(self):
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        start = datetime.now()
+        for t in range(0, self.num_trials):
+            VI = self.load_videos()
+
+            for i in range(self.time_batch_size):
+                I = VI[:,:,i]
+                self.sparsify(t, I, reinit=False)
+                self.learn_D(I, self.lambdav)
+                D = self.D.get_value()
+                self.D.set_value(t2dot(D, np.diag(1/np.sqrt(np.sum(D**2, axis = 0)))))
+
+            if t % 5 == 0:
+                self.log_snr_sparsity(t, I, start)
+                showbfs(self.D.get_value(), -1)
+                plt.show()
+
+    def sparsify(self, t, I, reinit=True):
+        if reinit:
+            print 'reinit'
+            self.A.set_value(np.zeros((self.neurons, self.batch_size)).astype(dtype))
         for i in range(self.coeff_iterations):
             self.learn_A(I, self.lambdav)
-            #print '%.3d) Error = %d' % (t, self.fE(I, self.lambdav))
-        #pdb.set_trace()
-        A = self.A.get_value()
-        #D = self.D.get_value()
-
-        #thresh = 0.01
-        #G = np.copy(A)
-        #G[np.abs(G) > thresh] = 1
-        #G[np.abs(G) <= thresh] = 0
-        #AT = np.copy(A)
-        #AT[np.abs(G) <= thresh] = 0
-
-        #var = I.var().mean()
-        #recon = tdot(D, AT)
-        #R = I - recon
-        #mse = (R ** 2).mean()
-        #snr = 10 * log(var/mse, 10)
-        #print '%.3d) SNR=%.2fdB, Activity=%.2f%%' % (t, snr, np.sum(G)/self.batch_size)
 
         if self.visualize:
             if not self.initialized:
@@ -250,8 +254,6 @@ class SparseCoding():
             self.ax[1].set_title('Reconstruct')
             plt.draw()
             plt.show()
-
-        return A
 
     def showZ(self, Z):
         plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True))
@@ -327,8 +329,10 @@ class SparseCoding():
     def run(self):
         if self.obj == 1:
             self.scLearning()
+        elif self.obj == 2:
+            self.vscLearning()
         else:
-            self.mscLearning()
+            self.vmscLearning()
 
-sc = SparseCoding(1)
+sc = SparseCoding(2)
 sc.run()
