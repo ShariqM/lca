@@ -180,6 +180,7 @@ class LcaNetwork():
             Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)
             Phi = Phi['Phi']
         else:
+            print 'g'
             Phi = np.random.randn(self.patch_dim, self.neurons)
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
         return Phi
@@ -764,7 +765,8 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
+            #u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
+            u = self.coeff_eta * (b - t2dot(G,u)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
             check_activity(b, G, u, a)
@@ -797,7 +799,8 @@ class LcaNetwork():
                     plt.savefig('animation/%d.jpeg' % self.iter_idx)
                 self.iter_idx += 1
 
-        return u, a
+        #return u, a
+        return u, u
 
     def group_thresh(self, a, theta):
         if len(a) % self.group_sparse != 0:

@@ -93,6 +93,33 @@ def check_activity_m(b, Zb, Ga, ZGa, u):
 # Simulated Annealing functions
 def get_eta(t, neurons, runtype, batch_size):
     if neurons < 300:
+        start = 300
+        inc = 300
+    else:
+        start = 1000
+        inc = 1000
+    if t < start:
+        return 6.0/batch_size
+    if t < start + 1*inc:
+        return 3.0/batch_size
+    if t < start + 2*inc:
+        return 1.0/batch_size
+    if t < start + 3*inc:
+        return 0.5/batch_size
+    if t < start + 4*inc:
+        return 0.25/batch_size
+    if t < start + 5*inc:
+        return 0.125/batch_size
+    if t < start + 6*inc:
+        return 0.06/batch_size
+    if t < start + 7*inc:
+        return 0.03/batch_size
+    if t < start + 8*inc:
+        return 0.015/batch_size
+    return 0.01/batch_size
+
+def get_eta(t, neurons, runtype, batch_size):
+    if neurons < 300:
         start = 500
         inc = 500
     else:
@@ -254,9 +281,23 @@ def gauss(mean, point):
     return stats.norm(loc=mean,scale=1.00).pdf(point)
 
 def initZ(neurons):
-    Z = np.zeros((neurons, neurons))
-    for r in range(neurons):
-        for c in range(neurons):
-            Z[r,c] = my_dist(r, c)
-    return Z
+    if False:
+        return np.eye(neurons)
+    else:
+        Z = np.zeros((neurons, neurons))
+        for r in range(neurons):
+            for c in range(neurons):
+                Z[r,c] = my_dist(r, c)
+        return Z
+
+def initG(neurons, gtype='topographic'):
+    if gtype == 'topographic':
+        G = np.zeros((neurons, neurons))
+        for r in range(neurons):
+            for c in range(neurons):
+                if c == r or c == r+1:
+                    G[r,c] = 1
+    else:
+        raise Exception("Unsupported gtype")
+    return G
 

@@ -1,2 +1,11 @@
 271 - Dictionary on MOVIE_RIGHT
 317 - Dictionary that kept learning Z
+
+
+VMSC, No **2
+045) SNR=11.28dB, I_SNR=-4.66dB, P_SNR=2.39dB, AC=31.70%, AC_SUM=311.206238, CC_SUM=121.831955, Time=100s
+045) VMSC - Error_1 = 1558
+
+VMSC, **2 on smoothness (basically no change)
+045) SNR=11.28dB, I_SNR=-4.85dB, P_SNR=2.95dB, AC=34.25%, AC_SUM=845.840454, CC_SUM=299.900879, Time=109s
+045) VMSC - Error_1 = 2712
