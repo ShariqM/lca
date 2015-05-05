@@ -289,15 +289,91 @@ def initZ(neurons):
             for c in range(neurons):
                 Z[r,c] = my_dist(r, c)
         return Z
+import pdb
+from math import sqrt
 
-def initG(neurons, gtype='topographic'):
-    if gtype == 'topographic':
+def initG(neurons, gtype='topographic_2'):
+    if gtype == 'topographic_1':
         G = np.zeros((neurons, neurons))
         for r in range(neurons):
             for c in range(neurons):
                 if c == r or c == r+1:
                     G[r,c] = 1
+    elif gtype == 'topographic_2':
+        G = np.zeros((neurons, neurons))
+        sqn = sqrt(neurons)
+        for x in range(neurons):
+            G[x,x] = 1
+            if x % sqn != 0:
+                G[x,x-1] = 1
+            if x >= sqn:
+                G[x, x - sqn] = 1
+            if x % sqn != (sqn-1):
+                G[x,x+1] = 1
+            if x < neurons - sqn:
+                G[x,x+sqn] = 1
+        print G
     else:
         raise Exception("Unsupported gtype")
     return G
 
+  #a b c d e f g h i j k l m n o p
+#a 1 1 - - 1 1 - - - - - - - - - -
+#b 1 1 1 - 1 1 1 - - - - - - - - -
+#c - 1 1 1 - 1 1 1 - - - - - - - -
+#d - - 1 1 - - 1 1 - - - - - - - -
+#e 1 1 - - 1 1 - - 1 1 - - - - - -
+#f 1 1 1 - 1 1 1 - 1 1 1 - - - - -
+#g - 1 1 1 - 1 1 1 - 1 1 1 - - - -
+#h - - 1 1 - - 1 1 - - 1 1 - - - -
+#i - - - - 1 1 - - 1 1 - - 1 1 - -
+#j - - - - 1 1 1 - 1 1 1 - 1 1 1 -
+#k - - - - - 1 1 1 - 1 1 1 - 1 1 1
+#l - - - - - - 1 1 - - 1 1 - - 1 1
+#m - - - - - - - - 1 1 - - 1 1 - -
+#n - - - - - - - - 1 1 1 - 1 1 1 -
+#o - - - - - - - - - 1 1 1 - 1 1 1
+#p - - - - - - - - - - 1 1 - - 1 1
+#
+
+  # 4 neighbors
+  #a b c d e f g h i j k l m n o p
+#a 1 1 - - 1 - - - - - - - - - - -
+#b 1 1 1 - - 1 - - - - - - - - - -
+#c - 1 1 1 - - 1 - - - - - - - - -
+#d - - 1 1 - - - 1 - - - - - - - -
+#e 1 - - - 1 1 - - 1 - - - - - - -
+#f - 1 - - 1 1 1 - - 1 - - - - - -
+#g - 1 1 1 - 1 1 1 - - 1 - - - - -
+#h - - 1 1 - - 1 1 - - - 1 - - - -
+#i - - - - 1 1 - - 1 1 - - 1 - - -
+#j - - - - 1 1 1 - 1 1 1 - - 1 - -
+#k - - - - - 1 1 1 - 1 1 1 - - 1 -
+#l - - - - - - 1 1 - - 1 1 - - - 1
+#m - - - - - - - - 1 1 - - 1 1 - -
+#n - - - - - - - - 1 1 1 - 1 1 1 -
+#o - - - - - - - - - 1 1 1 - 1 1 1
+#p - - - - - - - - - - 1 1 - - 1 1
+#
+
+ #[ 1 1 - - 1 - - - - - - - - - - -]
+ #[ 1 1 1 - - 1 - - - - - - - - - -]
+ #[ - 1 1 1 - - 1 - - - - - - - - -]
+ #[ - - 1 1 - - - 1 - - - - - - - -]
+ #[ 1 - - - 1 1 - - 1 - - - - - - -]
+ #[ - 1 - - 1 1 1 - - 1 - - - - - -]
+ #[ - - 1 - - 1 1 1 - - 1 - - - - -]
+ #[ - - - 1 - - 1 1 - - - 1 - - - -]
+ #[ - - - - 1 - - - 1 1 - - 1 - - -]
+ #[ - - - - - 1 - - 1 1 1 - - 1 - -]
+ #[ - - - - - - 1 - - 1 1 1 - - 1 -]
+ #[ - - - - - - - 1 - - 1 1 - - - 1]
+ #[ - - - - - - - - 1 - - - 1 1 - -]
+ #[ - - - - - - - - - 1 - - 1 1 1 -]
+ #[ - - - - - - - - - - 1 - - 1 1 1]
+ #[ - - - - - - - - - - - 1 - - 1 1]
+
+#a b c d
+#e f g h
+#i j k l
+#m n o p

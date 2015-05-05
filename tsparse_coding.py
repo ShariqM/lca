@@ -23,7 +23,7 @@ dtype = theano.config.floatX
 class SparseCoding():
 
     patch_dim = 144
-    neurons = 36
+    neurons = 144
     #neurons = patch_dim
     batch_size = 100
     time_batch_size = 100
@@ -47,9 +47,9 @@ class SparseCoding():
         #return A / (1 + T.exp(g * (A - 1))
 
     def __init__(self, obj):
-        image_data_name = 'IMAGES_MOVE_RIGHT'
+        #image_data_name = 'IMAGES_MOVE_RIGHT'
         #image_data_name = 'IMAGES_DUCK'
-        #image_data_name = 'IMAGES_DUCK_SHORT'
+        image_data_name = 'IMAGES_DUCK_SHORT'
         self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.obj = obj
@@ -88,6 +88,7 @@ class SparseCoding():
                                     allow_input_downcast=True) # Brian doesn't seem to use this
         elif self.obj == 3:
             Gm = initG(self.neurons)
+            self.showZ(Gm)
             G = theano.shared(Gm.astype(dtype))
 
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * T.dot(G, A).norm(1)
