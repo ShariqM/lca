@@ -17,22 +17,26 @@ from math import log
 #from recurrnet import optimizer
 #from optimizer import *
 from Recurrnet.recurrnet.optimizer import *
+from objectivetype import *
 
 dtype = theano.config.floatX
 
 class SparseCoding():
 
     patch_dim = 144
-    neurons = 144
-    #neurons = patch_dim
+    #neurons = 144
+    neurons = 2 * patch_dim
     batch_size = 100
     time_batch_size = 100
     border = 4
     sz = np.sqrt(patch_dim)
-    omega = 0.5    # Reconstruction Penalty
+    omega = 0.25    # Reconstruction Penalty
     lambdav = 0.25 # Sparsity penalty
+    #lambdav = 1.00 # Sparsity penalty
     gamma = 8.00    # Coeff Prediction Penalty
     kappa =  4.00    # Smoothness penalty
+
+    obj = ObjectiveType.GSC
 
     art_thresh = 0.05
 
@@ -46,13 +50,12 @@ class SparseCoding():
         #g = -5
         #return A / (1 + T.exp(g * (A - 1))
 
-    def __init__(self, obj):
+    def __init__(self):
         #image_data_name = 'IMAGES_MOVE_RIGHT'
         #image_data_name = 'IMAGES_DUCK'
         image_data_name = 'IMAGES_DUCK_SHORT'
         self.IMAGES = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
-        self.obj = obj
 
         self.last_G = None
         if self.visualize:
@@ -69,7 +72,7 @@ class SparseCoding():
 
         l = T.dscalar('l') # Lambda (sparse penalty)
 
-        if self.obj == 1 or self.obj == 2:
+        if self.obj == ObjectiveType.SC or self.obj == ObjectiveType.VSC:
             #E = 0.5 * ((I - T.dot(D, T.clip(A, l, 1000) - l)).norm(2) ** 2) + l * A.norm(1)
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
             self.fE = function([I, l], E, allow_input_downcast=True)
@@ -85,8 +88,8 @@ class SparseCoding():
             self.learn_A = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[A, updates[A]]],
-                                    allow_input_downcast=True)
-        elif self.obj == 3:
+                                    allow_input_downcast=True) # Brian doesn't seem to use this
+        elif self.obj == ObjectiveType.GSC:
             Gm = initG(self.neurons)
             self.showZ(Gm)
             G = theano.shared(Gm.astype(dtype))
@@ -105,8 +108,8 @@ class SparseCoding():
             self.learn_A = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[A, updates[A]]],
-                                    allow_input_downcast=True)
-        elif self.obj == 4:
+                                    allow_input_downcast=True) # Brian doesn't seem to use this
+        elif self.obj == ObjectiveType.PPSC:
             A_initm = np.zeros((self.neurons, self.batch_size))
             A_init = self.A_init = theano.shared(A_initm.astype(dtype))
 
@@ -156,7 +159,7 @@ class SparseCoding():
                                     outputs = E,
                                     updates = [[Z, updates[Z]]],
                                     allow_input_downcast=True)
-        else:
+        elif self.obj == ObjectiveType.PSC:
             A_initm = np.zeros((self.neurons, self.batch_size))
             A_init = self.A_init = theano.shared(A_initm.astype(dtype))
 
@@ -366,7 +369,7 @@ class SparseCoding():
         plt.colorbar()
         plt.show()
 
-    def vmscpLearning(self):
+    def ppscLearning(self):
         start = datetime.now()
         for t in range(0, self.num_trials):
             VI = self.load_videos()
@@ -398,7 +401,7 @@ class SparseCoding():
                 scipy.io.savemat(name, {'D':self.D.get_value(), 'Z': self.Z.get_value()})
 
 
-    def vmscLearning(self):
+    def pscLearning(self):
         start = datetime.now()
         for t in range(0, self.num_trials):
             VI = self.load_videos()
@@ -424,7 +427,7 @@ class SparseCoding():
 
             if t % 5 == 0:
                 self.log_psnr_sparsity(t, I, A_past, start)
-                print '%.3d) VMSC - Error_1 = %d\n' % (t, self.fE(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
+                print '%.3d) psc - Error_1 = %d\n' % (t, self.fE(I, A_past, self.omega, self.lambdav, self.gamma, self.kappa))
                 showbfs(self.D.get_value(), -1)
                 plt.show()
                 self.showZ(self.Z.get_value())
@@ -433,14 +436,16 @@ class SparseCoding():
 
 
     def run(self):
-        if self.obj == 1 or 3:
+        if self.obj == ObjectiveType.SC or self.obj == ObjectiveType.GSC:
             self.scLearning()
-        elif self.obj == 2:
+        elif self.obj == ObjectiveType.VSC:
             self.vscLearning()
-        elif self.obj == 4:
-            self.vmscpLearning()
+        elif self.obj == ObjectiveType.PPSC:
+            self.ppscLearning()
+        elif self.obj == ObjectiveType.PSC:
+            self.pscLearning()
         else:
-            self.vmscLearning()
+            raise Exception("Unknown objective type")
 
-sc = SparseCoding(3)
+sc = SparseCoding()
 sc.run()

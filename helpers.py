@@ -292,7 +292,7 @@ def initZ(neurons):
 import pdb
 from math import sqrt
 
-def initG(neurons, gtype='topographic_2'):
+def initG(neurons, gtype='pairs'):
     if gtype == 'topographic_1':
         G = np.zeros((neurons, neurons))
         for r in range(neurons):
@@ -312,10 +312,22 @@ def initG(neurons, gtype='topographic_2'):
                 G[x,x+1] = 1
             if x < neurons - sqn:
                 G[x,x+sqn] = 1
-        print G
+    elif gtype == 'pairs':
+        G = np.zeros((neurons, neurons))
+        for x in range(neurons):
+            G[x,x] = 1
+            if x % 2 == 0:
+                G[x,x+1] = 1
+            else:
+                G[x,x-1] = 1
     else:
         raise Exception("Unsupported gtype")
     return G
+
+#1 1
+#1 1
+    #1 1
+    #1 1
 
   #a b c d e f g h i j k l m n o p
 #a 1 1 - - 1 1 - - - - - - - - - -
