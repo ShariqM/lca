@@ -25,6 +25,7 @@ import inspect
 from showbfs import showbfs
 from helpers import *
 from runtype import *
+from lambdatype import *
 from runp import *
 from colors import COLORS
 
@@ -61,14 +62,13 @@ class LcaNetwork():
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    fixed_lambda = True # Don't initialize the threshold above lambdav and decay down
+    lambda_type = LambdaType.LSM
     lambda_decay = 0.95
     thresh_type  = 'soft'
-    #coeff_eta    = 0.25 # Wack point
-    coeff_eta    = 0.05 # Normal
-    #u_factor = 0.8
+    coeff_eta    = 0.05  # Normal
+    lambda_alpha = 0.001 # For LSM
+    lambda_beta  = 0.01  # For LSM
 
-    lambda_type  = ''
     group_sparse = 1     # Group Sparse Coding (1 is normal sparse coding)
     iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
@@ -562,13 +562,12 @@ class LcaNetwork():
         Zb = tdot(ZPhi.T, nI)
         ZG = tdot(ZPhi.T, ZPhi) - np.eye(self.neurons)
 
-        if self.fixed_lambda:
+        if self.lambda_type == LambdaType.Fixed:
             l = np.ones(self.batch_size)
             l *= self.lambdav
-            self.lambda_type = 'Fixed and lambdav'
         else:
+            raise Exception("Fix lambda type")
             l = 0.5 * np.max(np.abs(b), axis = 0)
-            self.lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
 
         u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
         a = self.thresh(u, l)
@@ -630,8 +629,6 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            #u = self.u_factor * (self.coeff_eta * (b + Zb - tdot(G,a) - tdot(ZG, a)) + (1 - self.coeff_eta) * u)
-            #u = self.coeff_eta * 2.0 * (b - tdot(G,a)) + 2.0 * (1 - self.coeff_eta) * u
             u = self.coeff_eta * (b - tdot(G,a)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
@@ -695,16 +692,21 @@ class LcaNetwork():
 
         b = t2dot(Phi.T, I)
         G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
+        u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
 
-        if self.fixed_lambda:
+        if self.lambda_type == LambdaType.Fixed:
             l = np.ones(self.batch_size)
             l *= self.lambdav
-            self.lambda_type = 'Fixed and lambdav'
-        else:
+        elif self.lambda_type == LambdaType.LSM:
+            if self.coeff_visualizer:
+                print "*** WARNING *** Visualizer doesn't work well with LSM"
+            l = np.ones((self.neurons, self.batch_size))
+            l = (self.lambda_alpha + l) / (self.lambda_beta + np.abs(u))
+        elif self.lambda_type == LambdaType.Decay:
             l = 0.5 * np.max(np.abs(b), axis = 0)
-            self.lambda_type = 'l = 0.5 * np.max(np.abs(b), axis = 0)'
+        else:
+            raise Exception("Unsupported lambda type")
 
-        u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
         a = self.thresh(u, l)
 
         showme = True # set to false if you just want to save the images
@@ -765,14 +767,17 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            #u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
             u = self.coeff_eta * (b - t2dot(G,u)) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
             check_activity(b, G, u, a)
 
-            l = self.lambda_decay * l
-            l[l < self.lambdav] = self.lambdav
+            if self.lambda_type == LambdaType.LSM:
+                l = np.ones((self.neurons, self.batch_size))
+                l = (self.lambda_alpha + l) / (self.lambda_beta + np.abs(u))
+            else:
+                l = self.lambda_decay * l
+                l[l < self.lambdav] = self.lambdav
 
             if self.coeff_visualizer:
                 for coeff, i in zip(self.coeffs, range(self.neurons)):
@@ -810,6 +815,21 @@ class LcaNetwork():
         for c in chunks:
             c[np.sum(np.abs(chunks), axis=0) < theta] = 0
         return np.concatenate(chunks)
+
+    def thresh_lsm(self, u, theta):
+        'LCA threshold function'
+        if self.thresh_type=='hard': # L0 Approximation
+            if self.group_sparse > 1:
+                raise Exception("Group sparsity with lsmsoft threshold not supported")
+            a = u;
+            a[np.abs(a) < theta] = 0
+        elif self.thresh_type=='soft': # L1 Approximation
+            if self.group_sparse > 1:
+                raise Exception("Group sparsity with soft threshold not supported")
+            a = abs(u) - theta;
+            a[a < 0] = 0
+            a = np.sign(u) * a
+        return a
 
     def thresh(self, u, theta):
         'LCA threshold function'
@@ -871,7 +891,7 @@ class LcaNetwork():
             f.write('iter_per_frame=%d\n' % self.iters_per_frame)
             f.write('thresh_type=%s\n' % self.thresh_type)
             f.write('coeff_eta=%.3f\n' % self.coeff_eta)
-            f.write('lambda_type=[%s]\n' % self.lambda_type)
+            f.write('lambda_type=[%s]\n' % get_LambdaType_name(self.lambda_type))
             f.write('InitPhi=%s\n' % self.init_phi_name)
             f.write('Load Sequentially=%s\n' % self.load_sequentially)
             f.write('Skip initial frames=%s\n' % self.skip_frames)

@@ -80,12 +80,12 @@ class SparseCoding():
             self.learn_D = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[D, updates[D]]],
-                                    allow_input_downcast=True) # Brian doesn't seem to use this
+                                    allow_input_downcast=True)
 
             self.learn_A = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[A, updates[A]]],
-                                    allow_input_downcast=True) # Brian doesn't seem to use this
+                                    allow_input_downcast=True)
         elif self.obj == 3:
             Gm = initG(self.neurons)
             self.showZ(Gm)
@@ -100,12 +100,12 @@ class SparseCoding():
             self.learn_D = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[D, updates[D]]],
-                                    allow_input_downcast=True) # Brian doesn't seem to use this
+                                    allow_input_downcast=True)
 
             self.learn_A = theano.function(inputs = [I, l],
                                     outputs = E,
                                     updates = [[A, updates[A]]],
-                                    allow_input_downcast=True) # Brian doesn't seem to use this
+                                    allow_input_downcast=True)
         elif self.obj == 4:
             A_initm = np.zeros((self.neurons, self.batch_size))
             A_init = self.A_init = theano.shared(A_initm.astype(dtype))
@@ -133,7 +133,7 @@ class SparseCoding():
             self.learn_D = theano.function(inputs = [I, A_past, l, k],
                                     outputs = E,
                                     updates = [[D, updates[D]]],
-                                    allow_input_downcast=True) # Brian doesn't seem to use this
+                                    allow_input_downcast=True)
 
             self.learn_A = theano.function(inputs = [I, A_past, l, k],
                                     outputs = E,
