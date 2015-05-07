@@ -44,7 +44,9 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 144 # Number of basis functions
+    neurons      = 8 ** 2 # Number of basis functions
+    #neurons      = 16 ** 2 # Number of basis functions
+    #neurons      = 144 # Number of basis functions
     #neurons      = patch_dim # Number of basis functions
     #neurons      = 288 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
@@ -59,6 +61,8 @@ class LcaNetwork():
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_271_2.7.mat'
     #init_phi_name = 'Phi_317/Phi_317_50.0.mat'
+    #init_phi_name = 'Phi_387/Phi_387_0.1.mat'
+    init_phi_name = 'Phi_415/Phi_415_0.5.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -66,12 +70,25 @@ class LcaNetwork():
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
-    #lambda_alpha = 0.001 # For LSM
-    lambda_alpha = -0.98  # For LSM
-    lambda_beta  = 0.01   # For LSM
-    beta_decay   = 0.95
 
-    group_sparse = 1      # Group Sparse Coding (1 is normal sparse coding)
+    group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
+    topographic = True
+
+
+    alpha_left = 0.40
+    lambda_alpha = -group_sparse + alpha_left # For LSM
+    lambda_beta  = 0.01                 # For LSM
+
+    #lambda_alpha  = 0.0
+    #lambda_beta  = 0.01   # For LSM
+    #lambda_beta   = group_sparse * 5.01
+    #lambda_beta_init = lambda_beta
+    #lambda_beta_limit = 0.01
+    #lambda_beta  = group_sparse * 5.01   # For LSM
+    #lambda_beta  = group_sparse * 10.01   # For LSM
+
+    beta_decay   = 0.999
+
     iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
     load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
@@ -79,11 +96,11 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -99,7 +116,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[1]
+        self.image_data_name = self.datasets[9]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -182,7 +199,6 @@ class LcaNetwork():
             Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)
             Phi = Phi['Phi']
         else:
-            print 'g'
             Phi = np.random.randn(self.patch_dim, self.neurons)
             Phi = np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
         return Phi
@@ -249,6 +265,7 @@ class LcaNetwork():
             VI = self.load_videos()
 
             u_pred = None # Neurons keep state from previous frame
+            #self.lambda_beta = self.lambda_beta_init
             for i in range(self.time_batch_size):
                 I = VI[:,:,i]
 
@@ -260,6 +277,10 @@ class LcaNetwork():
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
                     # Update Basis Functions
+                    #if False and self.lambda_beta == self.lambda_beta_init:
+                        #print np.max(u)
+                        #self.lambda_beta = self.lambda_beta_limit
+                    #else:
                     dPhi = get_veta(self.batch_size * t, self.neurons,
                                     self.runtype, self.time_batch_size) * (tdot(R, ahat.T))
 
@@ -346,8 +367,8 @@ class LcaNetwork():
                     dZ = eta * t2dot(UR, u_prev.T)
 
                     # Update
-                    #Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
-                    #Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
                     Z = Z + dZ
 
                     # Check new error
@@ -556,6 +577,20 @@ class LcaNetwork():
                         self.sz, self.sz, self.neurons, self.batch_size, elapsed), fontsize=18)
         plt.show(block=True)
 
+    def get_lsm_lambda(self, u, reset=False):
+        #if reset:
+            #self.lambda_beta = self.lambda_beta_init
+
+        G = initG(self.neurons, self.group_sparse, self.topographic)
+        l = np.ones((self.neurons, self.batch_size)) * self.group_sparse
+        l = (self.lambda_alpha + l) / (self.lambda_beta + tdot(G, np.abs(u)))
+
+        #if self.lambda_beta > self.lambda_beta_limit:
+            #self.lambda_beta *= self.beta_decay
+
+        return l
+
+
     def sparsify(self, I, Phi, u_pred=None, num_iterations=80):
         'Run the LCA coefficient dynamics'
 
@@ -569,8 +604,7 @@ class LcaNetwork():
         elif self.lambda_type == LambdaType.LSM:
             if self.coeff_visualizer:
                 print "*** WARNING *** Visualizer doesn't work well with LSM"
-            l = np.ones((self.neurons, self.batch_size))
-            l = (self.lambda_alpha + l) / (self.lambda_beta + np.abs(u))
+            l = self.get_lsm_lambda(u, u_pred == None)
         elif self.lambda_type == LambdaType.Decay:
             l = 0.5 * np.max(np.abs(b), axis = 0)
         else:
@@ -588,8 +622,8 @@ class LcaNetwork():
                 self.ax[1,1].set_xlabel('Coefficient Index')
                 self.ax[1,1].set_ylabel('Activity')
 
-                self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
-                self.lthresh = self.ax[1,1].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
+                #self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
+                #self.lthresh = self.ax[1,1].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
 
                 axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
                 self.ax[1,1].axis([0, self.neurons, 0, axis_height])
@@ -610,9 +644,9 @@ class LcaNetwork():
                     plt.savefig('animation/%d.jpeg' % self.iter_idx)
                 self.iter_idx += 1
 
-            for coeff, i in zip(self.coeffs, range(self.neurons)):
-                coeff.set_height(abs(u[i]))  # Update the potentials
-            self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
+            #for coeff, i in zip(self.coeffs, range(self.neurons)):
+                #coeff.set_height(abs(u[i]))  # Update the potentials
+            #self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
             self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
             self.ax[1,0].set_title('Image')
@@ -642,16 +676,15 @@ class LcaNetwork():
             check_activity(b, G, u, a)
 
             if self.lambda_type == LambdaType.LSM:
-                l = np.ones((self.neurons, self.batch_size))
-                l = (self.lambda_alpha + l) / (self.lambda_beta + np.abs(u))
+                l = self.get_lsm_lambda(u)
             else:
                 l = self.lambda_decay * l
                 l[l < self.lambdav] = self.lambdav
 
             if self.coeff_visualizer:
-                for coeff, i in zip(self.coeffs, range(self.neurons)):
-                    coeff.set_height(abs(u[i]))  # Update the potentials
-                self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
+                #for coeff, i in zip(self.coeffs, range(self.neurons)):
+                    #coeff.set_height(abs(u[i]))  # Update the potentials
+                #self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
                 # Update Reconstruction
                 recon = t2dot(Phi, a)
@@ -688,13 +721,8 @@ class LcaNetwork():
         'LCA threshold function'
         if self.thresh_type=='hard': # L0 Approximation
             a = u;
-            if self.group_sparse > 1:
-                a = self.group_thresh(u, theta)
-            else:
-                a[np.abs(a) < theta] = 0
+            a[np.abs(a) < theta] = 0
         elif self.thresh_type=='soft': # L1 Approximation
-            if self.group_sparse > 1:
-                raise Exception("Group sparsity with soft threshold not supported")
             a = abs(u) - theta;
             a[a < 0] = 0
             a = np.sign(u) * a
@@ -710,6 +738,11 @@ class LcaNetwork():
             rr = r
         f.close()
         return int(rr)
+
+    def showZ(self, Z):
+        plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True))
+        plt.colorbar()
+        plt.show()
 
     def view_log_save(self, Phi, comp, Z=None):
         'View Phi, Z, log parameters, and save the matrices '

@@ -184,7 +184,7 @@ def get_zeta(t, neurons, runtype, batch_size):
     start = 2000
     inc = 1000
 
-    eta = eta_start = 1.50
+    eta = eta_start = 0.60
 
     for i in range(6):
         if t < start + i*inc:
@@ -281,7 +281,7 @@ def gauss(mean, point):
     return stats.norm(loc=mean,scale=1.00).pdf(point)
 
 def initZ(neurons):
-    if False:
+    if True:
         return np.eye(neurons)
     else:
         Z = np.zeros((neurons, neurons))
@@ -292,36 +292,63 @@ def initZ(neurons):
 import pdb
 from math import sqrt
 
-def initG(neurons, gtype='pairs'):
-    if gtype == 'topographic_1':
-        G = np.zeros((neurons, neurons))
-        for r in range(neurons):
-            for c in range(neurons):
-                if c == r or c == r+1:
-                    G[r,c] = 1
-    elif gtype == 'topographic_2':
-        G = np.zeros((neurons, neurons))
-        sqn = sqrt(neurons)
-        for x in range(neurons):
-            G[x,x] = 1
-            if x % sqn != 0:
-                G[x,x-1] = 1
-            if x >= sqn:
-                G[x, x - sqn] = 1
-            if x % sqn != (sqn-1):
-                G[x,x+1] = 1
-            if x < neurons - sqn:
-                G[x,x+sqn] = 1
-    elif gtype == 'pairs':
-        G = np.zeros((neurons, neurons))
-        for x in range(neurons):
-            G[x,x] = 1
-            if x % 2 == 0:
-                G[x,x+1] = 1
-            else:
-                G[x,x-1] = 1
+def initG(neurons, n, topographic):
+    if topographic:
+        if n == 2:
+            G = np.zeros((neurons, neurons))
+            for r in range(neurons):
+                for c in range(neurons):
+                    if c == r or c == r+1:
+                        G[r,c] = 1
+        elif n == 5:
+            G = np.zeros((neurons, neurons))
+            sqn = sqrt(neurons)
+            for x in range(neurons):
+                G[x,x] = 1
+                if x % sqn != 0:
+                    G[x,x-1] = 1
+                if x >= sqn:
+                    G[x, x - sqn] = 1
+                if x % sqn != (sqn-1):
+                    G[x,x+1] = 1
+                if x < neurons - sqn:
+                    G[x,x+sqn] = 1
+        elif n == 9:
+            G = np.zeros((neurons, neurons))
+            sqn = sqrt(neurons)
+            for x in range(neurons):
+                U = x >= sqn
+                L = x % sqn != 0
+                R = x % sqn != (sqn-1)
+                D = x < neurons - sqn
+
+                if U:
+                    if L:
+                        G[x, x - sqn - 1] = 1
+                    if R:
+                        G[x, x - sqn + 1] = 1
+                    G[x, x - sqn] = 1
+
+                if L:
+                    G[x,x-1] = 1
+                if R:
+                    G[x,x+1] = 1
+                G[x,x] = 1
+
+                if D:
+                    if L:
+                        G[x, x + sqn - 1] = 1
+                    if R:
+                        G[x, x + sqn + 1] = 1
+                    G[x, x + sqn] = 1
+        else:
+            raise Exception("Unsupported topography")
     else:
-        raise Exception("Unsupported gtype")
+        G = np.zeros((neurons, neurons))
+        for x in range(neurons):
+            start = (x/n) * n
+            for i in range(start, start+n):
+                G[x,i] = 1
     return G
 
 #1 1
