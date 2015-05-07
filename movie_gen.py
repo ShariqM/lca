@@ -90,6 +90,34 @@ class MovieGen():
 
         self.save('IMAGES_BOUNCE')
 
+    def interp_bounce(self):
+        t = 0
+        for iters in range(self.frames/(2 * self.sz)):
+            for i in range(self.sz):
+                frame = np.zeros((self.imsz,self.imsz))
+                for c in range(self.imsz):
+                    frame[:, c] = self.gauss(i, c % self.sz)
+                self.data[:,:,t] = frame
+                t = t + 1
+
+                if self.show_images:
+                    plt.imshow(frame[0:12,0:12] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+                    plt.show()
+
+            for i in range(1, self.sz-1):
+                frame = np.zeros((self.imsz,self.imsz))
+                for c in range(self.imsz):
+                    frame[:, c] = self.gauss(self.sz-i-1, c % self.sz)
+                self.data[:,:,t] = frame
+                t = t + 1
+
+                if self.show_images:
+                    plt.imshow(frame[0:12,0:12] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+                    plt.show()
+
+
+
+        self.save('IMAGES_INTERP_BOUNCE')
 
     def duck_edge(self):
         oname = 'IMAGES_DUCK_SHORT'
@@ -188,15 +216,17 @@ class MovieGen():
         elif self.gen_type == 2:
             self.interp_right()
         elif self.gen_type == 3:
-            self.movie_bounce()
+            self.interp_bounce()
         elif self.gen_type == 4:
-            self.duck_edge()
+            self.movie_bounce()
         elif self.gen_type == 5:
+            self.duck_edge()
+        elif self.gen_type == 6:
             self.duck_edge_right()
         else:
             self.duck_patch()
 
-mg = MovieGen(2)
+mg = MovieGen(3)
 mg.run()
 
 #plt.imshow(data[:,:,13] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
