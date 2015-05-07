@@ -62,7 +62,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_271_2.7.mat'
     #init_phi_name = 'Phi_317/Phi_317_50.0.mat'
     #init_phi_name = 'Phi_387/Phi_387_0.1.mat'
-    init_phi_name = 'Phi_415/Phi_415_0.5.mat'
+    #init_phi_name = 'Phi_415/Phi_415_0.5.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -75,7 +75,7 @@ class LcaNetwork():
     topographic = True
 
 
-    alpha_left = 0.40
+    alpha_left = 1.00
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_beta  = 0.01                 # For LSM
 
@@ -96,11 +96,12 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    #runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -782,6 +783,9 @@ class LcaNetwork():
             f.write('Load Sequentially=%s\n' % self.load_sequentially)
             f.write('Skip initial frames=%s\n' % self.skip_frames)
             f.write('Group Sparse=%d\n' % self.group_sparse)
+            f.write('Topographic=%s\n' % self.topographic)
+            f.write('Alpha left=%f\n' % self.alpha_left)
+            f.write('Beta=%f\n' % self.lambda_beta)
 
             f.write('%d\n' % (self.phi_idx))
             f.close()

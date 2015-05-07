@@ -22,7 +22,7 @@ smooth_show = False
 #oname = 'IMAGES_PATCH_DUCK'
 #oname = 'IMAGES_DUCK_SHORT'
 oname = 'IMAGES_EDGE_RIGHT_DUCK'
-oname = 'IMAGES_MOVE_RIGHT'
+#oname = 'IMAGES_MOVE_RIGHT'
 #sname = 'IMAGES_DUCK_SMOOTH_0.7'
 
 #oname = 'IMAGES_DUCK_SHORT'
