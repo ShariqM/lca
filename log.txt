@@ -8980,3 +8980,153 @@ Topographic=True
 Alpha left=1.000000
 Beta=0.010000
 416
+
+*** Phi_417 ***
+Time=2015-05-07 10:06:44.436033
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=64
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=1.000000
+Beta=0.010000
+417
+
+*** Phi_418 ***
+Time=2015-05-07 10:16:00.215551
+RunType=vmLearning
+IMAGES=IMAGES_BOUNCE
+patch_dim=144
+neurons=64
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=2400
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=1.000000
+Beta=0.010000
+418
+
+*** Phi_419 ***
+Time=2015-05-07 10:40:11.240003
+RunType=vmLearning
+IMAGES=IMAGES_INTERP_BOUNCE
+patch_dim=144
+neurons=64
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=1.000000
+Beta=0.010000
+419
+
+*** Phi_420 ***
+Time=2015-05-07 10:43:03.621880
+RunType=vmLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=256
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=1.000000
+Beta=0.010000
+420
+
+*** Phi_421 ***
+Time=2015-05-07 10:44:40.308558
+RunType=vmLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=256
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=0.100000
+Beta=0.010000
+421
+
+*** Phi_422 ***
+Time=2015-05-07 10:47:15.801376
+RunType=vmLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=400
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=0.100000
+Beta=0.010000
+422

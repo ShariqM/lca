@@ -1,8 +1,8 @@
 " Run LCA on a data set"
 import matplotlib
 import socket
-if socket.gethostname() == 'redwood2':
-    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+#if socket.gethostname() == 'redwood2':
+    #matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 import pdb
 
@@ -40,15 +40,13 @@ class LcaNetwork():
                 6:'IMAGES_BOUNCE',
                 7:'IMAGES_PATCH_DUCK',
                 8:'IMAGES_EDGE_DUCK',
-                9:'IMAGES_EDGE_RIGHT_DUCK'}
+                9:'IMAGES_EDGE_RIGHT_DUCK',
+                10:'IMAGES_INTERP_RIGHT',
+                11:'IMAGES_INTERP_BOUNCE'}
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 8 ** 2 # Number of basis functions
-    #neurons      = 16 ** 2 # Number of basis functions
-    #neurons      = 144 # Number of basis functions
-    #neurons      = patch_dim # Number of basis functions
-    #neurons      = 288 # Number of basis functions
+    neurons      = 20 ** 2 # Number of basis functions
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
@@ -59,10 +57,6 @@ class LcaNetwork():
     num_trials   = 20000
 
     init_phi_name = '' # Blank if you want to start from scratch
-    #init_phi_name = 'Phi_271_2.7.mat'
-    #init_phi_name = 'Phi_317/Phi_317_50.0.mat'
-    #init_phi_name = 'Phi_387/Phi_387_0.1.mat'
-    #init_phi_name = 'Phi_415/Phi_415_0.5.mat'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -74,20 +68,9 @@ class LcaNetwork():
     group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
     topographic = True
 
-
-    alpha_left = 1.00
+    alpha_left = 0.10
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_beta  = 0.01                 # For LSM
-
-    #lambda_alpha  = 0.0
-    #lambda_beta  = 0.01   # For LSM
-    #lambda_beta   = group_sparse * 5.01
-    #lambda_beta_init = lambda_beta
-    #lambda_beta_limit = 0.01
-    #lambda_beta  = group_sparse * 5.01   # For LSM
-    #lambda_beta  = group_sparse * 10.01   # For LSM
-
-    beta_decay   = 0.999
 
     iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
@@ -101,7 +84,7 @@ class LcaNetwork():
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -117,7 +100,7 @@ class LcaNetwork():
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
 
     def __init__(self):
-        self.image_data_name = self.datasets[9]
+        self.image_data_name = self.datasets[2]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -623,7 +606,7 @@ class LcaNetwork():
                 self.ax[1,1].set_xlabel('Coefficient Index')
                 self.ax[1,1].set_ylabel('Activity')
 
-                #self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
+                self.coeffs = self.ax[1,1].bar(range(self.neurons), np.abs(u), color='r', lw=0)
                 #self.lthresh = self.ax[1,1].plot(range(self.neurons+1), list(l) * (self.neurons+1), color='g')
 
                 axis_height = 1.05 if self.runtype == RunType.Learning else self.lambdav * 5
@@ -683,8 +666,8 @@ class LcaNetwork():
                 l[l < self.lambdav] = self.lambdav
 
             if self.coeff_visualizer:
-                #for coeff, i in zip(self.coeffs, range(self.neurons)):
-                    #coeff.set_height(abs(u[i]))  # Update the potentials
+                for coeff, i in zip(self.coeffs, range(self.neurons)):
+                    coeff.set_height(abs(u[i]))  # Update the potentials
                 #self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
                 # Update Reconstruction
