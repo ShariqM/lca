@@ -68,7 +68,7 @@ class LcaNetwork():
     group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
     topographic = True
 
-    alpha_left = 0.10
+    alpha_left = 0.05
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_beta  = 0.01                 # For LSM
 
@@ -84,7 +84,7 @@ class LcaNetwork():
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off

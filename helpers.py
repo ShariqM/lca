@@ -59,7 +59,7 @@ def check_activity_old(b, G, u, a):
         print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
 
 def check_activity(b, G, u, a):
-    if np.sum(np.abs(u)) > 20000: # Coeff explosion check
+    if np.sum(np.abs(u)) > 2000: # Coeff explosion check
         print 'Activity Explosion!!!'
         print 'Data:'
         Ga = np.abs(t2dot(G,a))

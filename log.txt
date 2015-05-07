@@ -9130,3 +9130,53 @@ Topographic=True
 Alpha left=0.100000
 Beta=0.010000
 422
+
+*** Phi_423 ***
+Time=2015-05-07 10:59:24.225460
+RunType=vmLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=400
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=0.100000
+Beta=0.010000
+423
+
+*** Phi_424 ***
+Time=2015-05-07 11:00:55.223991
+RunType=vmLearning
+IMAGES=IMAGES_DUCK
+patch_dim=144
+neurons=400
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1000
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[LSM]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=9
+Topographic=True
+Alpha left=0.050000
+Beta=0.010000
+424
