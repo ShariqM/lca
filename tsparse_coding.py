@@ -24,8 +24,8 @@ dtype = theano.config.floatX
 class SparseCoding():
 
     patch_dim = 144
-    #neurons = 144
-    neurons = 2 * patch_dim
+    neurons = 144
+    #neurons = 2 * patch_dim
     batch_size = 100
     time_batch_size = 100
     border = 4
@@ -36,7 +36,7 @@ class SparseCoding():
     gamma = 8.00    # Coeff Prediction Penalty
     kappa =  4.00    # Smoothness penalty
 
-    obj = ObjectiveType.GSC
+    obj = ObjectiveType.BSC
 
     art_thresh = 0.05
 
@@ -72,7 +72,25 @@ class SparseCoding():
 
         l = T.dscalar('l') # Lambda (sparse penalty)
 
-        if self.obj == ObjectiveType.SC or self.obj == ObjectiveType.VSC:
+        if self.obj == ObjectiveType.BSC:
+            E = 0.5 * ((I - T.dot(D, T.exp(A))).norm(2) ** 2) + l - l
+            self.fE = function([I, l], E, allow_input_downcast=True)
+            params = [D, A]
+            gparams = T.grad(E, wrt=params)
+            updates = adadelta_update(params, gparams)
+
+            self.learn_D = theano.function(inputs = [I, l],
+                                    outputs = E,
+                                    updates = [[D, updates[D]]],
+                                    allow_input_downcast=True)
+
+            self.learn_A = theano.function(inputs = [I, l],
+                                    outputs = E,
+                                    updates = [[A, updates[A]]],
+                                    allow_input_downcast=True) # Brian doesn't seem to use this
+
+
+        elif self.obj == ObjectiveType.SC or self.obj == ObjectiveType.VSC:
             #E = 0.5 * ((I - T.dot(D, T.clip(A, l, 1000) - l)).norm(2) ** 2) + l * A.norm(1)
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
             self.fE = function([I, l], E, allow_input_downcast=True)
@@ -436,7 +454,7 @@ class SparseCoding():
 
 
     def run(self):
-        if self.obj == ObjectiveType.SC or self.obj == ObjectiveType.GSC:
+        if self.obj == ObjectiveType.BSC or self.obj == ObjectiveType.SC or self.obj == ObjectiveType.GSC:
             self.scLearning()
         elif self.obj == ObjectiveType.VSC:
             self.vscLearning()
