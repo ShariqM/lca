@@ -1,8 +1,8 @@
 " Run LCA on a data set"
 import matplotlib
 import socket
-#if socket.gethostname() == 'redwood2':
-    #matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+if socket.gethostname() == 'redwood2':
+    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 import pdb
 
@@ -46,12 +46,13 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 20 ** 2 # Number of basis functions
-    #neurons      = patch_dim * 8 # Number of basis functions
+    #neurons      = 25 ** 2 # Number of basis functions
+    neurons      = 1024
+    #neurons      = patch_dim * 1 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.15   # Minimum Threshold
+    lambdav      = 0.20   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -60,17 +61,21 @@ class LcaNetwork():
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    lambda_type = LambdaType.LSM
+    lambda_type = LambdaType.Fixed
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
-    topographic = True
+    group_sparse = 1      # Group Sparse Coding (1 is normal sparse coding)
+    topographic = False
 
-    alpha_left = 0.05
+    alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
-    lambda_beta  = 0.01                 # For LSM
+    lambda_alpha = 0
+    lambda_beta  = 0.01 # For LSM
+    lambda_scale = 65
+    move_to_lsm  = 7
+    #lambda_beta  = group_sparse # For LSM
 
     iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
@@ -79,7 +84,7 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
     #runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
@@ -98,6 +103,7 @@ class LcaNetwork():
 
     random_patch_index = 3                    # Patch for coeff_visualizer
     start_t = 0                               # Used if you want to continue learning of an existing dictionary
+    exploded = False
 
     def __init__(self):
         self.image_data_name = self.datasets[2]
@@ -254,6 +260,8 @@ class LcaNetwork():
                 I = VI[:,:,i]
 
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                if self.exploded:
+                    break
                 u_pred = u
 
                 # Calculate Residual
@@ -284,8 +292,10 @@ class LcaNetwork():
 
             sys.stdout.flush()
 
-            if np.mod(t, 5) == 0:
+            if self.exploded or np.mod(t, 5) == 0:
                 self.view_log_save(Phi, 100.0 * float(t)/self.num_trials)
+            #if self.exploded:
+                #raise Exception("Explosion")
 
             print '%.4d) lambdav=%.3f || snr=%.2fdB || AC=%.2f%% || ELAP=%d' \
                         % (t, self.lambdav, snr, 100.0 * ac / max_active,
@@ -567,7 +577,7 @@ class LcaNetwork():
 
         G = initG(self.neurons, self.group_sparse, self.topographic)
         l = np.ones((self.neurons, self.batch_size)) * self.group_sparse
-        l = (self.lambda_alpha + l) / (self.lambda_beta + tdot(G, np.abs(u)))
+        l = (self.lambda_alpha + l) / (self.lambda_beta + tdot(G, self.lambda_scale * np.abs(u)))
 
         #if self.lambda_beta > self.lambda_beta_limit:
             #self.lambda_beta *= self.beta_decay
@@ -588,7 +598,9 @@ class LcaNetwork():
         elif self.lambda_type == LambdaType.LSM:
             if self.coeff_visualizer:
                 print "*** WARNING *** Visualizer doesn't work well with LSM"
-            l = self.get_lsm_lambda(u, u_pred == None)
+            #l = self.get_lsm_lambda(u, u_pred == None)
+            l = np.ones(self.batch_size)
+            l *= self.lambdav
         elif self.lambda_type == LambdaType.Decay:
             l = 0.5 * np.max(np.abs(b), axis = 0)
         else:
@@ -654,12 +666,14 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
-            u = self.coeff_eta * (b - t2dot(G,u)) + (1 - self.coeff_eta) * u
+            u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
+            #u = self.coeff_eta * (b - np.sign(u) * t2dot(G,np.abs(u))) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
 
+            #self.exploded = check_activity(b, G, u, a)
             check_activity(b, G, u, a)
 
-            if self.lambda_type == LambdaType.LSM:
+            if t > self.move_to_lsm and self.lambda_type == LambdaType.LSM:
                 l = self.get_lsm_lambda(u)
             else:
                 l = self.lambda_decay * l
@@ -769,6 +783,7 @@ class LcaNetwork():
             f.write('Topographic=%s\n' % self.topographic)
             f.write('Alpha left=%f\n' % self.alpha_left)
             f.write('Beta=%f\n' % self.lambda_beta)
+            f.write('Lambda_Scale=%f\n' % self.lambda_scale)
 
             f.write('%d\n' % (self.phi_idx))
             f.close()
@@ -776,7 +791,7 @@ class LcaNetwork():
             logfile = '%s/%s_log.txt' % (path, name)
             #print 'Not Assigning stdout to %s' % logfile
             print 'Assigning stdout to %s' % logfile
-            #sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
 
             # print these methods so we know the simulated annealing parameters
             print inspect.getsource(get_eta)

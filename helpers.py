@@ -1,4 +1,5 @@
 import socket
+import pdb
 import numpy as np
 from theano import *
 import theano.tensor as T
@@ -59,17 +60,22 @@ def check_activity_old(b, G, u, a):
         print 'u (sum, min, max)', np.sum(u), np.min(u), np.max(u)
 
 def check_activity(b, G, u, a):
-    if np.sum(np.abs(u)) > 2000: # Coeff explosion check
+    if np.sum(np.abs(u)) > 5000: # Coeff explosion check
         print 'Activity Explosion!!!'
         print 'Data:'
         Ga = np.abs(t2dot(G,a))
 
-        bc = np.abs(np.copy(b))
-        Gac = np.abs(np.copy(Ga))
-        uc = np.abs(np.copy(u))
+        #bc = np.abs(np.copy(b))
+        #Gac = np.abs(np.copy(Ga))
+        #uc = np.abs(np.copy(u))
+        bc = b
+        Gac = Ga
+        uc = u
         print 'bc (sum, min, max)',np.sum(bc), np.min(bc), np.max(bc)
         print 'Gac (sum, min, max)',np.sum(Gac), np.min(Gac), np.max(Gac)
         print 'uc (sum, min, max)',np.sum(uc), np.min(uc), np.max(uc)
+        print 'uc index', np.where(uc==np.min(uc)), np.where(uc==np.max(uc))
+        return True
 
 def check_activity_m(b, Zb, Ga, ZGa, u):
     if np.sum(np.abs(np.max(u))) > 20: # Coeff explosion check
@@ -289,7 +295,6 @@ def initZ(neurons):
             for c in range(neurons):
                 Z[r,c] = my_dist(r, c)
         return Z
-import pdb
 from math import sqrt
 
 def initG(neurons, n, topographic):
