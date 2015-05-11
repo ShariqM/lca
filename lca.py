@@ -166,6 +166,17 @@ class LcaNetwork():
                     i = i + 1
         return I
 
+    def load_basis_image(self, I, Phi, t):
+        '(4) Load'
+        for r in range(self.patch_per_dim):
+            for c in range(self.patch_per_dim):
+                rr = r * self.sz
+                cc = c * self.sz
+                I[:,i] = Phi[:, 0]
+                i = i + 1
+
+        return I
+
     def load_videos(self):
         '(3) Load a batch_size number of Space-Time boxes of individual random patches. Used by vLearning()'
 
@@ -415,6 +426,28 @@ class LcaNetwork():
                            (datetime.now() - start).seconds)
 
         self.view_log_save(Phi, 100.0, Z)
+
+    def vDynamics(self):
+        # Load dict from Learning run
+        Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
+        Z   = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
+
+        # Set the batch_size to number of patches in an image
+        if not self.coeff_visualizer:
+            raise Exception("vDynamics purely for visualization")
+
+        I = self.load_basis_image(I, Phi, t)
+
+        u_pred = None
+        for t in range(self.num_frames):
+            if t == 0:
+                #u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=80) # Let the system settle
+            else:
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
+
+            u_prev = u
+            u_pred = t2dot(Z, u_prev)
 
     def vPredict(self):
         # Load dict from Learning run
