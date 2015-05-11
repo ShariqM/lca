@@ -46,9 +46,10 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+    neurons      = 16 ** 2 # Number of basis functions
     #neurons      = 25 ** 2 # Number of basis functions
-    neurons      = 1024
-    #neurons      = patch_dim * 1 # Number of basis functions
+    #neurons      = 288
+    #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
@@ -61,19 +62,19 @@ class LcaNetwork():
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    lambda_type = LambdaType.Fixed
+    lambda_type = LambdaType.LSM
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 1      # Group Sparse Coding (1 is normal sparse coding)
+    group_sparse = 4      # Group Sparse Coding (1 is normal sparse coding)
     topographic = False
 
     alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_alpha = 0
     lambda_beta  = 0.01 # For LSM
-    lambda_scale = 65
+    lambda_scale = np.sqrt(neurons)
     move_to_lsm  = 7
     #lambda_beta  = group_sparse # For LSM
 
@@ -84,7 +85,7 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
     #runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
@@ -585,6 +586,26 @@ class LcaNetwork():
         return l
 
 
+
+    def check_activity(self, b, G, u, a):
+        if np.sum(np.abs(u)) > (self.neurons * self.batch_size * 0.50): # Coeff explosion check
+            print 'Activity Explosion!!!'
+            print 'Data:'
+            Ga = np.abs(t2dot(G,a))
+
+            #bc = np.abs(np.copy(b))
+            #Gac = np.abs(np.copy(Ga))
+            #uc = np.abs(np.copy(u))
+            bc = b
+            Gac = Ga
+            uc = u
+            print 'bc (sum, min, max)',np.sum(bc), np.min(bc), np.max(bc)
+            print 'Gac (sum, min, max)',np.sum(Gac), np.min(Gac), np.max(Gac)
+            print 'uc (sum, min, max)',np.sum(np.abs(uc)), np.min(uc), np.max(uc)
+            print 'uc index', np.where(uc==np.min(uc)), np.where(uc==np.max(uc))
+            return True
+
+
     def sparsify(self, I, Phi, u_pred=None, num_iterations=80):
         'Run the LCA coefficient dynamics'
 
@@ -597,7 +618,7 @@ class LcaNetwork():
             l *= self.lambdav
         elif self.lambda_type == LambdaType.LSM:
             if self.coeff_visualizer:
-                print "*** WARNING *** Visualizer doesn't work well with LSM"
+                print "*** WARNING *** Visualizer doesn't show threshold for LSM"
             #l = self.get_lsm_lambda(u, u_pred == None)
             l = np.ones(self.batch_size)
             l *= self.lambdav
@@ -671,7 +692,7 @@ class LcaNetwork():
             a = self.thresh(u, l)
 
             #self.exploded = check_activity(b, G, u, a)
-            check_activity(b, G, u, a)
+            self.check_activity(b, G, u, a)
 
             if t > self.move_to_lsm and self.lambda_type == LambdaType.LSM:
                 l = self.get_lsm_lambda(u)

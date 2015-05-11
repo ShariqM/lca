@@ -31,7 +31,7 @@ class SparseCoding():
     border = 4
     sz = np.sqrt(patch_dim)
     omega = 0.25    # Reconstruction Penalty
-    lambdav = 0.25 # Sparsity penalty
+    lambdav = 0.044 # Sparsity penalty
     #lambdav = 1.00 # Sparsity penalty
     gamma = 8.00    # Coeff Prediction Penalty
     kappa =  4.00    # Smoothness penalty
@@ -73,11 +73,12 @@ class SparseCoding():
         l = T.dscalar('l') # Lambda (sparse penalty)
 
         if self.obj == ObjectiveType.BSC:
-            E = 0.5 * ((I - T.dot(D, T.exp(A))).norm(2) ** 2) + l - l
+            E = 0.5 * ((I - T.dot(D, T.exp(1+A))).norm(2) ** 2) + l
             self.fE = function([I, l], E, allow_input_downcast=True)
             params = [D, A]
             gparams = T.grad(E, wrt=params)
             updates = adadelta_update(params, gparams)
+            print 'a'
 
             self.learn_D = theano.function(inputs = [I, l],
                                     outputs = E,
@@ -93,6 +94,7 @@ class SparseCoding():
         elif self.obj == ObjectiveType.SC or self.obj == ObjectiveType.VSC:
             #E = 0.5 * ((I - T.dot(D, T.clip(A, l, 1000) - l)).norm(2) ** 2) + l * A.norm(1)
             E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * A.norm(1)
+            #E = 0.5 * ((I - T.dot(D, A)).norm(2) ** 2) + l * T.sum(T.log(1 + (A/0.1) ** 2)) # Set L=0.04
             self.fE = function([I, l], E, allow_input_downcast=True)
             params = [D, A]
             gparams = T.grad(E, wrt=params)
@@ -313,6 +315,7 @@ class SparseCoding():
 
     def scLearning(self):
         # Initialize batch of images
+        print 'learn'
         I = np.zeros((self.patch_dim, self.batch_size))
 
         start = datetime.now()
