@@ -59,6 +59,7 @@ class LcaNetwork():
     num_trials   = 20000
 
     init_phi_name = '' # Blank if you want to start from scratch
+    init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -85,12 +86,12 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vmLearning # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vDynamics # Learning, vLearning, vmLearning, vReconstruct
     #runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -107,7 +108,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[2]
+        self.image_data_name = self.datasets[1]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -164,17 +165,6 @@ class LcaNetwork():
                     cc = c * sz
                     I[:,i] = np.reshape(self.IMAGES[rr:rr+sz, cc:cc+sz, t], self.patch_dim, 1)
                     i = i + 1
-        return I
-
-    def load_basis_image(self, I, Phi, t):
-        '(4) Load'
-        for r in range(self.patch_per_dim):
-            for c in range(self.patch_per_dim):
-                rr = r * self.sz
-                cc = c * self.sz
-                I[:,i] = Phi[:, 0]
-                i = i + 1
-
         return I
 
     def load_videos(self):
@@ -431,23 +421,40 @@ class LcaNetwork():
         # Load dict from Learning run
         Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
         Z   = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
+        print 'MAX Z', np.max(Z)
 
         # Set the batch_size to number of patches in an image
         if not self.coeff_visualizer:
             raise Exception("vDynamics purely for visualization")
 
-        I = self.load_basis_image(I, Phi, t)
+        iphi = np.floor(random.uniform(0,1) * Phi.shape[1])
+        iphi = 10 * 16 - 2
+        iphi = 14 * 16
+        I = np.zeros((self.patch_dim, self.batch_size))
+        I[:, 0] = Phi[:,iphi]
 
-        u_pred = None
+        u_pred = np.zeros((self.neurons, self.batch_size))
+        u_pred[iphi+2] = 1
+        u_pred_init = None
+        pframes = 200
         for t in range(self.num_frames):
             if t == 0:
                 #u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
-                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=80) # Let the system settle
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=20) # Let the system settle
+                u_pred_init = np.copy(u)
             else:
                 u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=0)
+                time.sleep(0.3)
+                if (t-1) % pframes == 0:
+                    u = np.copy(u_pred_init)
 
-            u_prev = u
-            u_pred = t2dot(Z, u_prev)
+            if t < 10:
+                u_pred[iphi] -= 0.1
+                u_pred[iphi+1] += 0.1
+            else:
+                u_pred[iphi+1] -= 0.1
+                u_pred[iphi+2] += 0.1
+            #u_pred = t2dot(Z, u)
 
     def vPredict(self):
         # Load dict from Learning run
@@ -694,8 +701,8 @@ class LcaNetwork():
                     plt.savefig('animation/%d.jpeg' % self.iter_idx)
                 self.iter_idx += 1
 
-            #for coeff, i in zip(self.coeffs, range(self.neurons)):
-                #coeff.set_height(abs(u[i]))  # Update the potentials
+            for coeff, i in zip(self.coeffs, range(self.neurons)):
+                coeff.set_height(abs(u[i]))  # Update the potentials
             #self.lthresh[0].set_data(range(self.neurons+1), list(l) * (self.neurons+1))
 
             self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
@@ -704,7 +711,8 @@ class LcaNetwork():
             # Update Reconstruction
             recon = t2dot(Phi, a)
             self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
-            self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
+            #self.ax[0,0].set_title('Iter=%d\nReconstruct' % self.iter_idx)
+            self.ax[0,0].set_title('Iter=%d+%.2f\nReconstruct' % (self.iter_idx, random.random()))
 
             # Plot SNR
             var = I.var().mean()
@@ -882,6 +890,8 @@ class LcaNetwork():
             self.vReconstruct()
         elif self.runtype == RunType.vPredict:
             self.vPredict()
+        elif self.runtype == RunType.vDynamics:
+            self.vDynamics()
         else:
             raise Exception("Unknown runtype specified")
 
