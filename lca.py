@@ -51,6 +51,7 @@ class LcaNetwork():
     #neurons      = 288
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
+    Gam_size     = 10
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
     lambdav      = 0.20   # Minimum Threshold
@@ -59,7 +60,7 @@ class LcaNetwork():
     num_trials   = 20000
 
     init_phi_name = '' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -85,13 +86,11 @@ class LcaNetwork():
     save_activity = False # Only supported for vReconstruct
 
     # General Parameters
-    #runtype            = RunType.Learning # Learning, vLearning, vmLearning, vReconstruct
-    runtype            = RunType.vDynamics # Learning, vLearning, vmLearning, vReconstruct
-    #runtype            = RunType.vPredict # Learning, vLearning, vmLearning, vReconstruct
+    runtype            = RunType.vgLearning # See runtype.py for options
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = True # Visualize potentials of neurons on a single patch
+    coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 100 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -416,6 +415,96 @@ class LcaNetwork():
                            (datetime.now() - start).seconds)
 
         self.view_log_save(Phi, 100.0, Z)
+
+    def csparsify(self, Gam, u_prev, u, c_prev=None):
+        c = c_prev if c_prev is not None else np.zeros((self.Gam_size, self.batch_size))
+
+        eta = 0.05
+        for t in range(60):
+            R = u - t3tendot(Gam, c, u_prev)
+            cR = np.tile(R, (self.neurons, 1)).T
+            c += -eta * t2tendot(cR, Gam)
+
+        return c
+
+    def snr_report(self, msg, I, R):
+        var = I.var().mean()
+        mse = (R ** 2).mean()
+        snr = 10 * log(var/mse, 10)
+        print '%s SNR: %.2fdB' % snr
+
+
+    def vgLearning(self):
+        'Run the video, inertia, transformation, LCA learning algorithm'
+        Phi = self.init_Phi()
+
+        # Initialize batch of images
+        I = np.zeros((self.patch_dim, self.batch_size))
+
+        # Transformation matrix
+        Gam = np.zeros((self.neurons, self.neurons, self.Gam_size))
+        for i in range(self.Gam_size):
+            Gam[:,:,i] = np.eye(self.neurons)
+        Gam += np.random.normal(0, 0.05, (self.neurons, self.neurons, self.Gam_size))
+
+        max_active = float(self.neurons * self.batch_size)
+        start = datetime.now()
+        online = False
+
+        for t in range(self.start_t, self.num_trials):
+            VI = self.load_videos()
+
+            c_prev = np.zeros((self.Gam_size, self.batch_size))
+            u_prev = np.zeros((self.neurons, self.batch_size))
+            u_pred = np.zeros((self.neurons, self.batch_size))
+            a_pred = np.zeros((self.neurons, self.batch_size))
+            for i in range(0, self.time_batch_size - 1):
+                I = VI[:,:,i]
+
+                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+
+                # Calculate Residual
+                R = I - t2dot(Phi, ahat)
+
+                if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
+                    if i > self.skip_frames/self.iters_per_frame:
+                        online = True
+                        u_pred = t3tendot(Gam, c, u_prev)
+                        pR = I - t2dot(Phi, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav))
+                        self.snr_report('Prediction', I, pR)
+
+                    #c = self.csparsify(Gam, u_prev, u, c_prev=c_prev) Try this later
+                    c = self.csparsify(Gam, u_prev, u, c_prev=None)
+
+                    # Calculate dPhi
+                    eta = get_veta(self.batch_size * t, self.neurons,
+                                   self.runtype, self.time_batch_size)
+                    dPhi =  eta * (t2dot(R, ahat.T))
+
+                    # Calculate dGam
+                    eta = get_veta(self.batch_size * t, self.neurons,
+                                   self.runtype, self.time_batch_size)
+                    DGam = 0
+
+                    # Update
+                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    Gam = Gam + dGam
+
+                u_prev = u
+                if not online:
+                    u_pred = u
+
+            self.snr_report('', I, R)
+            sys.stdout.flush()
+
+            if np.mod(t, 5) == 0:
+                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Gam)
+
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || ELAP=%d' \
+                        % (t, self.lambdav, snr, (datetime.now() - start).seconds)
+
+        self.view_log_save(Phi, 100.0, Gam)
 
     def vDynamics(self):
         # Load dict from Learning run
@@ -886,6 +975,8 @@ class LcaNetwork():
             self.vLearning()
         elif self.runtype == RunType.vmLearning:
             self.vmLearning()
+        elif self.runtype == RunType.vgLearning:
+            self.vgLearning()
         elif self.runtype == RunType.vReconstruct:
             self.vReconstruct()
         elif self.runtype == RunType.vPredict:

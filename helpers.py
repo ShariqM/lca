@@ -5,7 +5,7 @@ from theano import *
 import theano.tensor as T
 
 # Theano Matrix Multiplication Optimization
-if socket.gethostname() == 'redwood2':
+if True or socket.gethostname() == 'redwood2':
     Av = T.fmatrix('A')
     Bv = T.fmatrix('B')
     o2 = T.dot(Av, Bv)
@@ -33,13 +33,44 @@ if socket.gethostname() == 'redwood2':
     o5 = T.dot(T.dot(Jv, T.dot(Kv, Lv)), T.dot(Mv, Nv))
     t5dot = theano.function([Jv, Kv, Lv, Mv, Nv], o5, allow_input_downcast=True)
 
+    Ov = T.fmatrix('O')
+    Pv = T.fmatrix('P')
+    o6 = T.tensordot(Ov, Pv, 2)
+    t2tendot = theano.function([Ov, Pv], o6, allow_input_downcast=True)
+
+    #Qv = T.fmatrix('Q')
+    #Rv = T.fmatrix('R')
+    #Sv = T.fmatrix('S')
+    #o7 = T.tensordot(T.tensordot(Qv, Rv, 1), Sv, [[1], [0]])
+    #t3tendot = theano.function([Qv, Rv, Sv], o7, allow_input_downcast=True)
+
+    Qv = T.fmatrix('Q')
+    Rv = T.fmatrix('R')
+    Sv = T.fmatrix('S')
+    o7 = T.batched_tensordot(T.tensordot(Qv, Rv, 1).T, Sv.T, [[0], [1]])
+    t3tendot = theano.function([Qv, Rv, Sv], o7, allow_input_downcast=True)
+
+
 else:
     def dot_many(*args):
         A = []
         for a in args:
             A.append(a)
-        return reduce(nump.dot, A)
-    tdot = t2dot = t3dot = t4dot = t5dot = np.dot
+        return reduce(np.dot, A)
+    tdot = t2dot = np.dot
+    t3dot = t4dot = t5dot = dot_many
+    t2tendot = np.tensordot
+
+    def t3tendot(A, B, C):
+        pdb.set_trace()
+        x = np.tensordot(A, B, 1)
+        p = A.shape[0]
+        b = C.shape[1]
+        R = np.zeros(p, b)
+        # Ugly... not sure if it's better to multiply and take the diagonal
+        for i in range(b):
+            R[:,i] = np.dot(x[:,i], C[:,i])
+        return R
 
 def get_images(image_data_name):
     if 'LONG' or '120' in image_data_name:
