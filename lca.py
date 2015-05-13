@@ -51,7 +51,7 @@ class LcaNetwork():
     #neurons      = 288
     #neurons      = patch_dim * 8 # Number of basis functions
     sz           = np.sqrt(patch_dim)
-    Gam_size     = 10
+    Gam_size     = neurons/2
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
     lambdav      = 0.20   # Minimum Threshold
@@ -416,14 +416,23 @@ class LcaNetwork():
 
         self.view_log_save(Phi, 100.0, Z)
 
+    def rerr(self, R):
+        return np.sqrt(np.sum(np.abs(R)))
+
     def csparsify(self, Gam, u_prev, u, c_prev=None):
         c = c_prev if c_prev is not None else np.zeros((self.Gam_size, self.batch_size))
 
-        eta = 0.05
+        NR = u
+        BR = u - u_prev
+        #eta = 0.005
+        eta = 0.00040
         for t in range(60):
-            R = u - t3tendot(Gam, c, u_prev)
-            cR = np.tile(R, (self.neurons, 1)).T
-            c += -eta * t2tendot(cR, Gam)
+            #R = u - t3tendot(Gam, c, u_prev)
+            R = u - np.einsum('nnt,tb,nb->nb', Gam, c, u_prev)
+            time.sleep(0.05)
+            cR = np.tile(R, (self.neurons, 1, 1)).T
+            c += eta * np.einsum('nb,nnt,nb->tb', R, Gam, u_prev)
+            print "Residual Error %.2d - None: %.3f, Identity: %.3f, Prediction: %.3f," % (t, self.rerr(NR), self.rerr(BR), self.rerr(R))
 
         return c
 
@@ -431,7 +440,7 @@ class LcaNetwork():
         var = I.var().mean()
         mse = (R ** 2).mean()
         snr = 10 * log(var/mse, 10)
-        print '%s SNR: %.2fdB' % snr
+        print '%s SNR: %.2fdB' % (msg, snr)
 
 
     def vgLearning(self):
@@ -445,7 +454,7 @@ class LcaNetwork():
         Gam = np.zeros((self.neurons, self.neurons, self.Gam_size))
         for i in range(self.Gam_size):
             Gam[:,:,i] = np.eye(self.neurons)
-        Gam += np.random.normal(0, 0.05, (self.neurons, self.neurons, self.Gam_size))
+        Gam += np.random.normal(0, 0.01, (self.neurons, self.neurons, self.Gam_size))
 
         max_active = float(self.neurons * self.batch_size)
         start = datetime.now()
@@ -467,33 +476,33 @@ class LcaNetwork():
                 R = I - t2dot(Phi, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
-                    if i > self.skip_frames/self.iters_per_frame:
-                        online = True
-                        u_pred = t3tendot(Gam, c, u_prev)
-                        pR = I - t2dot(Phi, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav))
-                        self.snr_report('Prediction', I, pR)
-
                     #c = self.csparsify(Gam, u_prev, u, c_prev=c_prev) Try this later
                     c = self.csparsify(Gam, u_prev, u, c_prev=None)
+                    u_pred = t3tendot(Gam, c, u_prev)
+                    uR = u - u_pred
+                    pR = I - t2dot(Phi, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav))
+                    self.snr_report('Prediction', I, pR)
 
                     # Calculate dPhi
                     eta = get_veta(self.batch_size * t, self.neurons,
                                    self.runtype, self.time_batch_size)
-                    dPhi =  eta * (t2dot(R, ahat.T))
+                    dPhi = eta * (t2dot(R, ahat.T))
+                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
 
                     # Calculate dGam
                     eta = get_veta(self.batch_size * t, self.neurons,
                                    self.runtype, self.time_batch_size)
-                    DGam = 0
-
-                    # Update
-                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
-                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    dGam = eta * np.einsum('pb,tb,nb->pnt', uR, c, u_prev)
                     Gam = Gam + dGam
+                    uR2 = u - t3tendot(Gam, c, u_prev)
+                    self.snr_report('U Pred', u, uR)
+                    self.snr_report('U2 Pred', u, uR2)
 
-                u_prev = u
-                if not online:
+
+                else:
                     u_pred = u
+                u_prev = u
 
             self.snr_report('', I, R)
             sys.stdout.flush()

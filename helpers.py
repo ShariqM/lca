@@ -5,7 +5,7 @@ from theano import *
 import theano.tensor as T
 
 # Theano Matrix Multiplication Optimization
-if True or socket.gethostname() == 'redwood2':
+if socket.gethostname() == 'redwood2':
     Av = T.fmatrix('A')
     Bv = T.fmatrix('B')
     o2 = T.dot(Av, Bv)
@@ -62,14 +62,13 @@ else:
     t2tendot = np.tensordot
 
     def t3tendot(A, B, C):
-        pdb.set_trace()
         x = np.tensordot(A, B, 1)
         p = A.shape[0]
         b = C.shape[1]
-        R = np.zeros(p, b)
+        R = np.zeros((p, b))
         # Ugly... not sure if it's better to multiply and take the diagonal
         for i in range(b):
-            R[:,i] = np.dot(x[:,i], C[:,i])
+            R[:,i] = np.dot(x[:,:,i], C[:,i])
         return R
 
 def get_images(image_data_name):
