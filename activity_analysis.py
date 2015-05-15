@@ -30,19 +30,23 @@ class Analysis():
         #plt.legend()
         plt.show()
 
-    def spatial_correlation(self, coeffs, patch_index):
+    def spatial_correlation(self, coeffs, patch_index, log=False):
         if len(coeffs) != 2:
             raise Exception("Greater than 2 dim not supported.")
 
-        patches = range(self.patches)[:10]
+        patches = range(self.patches)[:3]
         x = self.activity_log[coeffs[0], patches, :]
         y = self.activity_log[coeffs[1], patches, :]
-        #for i in range(self.patches):
-            #pdb.set_trace()
-            #x += self.activity_log[coeffs[0], i, :]
-            #y += self.activity_log[coeffs[1], i, :]
+        if log:
+            x = np.log(np.abs(x))
+            y = np.log(np.abs(y))
+            h = 10
+        else:
+            x = np.abs(x)
+            y = np.abs(y)
+            h = max(np.max(np.abs(x)), np.max(np.abs(y)))
 
-        h = max(np.max(x), np.max(y))
+        print 'h', h
         plt.plot([-h, h], [0, 0], color='k')
         plt.plot([0, 0], [-h, h], color='k')
 
@@ -84,5 +88,5 @@ group = [46,47] # Strong correlatioN
 group = [0,1]
 
 a = Analysis(data)
-a.over_time(group, patch_index)
-#a.spatial_correlation(group, patch_index)
+#a.over_time(group, patch_index)
+a.spatial_correlation(group, patch_index)
