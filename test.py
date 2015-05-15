@@ -49,7 +49,6 @@ assert r.shape == (p,b)
 
 
 
-pdb.set_trace()
 R = np.random.random((p,b)) # p is really n but this is just a check
 cR = np.tile(R, (n, 1,1)).T
 # 144, 288
@@ -58,9 +57,34 @@ Gam = np.random.random((p,n,t))
 c = np.tensordot(cR, Gam, 2).T
 assert c.shape == (t,b)
 
+pdb.set_trace()
+u = np.random.random((n,b))
+R = np.random.random((p,b)) # p is really n but this is just a check
+Gam = np.random.random((p,n,t))
+
+x = np.tensordot(Gam, u, [[1], [0]])
+c = np.tensordot(R, x, [[0,1], [0,2]])
+assert c.shape == (t,b)
+
+
+
 
 #c = eta * np.einsum('nb,nnt,nb->tb', R, Gam, u_prev) + (1 - eta) * c
 #c = -eta * t2tendot(cR, Gam).T + (1 - eta) * c
 #c += -eta * t2tendot(cR, Gam).T
 #print "Residual Error %.2d - Identity: %.3f, Prediction: %.3f," % (t, self.rerr(BR), self.rerr(R))
+
+#for t in range(self.Gam_size):
+                #for b in range(self.batch_size):
+                    ## Sum over
+                    #for p in range(self.neurons):
+                        #for n in range(self.neurons):
+                            #cloop[t,b] += R[p,b] * Gam[p,n,t] * u_prev[n,b]
+#
+#rloop = np.zeros((self.neurons, self.batch_size))
+            #for t in range(self.Gam_size):
+                #for b in range(self.batch_size):
+                    #for p in range(self.neurons):
+                        #for n in range(self.neurons):
+                            #rloop[p,b] += Gam[p,n,t] * c[t,b] * u_prev[n,b]
 

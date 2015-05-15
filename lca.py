@@ -1,8 +1,8 @@
 " Run LCA on a data set"
 import matplotlib
 import socket
-if socket.gethostname() == 'redwood2':
-    matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
+#if socket.gethostname() == 'redwood2':
+    #matplotlib.use('Agg') # Don't crash because $Display is not set correctly on the cluster
 
 import pdb
 
@@ -34,7 +34,7 @@ class LcaNetwork():
     datasets = {0:'IMAGES_FIELD',
                 1:'IMAGES_DUCK_SHORT',
                 2:'IMAGES_DUCK',
-                3:'IMAGE_DUCK_LONG',
+                3:'IMAGES_DUCK_LONG',
                 4:'IMAGES_DUCK_120',
                 5:'IMAGES_MOVE_RIGHT',
                 6:'IMAGES_BOUNCE',
@@ -45,13 +45,15 @@ class LcaNetwork():
                 11:'IMAGES_INTERP_BOUNCE'}
 
     # Sparse Coding Parameters
+    #patch_dim    = 36 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    neurons      = 16 ** 2 # Number of basis functions
-    #neurons      = 25 ** 2 # Number of basis functions
+    #neurons      = 144 #1024 #20 ** 2 # Number of basis functions
     #neurons      = 288
-    #neurons      = patch_dim * 8 # Number of basis functions
+    neurons      = patch_dim * 4 # Number of basis functions
     sz           = np.sqrt(patch_dim)
-    Gam_size     = neurons/2
+    #Gam_size     = neurons
+    Gam_size     = patch_dim / 2
+    Gam_size     = 10
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
     lambdav      = 0.20   # Minimum Threshold
@@ -59,8 +61,15 @@ class LcaNetwork():
     border       = 4
     num_trials   = 20000
 
+    clambdav     = 0.70
+    citers       = 10
+
     init_phi_name = '' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
+    init_phi_name = 'Phi_524/Phi_524_0.4' # Blank if you want to start from scratch
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -69,30 +78,32 @@ class LcaNetwork():
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 4      # Group Sparse Coding (1 is normal sparse coding)
+    group_sparse = 2      # Group Sparse Coding (1 is normal sparse coding)
     topographic = False
 
     alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_alpha = 0
     lambda_beta  = 0.01 # For LSM
-    lambda_scale = np.sqrt(neurons)
+    lambda_scale = 0.7 * np.sqrt(neurons)
     move_to_lsm  = 7
     #lambda_beta  = group_sparse # For LSM
 
     iters_per_frame = 10  # Only for vLearning
     time_batch_size = 100
     load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
-    save_activity = False # Only supported for vReconstruct
+    save_activity = True # Only supported for vReconstruct
 
     # General Parameters
-    runtype            = RunType.vgLearning # See runtype.py for options
+    #runtype            = RunType.vgLearning # See runtype.py for options
+    #runtype            = RunType.vLearning # See runtype.py for options
+    runtype            = RunType.vReconstruct # See runtype.py for options
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
-    num_frames      = 100 # Number of frames to visualize
+    num_frames      = 2000 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
     lb4predict      = 80/iters_per_frame # Number of frames to let the dynamics settle before predicting
     num_coeff_upd   = lb4predict * iters_per_frame + num_frames - lb4predict #  Special case for vPredict
@@ -107,7 +118,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[1]
+        self.image_data_name = self.datasets[3]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -419,29 +430,43 @@ class LcaNetwork():
     def rerr(self, R):
         return np.sqrt(np.sum(np.abs(R)))
 
-    def csparsify(self, Gam, u_prev, u, c_prev=None):
-        c = c_prev if c_prev is not None else np.zeros((self.Gam_size, self.batch_size))
+    def csparsify(self, Gam, u_prev, u, d_prev=None):
+        d = d_prev if d_prev is not None else np.zeros((self.Gam_size, self.batch_size))
+        l = np.ones(self.batch_size) * self.clambdav
+        c = self.thresh(d, l)
 
-        NR = u
+        max_active = self.Gam_size * self.batch_size
+
+        #NR = u
         BR = u - u_prev
-        #eta = 0.005
-        eta = 0.00040
-        for t in range(60):
-            #R = u - t3tendot(Gam, c, u_prev)
-            R = u - np.einsum('nnt,tb,nb->nb', Gam, c, u_prev)
-            time.sleep(0.05)
-            cR = np.tile(R, (self.neurons, 1, 1)).T
-            c += eta * np.einsum('nb,nnt,nb->tb', R, Gam, u_prev)
-            print "Residual Error %.2d - None: %.3f, Identity: %.3f, Prediction: %.3f," % (t, self.rerr(NR), self.rerr(BR), self.rerr(R))
+        #eta = 0.0001
+        eta = 0.00050
+        for i in range(self.citers):
+            R = u - gam_predict(Gam, c, u_prev).T # c
+            #d += eta * csparsify_grad(R, Gam, u_prev).T
+            d = eta * csparsify_grad(R, Gam, u_prev).T + (1 - eta) * d
+            c = self.thresh(d, l)
 
-        return c
+            #if i % (self.citers - 1) == 0: # First and Last
+            if i % (self.citers-1) == 0:
+                #print "Residual Error %.2d - None: %.3f, Identity: %.3f, Prediction: %.3f," % (i, self.rerr(NR), self.rerr(BR), self.rerr(R))
+                chat_c = np.copy(c)
+                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1 # XXX FIXME
+                ac = 100 * np.sum(chat_c)/max_active
+                print "Residual Error %.2d - AC: %.2f%%, Identity: %.3f, Prediction: %.3f," % (i, ac, self.rerr(BR), self.rerr(R))
 
-    def snr_report(self, msg, I, R):
+        return d, c
+
+    def snr_report(self, msg, I, R, coeffs, max_active):
+        copy = np.copy(coeffs)
+        copy[np.abs(copy) > 1e-5] = 1
+        ac = 100 * np.sum(copy)/max_active
+
         var = I.var().mean()
         mse = (R ** 2).mean()
         snr = 10 * log(var/mse, 10)
-        print '%s SNR: %.2fdB' % (msg, snr)
-
+        print '%s AC=%.2f%% SNR: %.2fdB' % (msg, ac, snr)
+        sys.stdout.flush()
 
     def vgLearning(self):
         'Run the video, inertia, transformation, LCA learning algorithm'
@@ -451,19 +476,22 @@ class LcaNetwork():
         I = np.zeros((self.patch_dim, self.batch_size))
 
         # Transformation matrix
-        Gam = np.zeros((self.neurons, self.neurons, self.Gam_size))
-        for i in range(self.Gam_size):
-            Gam[:,:,i] = np.eye(self.neurons)
-        Gam += np.random.normal(0, 0.01, (self.neurons, self.neurons, self.Gam_size))
+        #Gam = np.zeros((self.neurons, self.neurons, self.Gam_size))
+        #for i in range(self.Gam_size):
+            #Gam[:,:,i] = np.eye(self.neurons)
+        #Gam += np.random.normal(0, 0.01, (self.neurons, self.neurons, self.Gam_size))
+        Gam = np.random.normal(0, 0.50, (self.neurons, self.neurons, self.Gam_size))
 
-        max_active = float(self.neurons * self.batch_size)
+        max_a_active = float(self.neurons * self.batch_size)
+        max_c_active = self.Gam_size * self.batch_size
         start = datetime.now()
-        online = False
+        online = True
+        philearn = False
 
         for t in range(self.start_t, self.num_trials):
             VI = self.load_videos()
 
-            c_prev = np.zeros((self.Gam_size, self.batch_size))
+            d_prev = np.zeros((self.Gam_size, self.batch_size))
             u_prev = np.zeros((self.neurons, self.batch_size))
             u_pred = np.zeros((self.neurons, self.batch_size))
             a_pred = np.zeros((self.neurons, self.batch_size))
@@ -476,47 +504,64 @@ class LcaNetwork():
                 R = I - t2dot(Phi, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
-                    #c = self.csparsify(Gam, u_prev, u, c_prev=c_prev) Try this later
-                    c = self.csparsify(Gam, u_prev, u, c_prev=None)
-                    u_pred = t3tendot(Gam, c, u_prev)
-                    uR = u - u_pred
-                    pR = I - t2dot(Phi, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav))
-                    self.snr_report('Prediction', I, pR)
+                    if online:
+                        d, chat = self.csparsify(Gam, u_prev, u, d_prev=d_prev) # Try putting itn
+                        d_prev = d
+                        u_pred = gam_predict(Gam, chat, u_prev).T
+                        uR = u - u_pred
+                        pR = I - t2dot(Phi, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav))
+                        self.snr_report('\ti=%d) Prediction' % i, I, pR, chat, max_c_active)
+                        # HACK
+                        #u_pred = u
+                    else:
+                        u_pred = u
 
-                    # Calculate dPhi
-                    eta = get_veta(self.batch_size * t, self.neurons,
-                                   self.runtype, self.time_batch_size)
-                    dPhi = eta * (t2dot(R, ahat.T))
-                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
-                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    if philearn:
+                        # Calculate dPhi
+                        eta = get_veta(self.batch_size * t, self.neurons,
+                                       self.runtype, self.time_batch_size)
+                        dPhi = eta * (t2dot(R, ahat.T))
+                        Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                        Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
 
-                    # Calculate dGam
-                    eta = get_veta(self.batch_size * t, self.neurons,
-                                   self.runtype, self.time_batch_size)
-                    dGam = eta * np.einsum('pb,tb,nb->pnt', uR, c, u_prev)
-                    Gam = Gam + dGam
-                    uR2 = u - t3tendot(Gam, c, u_prev)
-                    self.snr_report('U Pred', u, uR)
-                    self.snr_report('U2 Pred', u, uR2)
+                    if online:
+                        # Calculate dGam
+                        eta = get_veta(self.batch_size * t, self.neurons,
+                                       self.runtype, self.time_batch_size)
 
+                        dGam = 20 * eta * t3tendot2(uR, chat, u) # Slightly faster
+                        #dGam = eta * np.einsum('pb,tb,nb->pnt', uR, c, u_prev)
+                        Gam = Gam + dGam
+                        u_pred_new = gam_predict(Gam, chat, u_prev).T
+                        pR2 = I - t2dot(Phi, self.thresh(u_pred_new, np.ones(self.batch_size) * self.lambdav))
+                        self.snr_report('\ti=%d) Updated Prediction' % i, I, pR2, chat, max_c_active)
+                        #uR2 = u - gam_predict(Gam, c, u_prev).T
+                        #self.snr_report('U Pred', u, uR)
+                        #self.snr_report('U2 Pred', u, uR2)
 
                 else:
                     u_pred = u
+
+                self.snr_report('Present: ', I, R, ahat, max_a_active)
                 u_prev = u
 
-            self.snr_report('', I, R)
-            sys.stdout.flush()
+            self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Gam=Gam) #FIXME
 
-            if np.mod(t, 5) == 0:
-                self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Gam)
+            time = (datetime.now() - start).seconds
+            self.snr_report('%.4d) lambdav=%.3f || ELAP=%d' % (t, self.lambdav, time), I, R, ahat, max_a_active)
 
-            print '%.4d) lambdav=%.3f || snr=%.2fdB || ELAP=%d' \
-                        % (t, self.lambdav, snr, (datetime.now() - start).seconds)
-
-        self.view_log_save(Phi, 100.0, Gam)
+        self.view_log_save(Phi, 100.0, Gam=Gam)
 
     def vDynamics(self):
         # Load dict from Learning run
+        Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
+        Gam = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Gam']
+        for i in range(Gam.shape[2]):
+            plt.title('i=%d' % i)
+            self.showZ(Gam[:,:,i])
+
+        return
+
         Phi = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Phi']
         Z   = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
         print 'MAX Z', np.max(Z)
@@ -658,7 +703,9 @@ class LcaNetwork():
             elapsed = (datetime.now() - start).seconds
 
             if self.save_activity:
-                np.save('coeff_S193__initP20_100t', activity_log)
+                name = self.init_phi_name.split('/')
+                name = name[len(name)-1]
+                np.save('activity_%s' % name, activity_log)
             plt.close()
             matplotlib.rcParams.update({'figure.autolayout': False})
 
@@ -900,9 +947,9 @@ class LcaNetwork():
     def showZ(self, Z):
         plt.imshow(Z, interpolation='nearest', norm=matplotlib.colors.Normalize(-1,1,True))
         plt.colorbar()
-        plt.show()
+        plt.show(block=True)
 
-    def view_log_save(self, Phi, comp, Z=None):
+    def view_log_save(self, Phi, comp, Z=None, Gam=None):
         'View Phi, Z, log parameters, and save the matrices '
         showbfs(Phi, self.phi_idx)
         plt.show()
@@ -972,6 +1019,8 @@ class LcaNetwork():
             plt.savefig('%s_Z.png' % fname)
             plt.show()
             plt.clf()
+        elif Gam is not None:
+            scipy.io.savemat(fname, {'Phi':Phi, 'Gam': Gam})
         else:
             scipy.io.savemat(fname, {'Phi':Phi})
 

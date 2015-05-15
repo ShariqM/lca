@@ -33,22 +33,31 @@ if socket.gethostname() == 'redwood2':
     o5 = T.dot(T.dot(Jv, T.dot(Kv, Lv)), T.dot(Mv, Nv))
     t5dot = theano.function([Jv, Kv, Lv, Mv, Nv], o5, allow_input_downcast=True)
 
-    Ov = T.fmatrix('O')
+    Ov = T.tensor3('O')
     Pv = T.fmatrix('P')
-    o6 = T.tensordot(Ov, Pv, 2)
-    t2tendot = theano.function([Ov, Pv], o6, allow_input_downcast=True)
-
-    #Qv = T.fmatrix('Q')
-    #Rv = T.fmatrix('R')
-    #Sv = T.fmatrix('S')
-    #o7 = T.tensordot(T.tensordot(Qv, Rv, 1), Sv, [[1], [0]])
-    #t3tendot = theano.function([Qv, Rv, Sv], o7, allow_input_downcast=True)
-
     Qv = T.fmatrix('Q')
-    Rv = T.fmatrix('R')
-    Sv = T.fmatrix('S')
-    o7 = T.batched_tensordot(T.tensordot(Qv, Rv, 1).T, Sv.T, [[0], [1]])
-    t3tendot = theano.function([Qv, Rv, Sv], o7, allow_input_downcast=True)
+    o6 = T.batched_dot(T.tensordot(Ov, Pv, 1).dimshuffle(2, 0, 1), Qv.T)
+    gam_predict = theano.function([Ov, Pv, Qv], o6, allow_input_downcast=True)
+
+# R,S missing
+    Tv = T.fmatrix('T')
+    Uv = T.fmatrix('U')
+    Vv = T.fmatrix('V')
+    o7 = T.sum(Tv.dimshuffle(0, 'x', 'x', 1) * \
+               Uv.dimshuffle('x', 'x', 0, 1) * \
+               Vv.dimshuffle('x', 0, 'x', 1), axis=3)
+    t3tendot2 = theano.function([Tv, Uv, Vv], o7, allow_input_downcast=True)
+
+    Wv = T.fmatrix('W')
+    Xv = T.tensor3('X')
+    Yv = T.fmatrix('Y')
+    o8 = T.batched_dot(Wv.T, T.tensordot(Xv, Yv, [[1], [0]]).dimshuffle(2, 0, 1))
+    csparsify_grad = theano.function([Wv, Xv, Yv], o8, allow_input_downcast=True)
+
+
+
+
+
 
 
 else:
