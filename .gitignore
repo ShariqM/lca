@@ -1,0 +1,18 @@
+# Compiled source #
+###################
+*.pyc
+*.mat
+*.npy
+*.swp
+
+*.gif
+*.mp4
+animation
+
+tmp
+
+archive
+mat
+dict
+image_files
+Recurrnet
