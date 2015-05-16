@@ -48,8 +48,8 @@ class LcaNetwork():
     #patch_dim    = 36 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = 144 #1024 #20 ** 2 # Number of basis functions
-    #neurons      = 288
-    neurons      = patch_dim * 4 # Number of basis functions
+    neurons      = 18 ** 2
+    #neurons      = patch_dim * 4 # Number of basis functions
     sz           = np.sqrt(patch_dim)
     #Gam_size     = neurons
     Gam_size     = patch_dim / 2
@@ -69,24 +69,33 @@ class LcaNetwork():
     #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_524/Phi_524_0.4' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_524/Phi_524_0.4' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_525/Phi_525_0.5' # Blank if you want to start from scratch
+    init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    lambda_type = LambdaType.LSM
+    lambda_type = LambdaType.Fixed
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 2      # Group Sparse Coding (1 is normal sparse coding)
-    topographic = False
+    group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
+    topographic = True
+
+#Skip initial frames=80
+#Group Sparse=9
+#Topographic=True
+#Alpha left=9.000000
+#Beta=0.010000
+
 
     alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
     lambda_alpha = 0
     lambda_beta  = 0.01 # For LSM
-    lambda_scale = 0.7 * np.sqrt(neurons)
-    move_to_lsm  = 7
+    lambda_scale = 1.0 * np.sqrt(neurons)
+    move_to_lsm  = -1
     #lambda_beta  = group_sparse # For LSM
 
     iters_per_frame = 10  # Only for vLearning
@@ -103,7 +112,7 @@ class LcaNetwork():
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
-    num_frames      = 2000 # Number of frames to visualize
+    num_frames      = 900 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
     lb4predict      = 80/iters_per_frame # Number of frames to let the dynamics settle before predicting
     num_coeff_upd   = lb4predict * iters_per_frame + num_frames - lb4predict #  Special case for vPredict
@@ -118,7 +127,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[3]
+        self.image_data_name = self.datasets[2]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -705,7 +714,7 @@ class LcaNetwork():
             if self.save_activity:
                 name = self.init_phi_name.split('/')
                 name = name[len(name)-1]
-                np.save('activity_%s' % name, activity_log)
+                np.save('activity/activity_%s' % name, activity_log)
             plt.close()
             matplotlib.rcParams.update({'figure.autolayout': False})
 
