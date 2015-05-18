@@ -27,9 +27,9 @@ class Analysis():
 
         image_data_name = 'IMAGES_DUCK_SHORT'
         image_data_name = 'IMAGES_DUCK'
-        self.images = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
-        (self.imsize, imsize, self.num_images) = np.shape(self.images)
-        self.patch_per_dim = int(np.floor(imsize / self.sz))
+        #self.images = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+        #(self.imsize, imsize, self.num_images) = np.shape(self.images)
+        #self.patch_per_dim = int(np.floor(imsize / self.sz))
 
         self.activity_log = np.load('activity/activity_%s.npy' % phi)
         self.nframes = self.activity_log.shape[2]
@@ -142,6 +142,7 @@ class Analysis():
                     cc = c * self.sz
                     ax_i.imshow(self.images[rr:rr+self.sz, cc:cc+self.sz, t].T, cmap = cm.binary, interpolation='nearest')
                     plt.draw()
+                    #plt.show(block=True)
 
         plt.show(block=True)
 
@@ -171,7 +172,7 @@ class Analysis():
         plt.axis('equal')
         plt.show()
 
-    def train_dynamics(self):
+    def old_train_dynamics(self):
         tstart = 569
         tend = 575
         coeffs = [0,1]
@@ -192,6 +193,58 @@ class Analysis():
                 R2 = a - np.dot(Z, a_prev)
                 print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
                 print ''
+        print 'Z', Z
+
+    def get_eta(self, t):
+        batch_size = 1
+        start = 300
+        inc = 300
+        if t < start:
+            return 3.0/batch_size
+        if t < start + 1*inc:
+            return 1.0/batch_size
+        if t < start + 2*inc:
+            return 0.5/batch_size
+        if t < start + 3*inc:
+            return 0.25/batch_size
+        if t < start + 4*inc:
+            return 0.125/batch_size
+        if t < start + 5*inc:
+            return 0.06/batch_size
+        if t < start + 6*inc:
+            return 0.03/batch_size
+        if t < start + 7*inc:
+            return 0.015/batch_size
+        return 0.01/batch_size
+
+    def train_dynamics(self):
+        tstart = 9
+        tend =  13
+        #coeffs = [0,120, 180]
+        #coeffs = [0, 180]
+        coeffs = [0, 120]
+        neurons = len(coeffs)
+        pi = 189
+        data = self.activity_log[coeffs, pi, tstart:tend]
+        #Z = np.random.randn(neurons, neurons)
+        #Z = np.eye(neurons)
+        Z = np.zeros((neurons, neurons))
+        #Z[0,1] = 0.25
+        #Z[1,1] = 1
+        #eta = 6.0
+
+        # Obj a - Za
+        for t in range(1000):
+            print 'T=%d' % t
+            for i in range(1, tend - tstart):
+                a_prev, a = (data[:, i-1], data[:, i])
+                R = a - np.dot(Z, a_prev)
+                print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
+                Z = Z + self.get_eta(t) * np.dot(R.reshape(neurons,1) , a_prev.reshape(1,neurons))
+                R2 = a - np.dot(Z, a_prev)
+                print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
+                print ''
+        pdb.set_trace()
         print 'Z', Z
 
     def temporal_correlation(self, coeffs, time, patch_i):
@@ -247,12 +300,12 @@ tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
      ]
 
 
-phi   = 'Phi_525_0.5'
-group = [0,1,2]
+#phi   = 'Phi_525_0.5'
+#group = [0,1,2]
 
-patch_i = 189
-phi   = 'Phi_520_0.6'
-group = [303, 311, 203, 574, 339, 337, 575, 481, 550, 272, 435, 433, 434]
+#patch_i = 189
+#phi   = 'Phi_520_0.6'
+#group = [303, 311, 203, 574, 339, 337, 575, 481, 550, 272, 435, 433, 434]
 
 #patch_i = 189
 #phi   = 'Phi_524_0.4'
@@ -261,9 +314,9 @@ group = [303, 311, 203, 574, 339, 337, 575, 481, 550, 272, 435, 433, 434]
 #group = [385, 508, 489, 141, 460, 252, 104, 5, 567, 204, 205]
 
 
-#patch_i = 189
+patch_i = 189
 #patch_i = -1
-#phi   = 'Phi_463_0.3'
+phi   = 'Phi_463_0.3'
 #group = [15,16]
 def get_neighbors(coeff, dist=2):
     group = []
@@ -275,7 +328,7 @@ def get_neighbors(coeff, dist=2):
 #group = get_neighbors(218)
 #group = [219, 199, 181, 301, 284, 38, 180, 0, 18, 120, 101, 58, 59] # Interesting patterns
 #group = [219, 181, 18, 180, 0, 120]
-#group = [180, 0, 120]
+group = [180, 0, 120]
 #group = [180, 120]
 
 run ='g'
@@ -285,7 +338,7 @@ if run == 'tc':
     a.temporal_correlation(tc[2], tc[1], tc[3])
 else:
     a = Analysis(phi)
-    a.over_time(group, patch_i)
+    #a.over_time(group, patch_i)
     #a.find_coeff(group, patch_i)
     #a.spatial_correlation(group, patch_i)
-    #a.train_dynamics()
+    a.train_dynamics()
