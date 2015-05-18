@@ -68,7 +68,7 @@ class LcaNetwork():
     #init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_524/Phi_524_0.4' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_525/Phi_525_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
@@ -85,10 +85,9 @@ class LcaNetwork():
 
     alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
-    lambda_alpha = 0
     lambda_beta  = 0.01 # For LSM
-    lambda_scale = 1.0 * np.sqrt(neurons)
-    move_to_lsm  = -1
+    lambda_scale = np.sqrt(neurons)
+    move_to_lsm  = 6
     #lambda_beta  = group_sparse # For LSM
 
     iters_per_frame = 10  # Only for vLearning
@@ -98,8 +97,8 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.vgLearning # See runtype.py for options
-    #runtype            = RunType.vLearning # See runtype.py for options
-    runtype            = RunType.vReconstruct # See runtype.py for options
+    runtype            = RunType.vLearning # See runtype.py for options
+    #runtype            = RunType.vReconstruct # See runtype.py for options
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
@@ -759,20 +758,18 @@ class LcaNetwork():
                         self.sz, self.sz, self.neurons, self.batch_size, elapsed), fontsize=18)
         plt.show(block=True)
 
-    def get_lsm_lambda(self, u, reset=False):
+    def get_lsm_lambda(self, a, reset=False):
         #if reset:
             #self.lambda_beta = self.lambda_beta_init
 
         G = initG(self.neurons, self.group_sparse, self.topographic)
         l = np.ones((self.neurons, self.batch_size)) * self.group_sparse
-        l = (self.lambda_alpha + l) / (self.lambda_beta + tdot(G, self.lambda_scale * np.abs(u)))
+        l = (self.lambda_alpha + l) / (self.lambda_beta + tdot(G, self.lambda_scale * np.abs(a)))
 
         #if self.lambda_beta > self.lambda_beta_limit:
             #self.lambda_beta *= self.beta_decay
 
         return l
-
-
 
     def check_activity(self, b, G, u, a):
         if np.sum(np.abs(u)) > (self.neurons * self.batch_size * 0.50): # Coeff explosion check
@@ -882,7 +879,7 @@ class LcaNetwork():
             #self.exploded = check_activity(b, G, u, a)
             self.check_activity(b, G, u, a)
 
-            if t > self.move_to_lsm and self.lambda_type == LambdaType.LSM:
+            if t >= self.move_to_lsm and self.lambda_type == LambdaType.LSM:
                 l = self.get_lsm_lambda(u)
             else:
                 l = self.lambda_decay * l
