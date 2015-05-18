@@ -14,8 +14,6 @@ import pprint
 import argparse
 import pdb
 
-
-
 class Analysis():
 
     def __init__(self, phi):
@@ -57,7 +55,6 @@ class Analysis():
                 x[x >= 1e-5] = 1
                 total = np.sum(x)
                 if total > best_activity:
-                    print '1'
                     best_coeffs = coeffs
                     best_pi = pi
                     best_activity = total
@@ -65,27 +62,26 @@ class Analysis():
         return best_coeffs, best_pi
 
     def find_coeff(self, coeffs, patch_i):
-        tstart = 10
-        tend = 15
-        rows = 5
-        cols = tend - tstart
-        for t in range(tstart, tend):
-            activities = np.copy(np.abs(self.activity_log[:, patch_i, t]))
-            act_coeffs = np.fliplr([activities.argsort()])[0]
-            i = 0
-            for coeff in act_coeffs:
-                act = self.activity_log[coeff, patch_i, t]
-                if act == 0.0 or i >= rows:
-                    break
-                img = act * self.phi[:,coeff]
-                ax = plt.subplot2grid((rows,cols), (i,t-tstart))
-                ax.set_title("T=%d, A%d" % (t,coeff))
-                ax.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
-                plt.savefig('test_%d_to_%d.png' % (tstart, tend))
-                #plt.draw()
-                #plt.show()
-                i = i + 1
-        #plt.show(block=True)
+        for (tstart,tend) in ((0,5), (5, 10), (10, 15)):
+            rows = 5
+            cols = tend - tstart
+            for t in range(tstart, tend):
+                activities = np.copy(np.abs(self.activity_log[:, patch_i, t]))
+                act_coeffs = np.fliplr([activities.argsort()])[0]
+                i = 0
+                for coeff in act_coeffs:
+                    act = self.activity_log[coeff, patch_i, t]
+                    if act == 0.0 or i >= rows:
+                        break
+                    img = act * self.phi[:,coeff]
+                    ax = plt.subplot2grid((rows,cols), (i,t-tstart))
+                    ax.set_title("T=%d, A%d" % (t,coeff))
+                    ax.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                    plt.savefig('most_active/%s_%d_to_%d.png' % (self.phi_name, tstart, tend))
+                    #plt.draw()
+                    #plt.show()
+                    i = i + 1
+            #plt.show(block=True)
 
     def over_time(self, coeffs, patch_i, time_only=False):
         tstart = 0
@@ -109,9 +105,9 @@ class Analysis():
             ax_time.plot(range(tstart, tend), self.activity_log[i, patch_i, tstart:tend], label='P_%d_A%d' % (patch_i, i))
             #ax_time.legend()
             #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
-            #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=10)
-            #ax_time.legend(bbox_to_anchor=(0., -1.02, 1., .102), loc=3,
-                       #ncol=2, mode="expand", borderaxespad=0.)
+            #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
+            ax_time.legend(bbox_to_anchor=(0., -1.02, 1., .102), loc=3,
+                       ncol=2, fontsize=7, borderaxespad=0.)
             #lg.draw_frame(False)
             ax_time.set_title("Graphs for %s" % self.phi_name)
 
@@ -255,8 +251,14 @@ phi   = 'Phi_525_0.5'
 group = [0,1,2]
 
 patch_i = 189
-phi   = 'Phi_524_0.4'
-group = None
+phi   = 'Phi_520_0.6'
+group = [303, 311, 203, 574, 339, 337, 575, 481, 550, 272, 435, 433, 434]
+
+#patch_i = 189
+#phi   = 'Phi_524_0.4'
+#group = [385, 384, 509, 508, 489, 141, 508, 460, 252, 104, 118, 5, 567, 260, 204, 205]
+##group = [385, 384, 509, 508, 489, 141, 508, 460, 252, 104, 118, 5, 567, 260, 204, 205]
+#group = [385, 508, 489, 141, 460, 252, 104, 5, 567, 204, 205]
 
 
 #patch_i = 189
@@ -284,6 +286,6 @@ if run == 'tc':
 else:
     a = Analysis(phi)
     a.over_time(group, patch_i)
-    a.find_coeff(group, patch_i)
+    #a.find_coeff(group, patch_i)
     #a.spatial_correlation(group, patch_i)
     #a.train_dynamics()

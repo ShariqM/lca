@@ -48,8 +48,8 @@ class LcaNetwork():
     #patch_dim    = 36 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = 144 #1024 #20 ** 2 # Number of basis functions
-    neurons      = 18 ** 2
-    #neurons      = patch_dim * 4 # Number of basis functions
+    #neurons      = 18 ** 2
+    neurons      = patch_dim * 4 # Number of basis functions
     sz           = np.sqrt(patch_dim)
     #Gam_size     = neurons
     Gam_size     = patch_dim / 2
@@ -68,27 +68,20 @@ class LcaNetwork():
     #init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
-    #init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
+    init_phi_name = 'Phi_520/Phi_520_0.6' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_524/Phi_524_0.4' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_525/Phi_525_0.5' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    lambda_type = LambdaType.Fixed
+    lambda_type = LambdaType.LSM
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 9      # Group Sparse Coding (1 is normal sparse coding)
-    topographic = True
-
-#Skip initial frames=80
-#Group Sparse=9
-#Topographic=True
-#Alpha left=9.000000
-#Beta=0.010000
-
+    group_sparse = 4      # Group Sparse Coding (1 is normal sparse coding)
+    topographic = False
 
     alpha_left = group_sparse
     lambda_alpha = -group_sparse + alpha_left # For LSM
