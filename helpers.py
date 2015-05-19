@@ -180,10 +180,10 @@ def get_zeta_2(t, neurons, runtype, batch_size):
 
 # Move Right LCA
 def get_zeta(t, neurons, runtype, batch_size):
-    start = 2000
-    inc = 1000
+    start = 300
+    inc = 300
 
-    eta = eta_start = 0.60
+    eta = eta_start = 0.1
 
     for i in range(6):
         if t < start + i*inc:

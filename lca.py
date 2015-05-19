@@ -178,6 +178,18 @@ class LcaNetwork():
                     i = i + 1
         return I
 
+    def load_specific(self):
+        imsize, sz, tbs = self.imsize, self.sz, self.time_batch_size
+        VI = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+
+        for x in range(self.batch_size):
+            # Choose a random image less than time_batch_size images away from the end
+            imi = 0
+            r   = 0
+            c   = 0
+            VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
+        return VI
+
     def load_videos(self):
         '(3) Load a batch_size number of Space-Time boxes of individual random patches. Used by vLearning()'
 
@@ -338,7 +350,8 @@ class LcaNetwork():
         start = datetime.now()
 
         for t in range(self.start_t, self.num_trials):
-            VI = self.load_videos()
+            #VI = self.load_videos()
+            VI = self.load_specific()
 
             u_prev = np.zeros((self.neurons, self.batch_size))
             u_pred = np.zeros((self.neurons, self.batch_size))
@@ -346,18 +359,15 @@ class LcaNetwork():
             for i in range(0, self.time_batch_size - 1):
                 I = VI[:,:,i]
 
-                u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
-                #if False and t > 15 and i > 20:
-                    #u, ahat = u_pred, self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
-                #else:
-                    #u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=self.iters_per_frame)
+                # FIXME
+                u, ahat = self.sparsify(I, Phi, u_pred=u_prev, num_iterations=self.iters_per_frame)
 
                 # Calculate Residual
                 R = I - t2dot(Phi, ahat)
 
                 # Prediction Residual
                 UR = u - u_pred
-                ZR = I - t2dot(Phi, a_pred)
+                #ZR = I - t2dot(Phi, a_pred)
                 #ZR = nI - t3dot(Phi, Z, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
@@ -374,6 +384,7 @@ class LcaNetwork():
                         #print 'zeta: ', eta
                     dZ = eta * t2dot(UR, u_prev.T)
 
+                    #print 'UR=%.2f' %  np.sqrt(np.sum(np.abs(UR)))
                     # Update
                     if self.init_phi_name == '': # Update if not initialized
                         Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
@@ -381,16 +392,16 @@ class LcaNetwork():
                     Z = Z + dZ
 
                     # Check new error
-                    R2 = I - t2dot(Phi, ahat)
-                    tmp_u_pred = t2dot(Z, u_prev) # Recalculate
-                    tmp_a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
-                    UR2 = u - tmp_u_pred
-                    nUR = np.linalg.norm(UR)
-                    nUR2 = np.linalg.norm(UR2)
-                    if nUR2 > nUR:
-                        print 'Fail: UR: %f, UR2: %f' % (np.linalg.norm(UR), np.linalg.norm(UR2))
-                    ZR2 = I - t2dot(Phi, tmp_a_pred)
-                    IR = I - t2dot(Phi, self.thresh(u_prev, np.ones(self.batch_size) * self.lambdav))
+                    #R2 = I - t2dot(Phi, ahat)
+                    #tmp_u_pred = t2dot(Z, u_prev) # Recalculate
+                    #tmp_a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
+                    #UR2 = u - tmp_u_pred
+                    #nUR = np.linalg.norm(UR)
+                    #nUR2 = np.linalg.norm(UR2)
+                    #if nUR2 > nUR:
+                        #print 'Fail: UR: %f, UR2: %f' % (np.linalg.norm(UR), np.linalg.norm(UR2))
+                    #ZR2 = I - t2dot(Phi, tmp_a_pred)
+                    #IR = I - t2dot(Phi, self.thresh(u_prev, np.ones(self.batch_size) * self.lambdav))
 
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
@@ -400,33 +411,37 @@ class LcaNetwork():
                     print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, self.lambdav, 100.0 * ac / max_active)
                 u_prev = u
                 u_pred = t2dot(Z, u_prev)
-                a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
+                #a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
 
 
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
 
-            mse_a = (R2 ** 2).mean()
-            snr_a = 10 * log(var/mse_a, 10)
+            #mse_a = (R2 ** 2).mean()
+            #snr_a = 10 * log(var/mse_a, 10)
 
-            p_mse = (ZR ** 2).mean()
-            p_snr = 10 * log(var/p_mse, 10)
+            #p_mse = (ZR ** 2).mean()
+            #p_snr = 10 * log(var/p_mse, 10)
 
-            p_mse_a = (ZR2 ** 2).mean()
-            p_snr_a = 10 * log(var/p_mse_a, 10)
+            #p_mse_a = (ZR2 ** 2).mean()
+            #p_snr_a = 10 * log(var/p_mse_a, 10)
 
-            i_mse = (IR ** 2).mean()
-            i_snr = 10 * log(var/i_mse, 10)
+            #i_mse = (IR ** 2).mean()
+            #i_snr = 10 * log(var/i_mse, 10)
 
-            sys.stdout.flush()
 
+            UR_mag = np.sqrt(np.sum(np.abs(UR)))
             if np.mod(t, 5) == 0:
                 self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Z)
 
-            print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || i_snr=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
-                        % (t, self.lambdav, snr, snr_a, i_snr, p_snr, p_snr_a, 100.0 * ac / max_active,
+            print '%.4d) lambdav=%.3f || snr=%.2fdB || UR=%.2f || AC=%.2f%% || ELAP=%d' \
+                        % (t, self.lambdav, snr, UR_mag, 100.0 * ac / max_active,
                            (datetime.now() - start).seconds)
+            sys.stdout.flush()
+            #print '%.4d) lambdav=%.3f || snr=%.2fdB || snr_a=%.2fdB || i_snr=%.2fdB || p_snr=%.2fdB || p_snr_a=%.2fdB || AC=%.2f%% || ELAP=%d' \
+                        #% (t, self.lambdav, snr, snr_a, i_snr, p_snr, p_snr_a, 100.0 * ac / max_active,
+                           #(datetime.now() - start).seconds)
 
         self.view_log_save(Phi, 100.0, Z)
 
