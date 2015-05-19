@@ -16,7 +16,7 @@ import pdb
 
 class Analysis():
 
-    def __init__(self, phi):
+    def __init__(self, phi, image_data_name):
         parr = phi.split('_')
         direc = parr[0] + '_' + parr[1]
         self.phi_name = phi
@@ -24,14 +24,12 @@ class Analysis():
         self.sz = np.sqrt(self.phi.shape[0])
         self.neurons = self.phi.shape[1]
 
+        self.image_data_name = image_data_name
+        self.images = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
+        (self.imsize, imsize, self.num_images) = np.shape(self.images)
+        self.patch_per_dim = int(np.floor(imsize / self.sz))
 
-        image_data_name = 'IMAGES_DUCK_SHORT'
-        image_data_name = 'IMAGES_DUCK'
-        #self.images = scipy.io.loadmat('mat/%s.mat' % image_data_name)[image_data_name]
-        #(self.imsize, imsize, self.num_images) = np.shape(self.images)
-        #self.patch_per_dim = int(np.floor(imsize / self.sz))
-
-        self.activity_log = np.load('activity/activity_%s.npy' % phi)
+        self.activity_log = np.load('activity/activity_%s_%s.npy' % (phi, image_data_name))
         self.nframes = self.activity_log.shape[2]
         self.patches = self.activity_log.shape[1]
 
@@ -83,14 +81,33 @@ class Analysis():
                     i = i + 1
             #plt.show(block=True)
 
-    def over_time(self, coeffs, patch_i, time_only=False):
+    def power_over_time(self, patch_i):
         tstart = 0
-        tend   = 15
+        tend   = 100
+
+        for t in range(tstart, tend):
+            print 't=%d) Norm=%f' % (t, np.linalg.norm(self.activity_log[:, patch_i, t]))
+
+    def over_time(self, coeffs, patch_i, Z_file=None, time_only=False):
+        tstart = 50
+        tend   = 80
+        #tstart = 12
+        #tend   = 18
         #tstart = 0
         #tend = self.nframes
 
         if coeffs is None or patch_i == -1:
             coeffs, patch_i = self.find_active_pi(coeffs, patch_i, tstart, tend)
+
+        if Z_file is not None:
+            Z = scipy.io.loadmat('activity/aa_%s' % Z_file)['Z']
+            #Z = np.eye(Z.shape[0])
+            act = self.activity_log[coeffs, patch_i, tstart]
+            for t in range(tstart+1, tend):
+                act = np.dot(Z, act)
+                #save_act = self.activity_log[coeffs, patch_i, t]
+                self.activity_log[coeffs, patch_i, t] = act
+                #act = save_act
 
         # Setup
         rows = 1 if time_only else 4
@@ -126,8 +143,9 @@ class Analysis():
                     img = np.zeros(self.sz ** 2)
                     #for c in range(self.neurons): # Full Reconstruction
                     #for c in range(self.neurons/2): # Full Reconstruction
-                    for c in coeffs: # Partial Reconstruction
-                        img += self.activity_log[c, patch_i, t] * self.phi[:, c]
+                    img = np.dot(self.phi[:, coeffs], self.activity_log[coeffs, patch_i, t])
+                    #for c in coeffs: # Partial Reconstruction
+                        #img += self.activity_log[c, patch_i, t] * self.phi[:, c]
 
                     ax_r.set_title("Partial Reconstruction t=%d" % t)
                     ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
@@ -173,8 +191,8 @@ class Analysis():
         plt.show()
 
     def old_train_dynamics(self):
-        tstart = 569
-        tend = 575
+        tstart = 0
+        tend = -1
         coeffs = [0,1]
         pi = 1
         data = self.activity_log[coeffs, pi, tstart:tend]
@@ -199,33 +217,28 @@ class Analysis():
         batch_size = 1
         start = 300
         inc = 300
-        if t < start:
-            return 3.0/batch_size
-        if t < start + 1*inc:
-            return 1.0/batch_size
-        if t < start + 2*inc:
-            return 0.5/batch_size
-        if t < start + 3*inc:
-            return 0.25/batch_size
-        if t < start + 4*inc:
-            return 0.125/batch_size
-        if t < start + 5*inc:
-            return 0.06/batch_size
-        if t < start + 6*inc:
-            return 0.03/batch_size
-        if t < start + 7*inc:
-            return 0.015/batch_size
-        return 0.01/batch_size
+        start_val = 0.75
 
-    def train_dynamics(self):
-        tstart = 9
-        tend =  13
-        #coeffs = [0,120, 180]
-        #coeffs = [0, 180]
-        coeffs = [0, 120]
+        for i in range(10):
+            if t < start + i * inc:
+                return start_val/batch_size
+            start_val /= 2.0
+        return start_val/batch_size
+
+    def train_dynamics(self, coeffs):
+        tstart = 0
+        tend =  30
+        if coeffs == None:
+            coeffs = range(self.neurons)
         neurons = len(coeffs)
         pi = 189
         data = self.activity_log[coeffs, pi, tstart:tend]
+        #look_at = range(120,181)
+        #save_data = np.copy(data[look_at,:])
+        #data = np.zeros((data.shape[0], data.shape[1]))
+        #data[look_at, :] = save_data
+        #pdb.set_trace()
+
         #Z = np.random.randn(neurons, neurons)
         #Z = np.eye(neurons)
         Z = np.zeros((neurons, neurons))
@@ -244,6 +257,9 @@ class Analysis():
                 R2 = a - np.dot(Z, a_prev)
                 print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
                 print ''
+
+        name = 'activity/aa_%s_%s_%d_to_%d' % (self.phi_name, self.image_data_name, tstart, tend)
+        scipy.io.savemat(name, {'Z': Z})
         pdb.set_trace()
         print 'Z', Z
 
@@ -314,9 +330,11 @@ tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
 #group = [385, 508, 489, 141, 460, 252, 104, 5, 567, 204, 205]
 
 
+image_data_name = 'IMAGES_EDGE_DUCK'
 patch_i = 189
 #patch_i = -1
 phi   = 'Phi_463_0.3'
+z_file = phi + '_' + image_data_name + '_0_to_30'
 #group = [15,16]
 def get_neighbors(coeff, dist=2):
     group = []
@@ -326,10 +344,12 @@ def get_neighbors(coeff, dist=2):
             group.append(coeff + col * 18 + row * 1)
     return group
 #group = get_neighbors(218)
-#group = [219, 199, 181, 301, 284, 38, 180, 0, 18, 120, 101, 58, 59] # Interesting patterns
+group = [219, 199, 181, 301, 284, 38, 180, 0, 18, 120, 101, 58, 59] # Interesting patterns
+group = None
 #group = [219, 181, 18, 180, 0, 120]
-group = [180, 0, 120]
+#group = [180, 0, 120]
 #group = [180, 120]
+#group = [0, 180]
 
 run ='g'
 if run == 'tc':
@@ -337,8 +357,10 @@ if run == 'tc':
     a = Analysis(tc[0])
     a.temporal_correlation(tc[2], tc[1], tc[3])
 else:
-    a = Analysis(phi)
-    #a.over_time(group, patch_i)
+    a = Analysis(phi, image_data_name)
+    #a.power_over_time(patch_i)
+    #a.over_time(range(a.neurons), patch_i)
+    a.over_time(range(a.neurons), patch_i, z_file)
     #a.find_coeff(group, patch_i)
     #a.spatial_correlation(group, patch_i)
-    a.train_dynamics()
+    #a.train_dynamics(group)
