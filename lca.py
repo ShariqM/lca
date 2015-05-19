@@ -75,7 +75,7 @@ class LcaNetwork():
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
-    lambda_type = LambdaType.LSM
+    lambda_type = LambdaType.Fixed
     lambda_decay = 0.95
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
@@ -97,7 +97,7 @@ class LcaNetwork():
 
     # General Parameters
     #runtype            = RunType.vgLearning # See runtype.py for options
-    runtype            = RunType.vLearning # See runtype.py for options
+    runtype            = RunType.vmLearning # See runtype.py for options
     #runtype            = RunType.vReconstruct # See runtype.py for options
     log_and_save = False # Log parameters save dictionaries
 
@@ -328,7 +328,8 @@ class LcaNetwork():
             Z = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
         else:
             #Z = np.eye(self.neurons)
-            Z = initZ(self.neurons)
+            #Z = initZ(self.neurons)
+            Z = np.zeros((self.neurons, self.neurons))
             #Z = np.random.randn(self.neurons, self.neurons)
             #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
             #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
@@ -360,11 +361,11 @@ class LcaNetwork():
                 #ZR = nI - t3dot(Phi, Z, ahat)
 
                 if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
-                    # Calculate dPhi
-                    eta = get_veta(self.batch_size * t, self.neurons,
-                                   self.runtype, self.time_batch_size)
-                    Zahat = t2dot(Z, ahat)
-                    dPhi =  eta * (t2dot(R, ahat.T))
+                    if self.init_phi_name == '': # Update if not initialized
+                        # Calculate dPhi
+                        eta = get_veta(self.batch_size * t, self.neurons,
+                                       self.runtype, self.time_batch_size)
+                        dPhi =  eta * (t2dot(R, ahat.T))
 
                     # Calculate dZ
                     eta = get_zeta(self.batch_size * t, self.neurons,
@@ -374,8 +375,9 @@ class LcaNetwork():
                     dZ = eta * t2dot(UR, u_prev.T)
 
                     # Update
-                    Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
-                    Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
+                    if self.init_phi_name == '': # Update if not initialized
+                        Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
+                        Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
                     Z = Z + dZ
 
                     # Check new error
