@@ -88,9 +88,7 @@ class Analysis():
         for t in range(tstart, tend):
             print 't=%d) Norm=%f' % (t, np.linalg.norm(self.activity_log[:, patch_i, t]))
 
-    def over_time(self, coeffs, patch_i, Z_file=None, time_only=False):
-        tstart = 50
-        tend   = 80
+    def over_time(self, coeffs, patch_i, tstart, tend, Z_file=None, time_only=False):
         #tstart = 12
         #tend   = 18
         #tstart = 0
@@ -103,11 +101,13 @@ class Analysis():
             Z = scipy.io.loadmat('activity/aa_%s' % Z_file)['Z']
             #Z = np.eye(Z.shape[0])
             act = self.activity_log[coeffs, patch_i, tstart]
+            reset_after = 5
             for t in range(tstart+1, tend):
                 act = np.dot(Z, act)
-                #save_act = self.activity_log[coeffs, patch_i, t]
+                save_act = self.activity_log[coeffs, patch_i, t]
                 self.activity_log[coeffs, patch_i, t] = act
-                #act = save_act
+                if t % reset_after == 0:
+                    act = save_act
 
         # Setup
         rows = 1 if time_only else 4
@@ -117,14 +117,14 @@ class Analysis():
         ax_time = plt.subplot2grid((rows,cols), (0,0), colspan=cols)
         for i in coeffs:
             ax_time.plot(range(tstart, tend), [0] * (tend-tstart), color='k')
-            ax_time.plot([0, 0], [-1.5, 1.5], color='k')
+            ax_time.plot([0, 0], [-1.0, 1.0], color='k')
 
             ax_time.plot(range(tstart, tend), self.activity_log[i, patch_i, tstart:tend], label='P_%d_A%d' % (patch_i, i))
             #ax_time.legend()
             #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
             #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
-            ax_time.legend(bbox_to_anchor=(0., -1.02, 1., .102), loc=3,
-                       ncol=2, fontsize=7, borderaxespad=0.)
+            #ax_time.legend(bbox_to_anchor=(0., -1.02, 1., .102), loc=3,
+                       #ncol=2, fontsize=7, borderaxespad=0.)
             #lg.draw_frame(False)
             ax_time.set_title("Graphs for %s" % self.phi_name)
 
@@ -217,7 +217,7 @@ class Analysis():
         batch_size = 1
         start = 300
         inc = 300
-        start_val = 0.75
+        start_val = 0.375
 
         for i in range(10):
             if t < start + i * inc:
@@ -225,14 +225,11 @@ class Analysis():
             start_val /= 2.0
         return start_val/batch_size
 
-    def train_dynamics(self, coeffs):
-        tstart = 0
-        tend =  30
+    def train_dynamics(self, coeffs, patch_i, tstart, tend):
         if coeffs == None:
             coeffs = range(self.neurons)
         neurons = len(coeffs)
-        pi = 189
-        data = self.activity_log[coeffs, pi, tstart:tend]
+        data = self.activity_log[coeffs, patch_i, tstart:tend]
         #look_at = range(120,181)
         #save_data = np.copy(data[look_at,:])
         #data = np.zeros((data.shape[0], data.shape[1]))
@@ -252,11 +249,13 @@ class Analysis():
             for i in range(1, tend - tstart):
                 a_prev, a = (data[:, i-1], data[:, i])
                 R = a - np.dot(Z, a_prev)
-                print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
+                #print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
                 Z = Z + self.get_eta(t) * np.dot(R.reshape(neurons,1) , a_prev.reshape(1,neurons))
                 R2 = a - np.dot(Z, a_prev)
-                print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
-                print ''
+                #print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
+                #print ''
+
+            print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
 
         name = 'activity/aa_%s_%s_%d_to_%d' % (self.phi_name, self.image_data_name, tstart, tend)
         scipy.io.savemat(name, {'Z': Z})
@@ -331,10 +330,14 @@ tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
 
 
 image_data_name = 'IMAGES_EDGE_DUCK'
-patch_i = 189
+image_data_name = 'IMAGES_DUCK_SHORT'
+#image_data_name = 'IMAGES_DUCK'
+patch_i = 102
 #patch_i = -1
 phi   = 'Phi_463_0.3'
-z_file = phi + '_' + image_data_name + '_0_to_30'
+tstart = 0
+tend = 500
+z_file = '%s_%s_%d_to_%d' % (phi, image_data_name, tstart, tend)
 #group = [15,16]
 def get_neighbors(coeff, dist=2):
     group = []
@@ -360,7 +363,7 @@ else:
     a = Analysis(phi, image_data_name)
     #a.power_over_time(patch_i)
     #a.over_time(range(a.neurons), patch_i)
-    a.over_time(range(a.neurons), patch_i, z_file)
+    a.over_time(range(a.neurons), patch_i, tstart, tend, z_file)
     #a.find_coeff(group, patch_i)
     #a.spatial_correlation(group, patch_i)
-    #a.train_dynamics(group)
+    #a.train_dynamics(group, patch_i, tstart, tend)
