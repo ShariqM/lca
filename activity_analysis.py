@@ -30,10 +30,21 @@ class Analysis():
         self.patch_per_dim = int(np.floor(imsize / self.sz))
 
         self.activity_log = np.load('activity/activity_%s_%s.npy' % (phi, image_data_name))
-        self.nframes = self.activity_log.shape[2]
-        self.patches = self.activity_log.shape[1]
+        self.membrane_log = np.load('activity/membrane_%s_%s.npy' % (phi, image_data_name))
+        self.nframes = self.activity_log.shape[2] # num_frames
+        self.patches = self.activity_log.shape[1] # batch_size
+        self.lambdav = 0.2
 
         plt.ion()
+
+    def thresh(self, u):
+        'LCA threshold function'
+        #theta = thnp.ones(self.patches) * self.lambdav
+        theta = self.lambdav
+        a = abs(u) - theta;
+        a[a < 0] = 0
+        a = np.sign(u) * a
+        return a
 
     def find_active_pi(self, coeffs, patch_i, tstart, tend):
         best_coeffs = -1
@@ -89,25 +100,33 @@ class Analysis():
             print 't=%d) Norm=%f' % (t, np.linalg.norm(self.activity_log[:, patch_i, t]))
 
     def over_time(self, coeffs, patch_i, tstart, tend, Z_file=None, time_only=False):
-        #tstart = 12
-        #tend   = 18
-        #tstart = 0
-        #tend = self.nframes
+        #log = self.membrane_log
+        log = self.activity_log
 
         if coeffs is None or patch_i == -1:
             coeffs, patch_i = self.find_active_pi(coeffs, patch_i, tstart, tend)
 
         if Z_file is not None:
-            Z = scipy.io.loadmat('activity/aa_%s' % Z_file)['Z']
+            #Z = scipy.io.loadmat('activity/mm_%s' % Z_file)['Z']
+            #Z = scipy.io.loadmat('activity/aa_%s' % Z_file)['Z']
+            #Z = Z[coeffs][:,coeffs]
+            #pdb.set_trace()
+            #Z = scipy.io.loadmat('dict/Phi_550/Phi_550_1.1.mat')['Z']
+            #Z = scipy.io.loadmat('dict/Phi_560/Phi_560_0.2.mat')['Z']
+            Z = scipy.io.loadmat('dict/Phi_568/Phi_568_1.6.mat')['Z']
             #Z = np.eye(Z.shape[0])
-            act = self.activity_log[coeffs, patch_i, tstart]
+
+            act = log[coeffs, patch_i, tstart]
+
             reset_after = 5
             for t in range(tstart+1, tend):
                 act = np.dot(Z, act)
-                save_act = self.activity_log[coeffs, patch_i, t]
-                self.activity_log[coeffs, patch_i, t] = act
-                if t % reset_after == 0:
-                    act = save_act
+                #save_act = self.activity_log[coeffs, patch_i, t]
+                #self.activity_log[coeffs, patch_i, t] = act
+                save_act = log[coeffs, patch_i, t]
+                log[coeffs, patch_i, t] = act
+                #if t % reset_after == 0:
+                    #act = save_act
 
         # Setup
         rows = 1 if time_only else 4
@@ -119,7 +138,7 @@ class Analysis():
             ax_time.plot(range(tstart, tend), [0] * (tend-tstart), color='k')
             ax_time.plot([0, 0], [-1.0, 1.0], color='k')
 
-            ax_time.plot(range(tstart, tend), self.activity_log[i, patch_i, tstart:tend], label='P_%d_A%d' % (patch_i, i))
+            ax_time.plot(range(tstart, tend), log[i, patch_i, tstart:tend], label='P_%d_A%d' % (patch_i, i))
             #ax_time.legend()
             #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
             #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
@@ -141,11 +160,8 @@ class Analysis():
             for iters in range(1000):
                 for t in range(tstart, tend):
                     img = np.zeros(self.sz ** 2)
-                    #for c in range(self.neurons): # Full Reconstruction
-                    #for c in range(self.neurons/2): # Full Reconstruction
-                    img = np.dot(self.phi[:, coeffs], self.activity_log[coeffs, patch_i, t])
-                    #for c in coeffs: # Partial Reconstruction
-                        #img += self.activity_log[c, patch_i, t] * self.phi[:, c]
+                    tlog = self.thresh(log[coeffs, patch_i, t])
+                    img = np.dot(self.phi[:, coeffs], tlog)
 
                     ax_r.set_title("Partial Reconstruction t=%d" % t)
                     ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
@@ -217,7 +233,7 @@ class Analysis():
         batch_size = 1
         start = 300
         inc = 300
-        start_val = 0.375
+        start_val = 0.800
 
         for i in range(10):
             if t < start + i * inc:
@@ -229,37 +245,32 @@ class Analysis():
         if coeffs == None:
             coeffs = range(self.neurons)
         neurons = len(coeffs)
-        data = self.activity_log[coeffs, patch_i, tstart:tend]
-        #look_at = range(120,181)
-        #save_data = np.copy(data[look_at,:])
-        #data = np.zeros((data.shape[0], data.shape[1]))
-        #data[look_at, :] = save_data
-        #pdb.set_trace()
 
-        #Z = np.random.randn(neurons, neurons)
-        #Z = np.eye(neurons)
+        name = 'aa'
+        data = self.activity_log[coeffs, patch_i, tstart:tend]
+        #name = 'mm'
+        #data = self.membrane_log[coeffs, patch_i, tstart:tend]
+
         Z = np.zeros((neurons, neurons))
-        #Z[0,1] = 0.25
-        #Z[1,1] = 1
-        #eta = 6.0
 
         # Obj a - Za
-        for t in range(1000):
+        for t in range(3000):
             print 'T=%d' % t
             for i in range(1, tend - tstart):
                 a_prev, a = (data[:, i-1], data[:, i])
                 R = a - np.dot(Z, a_prev)
                 #print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
                 Z = Z + self.get_eta(t) * np.dot(R.reshape(neurons,1) , a_prev.reshape(1,neurons))
-                R2 = a - np.dot(Z, a_prev)
+                #R2 = a - np.dot(Z, a_prev)
                 #print '\ti=%d, R2=%f' % (i, np.sqrt(np.sum(np.abs(R2))))
                 #print ''
 
             print '\ti=%d, R1=%f' % (i, np.sqrt(np.sum(np.abs(R))))
 
-        name = 'activity/aa_%s_%s_%d_to_%d' % (self.phi_name, self.image_data_name, tstart, tend)
+
+        name = 'activity/%s_%s_%s_%d_to_%d' % (name, self.phi_name, self.image_data_name, tstart, tend)
         scipy.io.savemat(name, {'Z': Z})
-        pdb.set_trace()
+        #pdb.set_trace()
         print 'Z', Z
 
     def temporal_correlation(self, coeffs, time, patch_i):
@@ -302,17 +313,25 @@ class Analysis():
             ax[2].plot(range(tend - tstart), theta)
             plt.show()
 
+def get_neighbors(coeff, dist=2):
+    group = []
+
+    for col in range(-dist, dist):
+        for row in range(-dist, dist):
+            group.append(coeff + col * 18 + row * 1)
+    return group
+
 #data  = 'Phi_520_0.6'
 #group = [0,1,2,3]
 
-data  = 'Phi_524_0.4'
+#data  = 'Phi_524_0.4'
 #grou = [0,1]
-group = [46,47] # Strong correlatioN
-group = [0,1]
+#group = [46,47] # Strong correlatioN
+#group = [0,1]
 
 #    [  Dict,         [tstart, tend], coeffs, patch index ]
-tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
-     ]
+#tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
+     #]
 
 
 #phi   = 'Phi_525_0.5'
@@ -328,42 +347,28 @@ tc = [['Phi_524_0.4', [565, 580], [0,1], 1],
 ##group = [385, 384, 509, 508, 489, 141, 508, 460, 252, 104, 118, 5, 567, 260, 204, 205]
 #group = [385, 508, 489, 141, 460, 252, 104, 5, 567, 204, 205]
 
+#image_data_name = 'IMAGES_DUCK_SHORT'
+#image_data_name = 'IMAGES_DUCK'
 
 image_data_name = 'IMAGES_EDGE_DUCK'
-image_data_name = 'IMAGES_DUCK_SHORT'
-#image_data_name = 'IMAGES_DUCK'
-patch_i = 102
-#patch_i = -1
-phi   = 'Phi_463_0.3'
+patch_i = 189
+phi    = 'Phi_463_0.3'
 tstart = 0
-tend = 500
+tend   = 100
 z_file = '%s_%s_%d_to_%d' % (phi, image_data_name, tstart, tend)
-#group = [15,16]
-def get_neighbors(coeff, dist=2):
-    group = []
-
-    for col in range(-dist, dist):
-        for row in range(-dist, dist):
-            group.append(coeff + col * 18 + row * 1)
-    return group
 #group = get_neighbors(218)
-group = [219, 199, 181, 301, 284, 38, 180, 0, 18, 120, 101, 58, 59] # Interesting patterns
+#group = [219, 199, 181, 301, 284, 38, 180, 0, 18, 120, 101, 58, 59] # Interesting patterns
 group = None
 #group = [219, 181, 18, 180, 0, 120]
 #group = [180, 0, 120]
 #group = [180, 120]
 #group = [0, 180]
 
-run ='g'
-if run == 'tc':
-    tc = tc[0]
-    a = Analysis(tc[0])
-    a.temporal_correlation(tc[2], tc[1], tc[3])
-else:
-    a = Analysis(phi, image_data_name)
-    #a.power_over_time(patch_i)
-    #a.over_time(range(a.neurons), patch_i)
-    a.over_time(range(a.neurons), patch_i, tstart, tend, z_file)
-    #a.find_coeff(group, patch_i)
-    #a.spatial_correlation(group, patch_i)
-    #a.train_dynamics(group, patch_i, tstart, tend)
+a = Analysis(phi, image_data_name)
+#a.power_over_time(patch_i)
+#a.over_time(range(a.neurons), patch_i, tstart, tend)
+a.over_time(range(a.neurons), patch_i, tstart, tend, z_file)
+#a.over_time(group, patch_i, tstart, tend)
+#a.find_coeff(group, patch_i)
+#a.spatial_correlation(group, patch_i)
+#a.train_dynamics(group, patch_i, tstart, tend)
