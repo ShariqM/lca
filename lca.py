@@ -57,7 +57,7 @@ class LcaNetwork():
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
     lambdav      = 0.20   # Minimum Threshold
-    batch_size   = 1
+    batch_size   = 20
     border       = 4
     num_trials   = 20000
 
@@ -184,7 +184,7 @@ class LcaNetwork():
 
         for x in range(self.batch_size):
             # Choose a random image less than time_batch_size images away from the end
-            imi = 0
+            imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
             r   = 0
             c   = 0
             VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
@@ -372,12 +372,9 @@ class LcaNetwork():
         if False and self.init_phi_name != '':
             Z = scipy.io.loadmat('dict/%s' % self.init_phi_name)['Z']
         else:
-            #Z = np.eye(self.neurons)
             #Z = initZ(self.neurons)
-            Z = np.zeros((self.neurons, self.neurons))
-            #Z = np.random.randn(self.neurons, self.neurons)
-            #Z = np.random.normal(0, 0.25, (self.neurons, self.neurons))
-            #Z = np.eye(self.neurons) + np.random.normal(0, 0.25, (self.neurons, self.neurons))
+            #Z = np.zeros((self.neurons, self.neurons))
+            Z = np.eye(self.neurons)
 
         alog = np.load('activity/activity_Phi_463_0.3_IMAGES_EDGE_DUCK.npy')
 
@@ -391,30 +388,22 @@ class LcaNetwork():
             u_prev = np.zeros((self.neurons, self.batch_size))
             u_pred = np.zeros((self.neurons, self.batch_size))
             a_prev = np.zeros((self.neurons, self.batch_size))
+            #a_prev = alog[:, 189, 0].reshape(self.neurons, 1)
             a_pred = np.zeros((self.neurons, self.batch_size))
-            for i in range(1, self.time_batch_size):
+            for i in range(0, self.time_batch_size):
                 I = VI[:,:,i]
 
                 # FIXME
-                #u, ahat = self.sparsify(I, Phi, u_pred=u_prev, num_iterations=self.iters_per_frame)
-                ahat = alog[:, 189, i].reshape(self.neurons, 1)
-                a_prev = alog[:, 189, i-1].reshape(self.neurons, 1)
+                u, ahat = self.sparsify(I, Phi, u_pred=u_prev, num_iterations=self.iters_per_frame)
+                #ahat = alog[:, 189, i].reshape(self.neurons, 1)
 
                 # Calculate Residual
                 R = I - t2dot(Phi, ahat)
 
                 # Prediction Residual
-                #UR = u - u_pred
                 AR = ahat - np.dot(Z, a_prev)
-                eta = get_zeta_ar(self.batch_size * t, self.time_batch_size)
-                Z = Z + eta * np.dot(AR, a_prev.T)
 
-                #dZ = eta * t2dot(AR, a_prev.T)
-                #Z = Z + dZ
-                #ZR = I - t2dot(Phi, a_pred)
-                #ZR = nI - t3dot(Phi, Z, ahat)
-
-                if False and i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
+                if i >= self.skip_frames/self.iters_per_frame: # Don't learn on the first skip_frames
                     if self.init_phi_name == '': # Update if not initialized
                         # Calculate dPhi
                         eta = get_veta(self.batch_size * t, self.neurons,
@@ -422,39 +411,28 @@ class LcaNetwork():
                         dPhi =  eta * (t2dot(R, ahat.T))
 
                     # Calculate dZ
-                    eta = get_zeta_ar(self.batch_size * t, self.neurons,
-                                   self.runtype, self.time_batch_size)
+                    eta = get_zeta_ar(t, self.batch_size)
+                    #eta = get_zeta_ar(self.batch_size * t, self.neurons,
+                                   #self.runtype, self.time_batch_size)
                     #if random.random() < 0.01:
                         #print 'zeta: ', eta
                     #dZ = eta * t2dot(UR, u_prev.T)
                     dZ = eta * t2dot(AR, a_prev.T)
+                    #pdb.set_trace()
 
-                    #print 'UR=%.2f' %  np.sqrt(np.sum(np.abs(UR)))
+                    #print 'AR=%.2f' %  np.sqrt(np.sum(np.abs(AR)))
                     # Update
                     if self.init_phi_name == '': # Update if not initialized
                         Phi = Phi + dPhi # Don't change Phi before calculating dZ!!!
                         Phi = t2dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis=0))))
                     Z = Z + dZ
-
-                    # Check new error
-                    #R2 = I - t2dot(Phi, ahat)
-                    #tmp_u_pred = t2dot(Z, u_prev) # Recalculate
-                    #tmp_a_pred = self.thresh(u_pred, np.ones(self.batch_size) * self.lambdav)
-                    #UR2 = u - tmp_u_pred
-                    #nUR = np.linalg.norm(UR)
-                    #nUR2 = np.linalg.norm(UR2)
-                    #if nUR2 > nUR:
-                        #print 'Fail: UR: %f, UR2: %f' % (np.linalg.norm(UR), np.linalg.norm(UR2))
-                    #ZR2 = I - t2dot(Phi, tmp_a_pred)
-                    #IR = I - t2dot(Phi, self.thresh(u_prev, np.ones(self.batch_size) * self.lambdav))
-
                 ahat_c = np.copy(ahat)
                 ahat_c[np.abs(ahat_c) > self.lambdav/1000.0] = 1
                 ac = np.sum(ahat_c)
 
                 if i % 50 == 0:
                     print '\t%.3d) lambdav=%.3f || AC=%.2f%%' % (i, self.lambdav, 100.0 * ac / max_active)
-                #u_prev = u
+                u_prev = u
                 #u_pred = t2dot(Z, u_prev)
                 a_prev = ahat
                 a_pred = t2dot(Z, ahat)
@@ -637,7 +615,10 @@ class LcaNetwork():
         if not self.coeff_visualizer:
             raise Exception("vDynamics purely for visualization")
 
-        if True:
+        if False:
+            pass
+
+        else:
             iphi = np.floor(random.uniform(0,1) * Phi.shape[1])
             iphi = 10 * 16 - 2
             iphi = 14 * 16

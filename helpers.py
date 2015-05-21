@@ -197,13 +197,14 @@ def get_zeta(t, neurons, runtype, batch_size):
 # Move Right LCA
 def get_zeta_ar(t, batch_size):
 
-    start = 300
-    inc = 300
+    start = 150
+    inc = 150
 
     #eta = eta_start = 20.0
     #eta = eta_start = 0.6
     #eta = eta_start = 6.0
-    eta = eta_start = 100 * 0.800
+    eta = eta_start = 0.800
+    #eta = eta_start = 0.001
 
     for i in range(6):
         if t < start + i*inc:

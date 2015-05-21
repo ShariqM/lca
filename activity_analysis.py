@@ -111,22 +111,23 @@ class Analysis():
             #Z = scipy.io.loadmat('activity/aa_%s' % Z_file)['Z']
             #Z = Z[coeffs][:,coeffs]
             #pdb.set_trace()
-            #Z = scipy.io.loadmat('dict/Phi_550/Phi_550_1.1.mat')['Z']
-            #Z = scipy.io.loadmat('dict/Phi_560/Phi_560_0.2.mat')['Z']
-            Z = scipy.io.loadmat('dict/Phi_568/Phi_568_1.6.mat')['Z']
+            #Z = scipy.io.loadmat('dict/Phi_568/Phi_568_1.6.mat')['Z']
+            #Z = scipy.io.loadmat('dict/Phi_573/Phi_573_1.0.mat')['Z']
+            #Z = scipy.io.loadmat('dict/Phi_575/Phi_575_1.0.mat')['Z']
+            Z = scipy.io.loadmat('dict/Phi_589/Phi_589_0.7.mat')['Z']
             #Z = np.eye(Z.shape[0])
 
             act = log[coeffs, patch_i, tstart]
 
-            reset_after = 5
+            reset_after = 10
             for t in range(tstart+1, tend):
                 act = np.dot(Z, act)
                 #save_act = self.activity_log[coeffs, patch_i, t]
                 #self.activity_log[coeffs, patch_i, t] = act
                 save_act = log[coeffs, patch_i, t]
                 log[coeffs, patch_i, t] = act
-                #if t % reset_after == 0:
-                    #act = save_act
+                if t % reset_after == 0:
+                    act = save_act
 
         # Setup
         rows = 1 if time_only else 4
