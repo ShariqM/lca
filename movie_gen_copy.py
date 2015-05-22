@@ -17,7 +17,7 @@ class MovieGen():
     def __init__(self, gen_type=1):
         self.imsz = 192
         self.sz = 12
-        self.frames = self.sz * 10
+        self.frames = self.sz * 100
         self.gen_type=gen_type
 
         self.data = np.zeros((self.imsz, self.imsz, self.frames))
@@ -124,38 +124,35 @@ class MovieGen():
         OIMAGES = scipy.io.loadmat('mat/%s.mat' % oname)[oname]
 
         window = 1
-        r_idx = 24
-        c_idx = 24
-        start, stop = 70, 82
+        r_idx = 12
+        c_idx = 14
+        start, stop = 0, 15
         t = 0
         plt.ion()
         for iters in range(self.frames / (2 * (stop - start))):
             for i in range(start, stop):
                 for r in range(self.imsz/self.sz):
                     for c in range(self.imsz/self.sz):
-                        img = OIMAGES[r_idx:r_idx+self.sz, c_idx:c_idx+self.sz, i]
-                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = img
+                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = OIMAGES[self.sz*(r_idx-1):self.sz*r_idx, self.sz*(c_idx-1):self.sz*c_idx,i]
                 if self.show_images:
-                    img = OIMAGES[r_idx:r_idx+self.sz, c_idx:c_idx+self.sz, i]
-                    plt.imshow(img, norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+                    plt.imshow(OIMAGES[self.sz*(r_idx-1):self.sz*(r_idx+window-1), self.sz*(c_idx-1):self.sz*(c_idx+window-1),i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
                     plt.title("T=%d" % i)
                     plt.draw()
                     plt.show()
+
                 t = t + 1
 
-            for j in range(stop-1, start-1, -1):
+            for j in range(stop-2, start, -1):
                 for r in range(self.imsz/self.sz):
                     for c in range(self.imsz/self.sz):
-                        img = OIMAGES[r_idx:r_idx+self.sz, c_idx:c_idx+self.sz, j]
-                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = img
+                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = OIMAGES[self.sz*(r_idx-1):self.sz*r_idx, self.sz*(c_idx-1):self.sz*c_idx,j]
                 if self.show_images:
-                    img = OIMAGES[r_idx:r_idx+self.sz, c_idx:c_idx+self.sz, j]
-                    plt.imshow(img, norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+                    plt.imshow(OIMAGES[self.sz*(r_idx-1):self.sz*r_idx, self.sz*(c_idx-1):self.sz*c_idx,j], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
                     plt.draw()
                     plt.show()
                 t = t + 1
 
-        self.save('IMAGES_EDGE_DUCK_r=%d_c=%d' % (r_idx, c_idx))
+        self.save('IMAGES_EDGE_DUCK')
 
     def duck_edge_right(self):
         oname = 'IMAGES_DUCK_SHORT'
@@ -229,7 +226,7 @@ class MovieGen():
         else:
             self.duck_patch()
 
-mg = MovieGen(5)
+mg = MovieGen(3)
 mg.run()
 
 #plt.imshow(data[:,:,13] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)

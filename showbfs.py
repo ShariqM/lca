@@ -45,12 +45,16 @@ def showbfs(Phi, idx=-1):
 if __name__ == "__main__":
     i = args.dict_idx
     name = 'Phi_197_1.9.mat'
+    name = 'Phi_600/Phi_600_1.3.mat'
+    name = 'Phi_601/Phi_601_0.3.mat'
+    name = 'Phi_602/Phi_602_0.2.mat'
     #name = 'Phi_207_0.8.mat'
     #name = 'Phi_208_0.7.mat'
     #name = 'Phi_209_0.1.mat'
     #name = 'Phi_198_0.6.mat'
 
-    idx = int(name.split('_')[1])
+    #idx = int(name.split('_')[1])
+    idx = -1
 
     Phi = scipy.io.loadmat('dict/%s' % name)['Phi']
     showbfs(Phi, idx)

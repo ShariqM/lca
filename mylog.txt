@@ -9,3 +9,10 @@ VMSC, No **2
 VMSC, **2 on smoothness (basically no change)
 045) SNR=11.28dB, I_SNR=-4.85dB, P_SNR=2.95dB, AC=34.25%, AC_SUM=845.840454, CC_SUM=299.900879, Time=109s
 045) VMSC - Error_1 = 2712
+
+Phi_592 doesn't learn
+    0197) lambdav=0.200 || snr=6.08dB || AR=20.49 || AC=18.89% || ELAP=759
+Phi_596 (1024 neurons) doesn't seem to help
+
+5-21-15
+- Error on one dynamics: T=1200, R0 = 2.153
