@@ -14,6 +14,7 @@ from math import floor, ceil, sqrt
 import pprint
 import argparse
 import pdb
+from helpers import *
 
 #class DataSet():
     #def __init__(self, log, tstart, tend):
@@ -26,15 +27,22 @@ class Analysis():
     LOG_NAME = 'aalog.txt'
     datasets = [
                 #'IMAGES_DUCK'
-                #'IMAGES_DUCK_SHORT'
+                ['IMAGES_DUCK_SHORT', 0, 100],#
                 #['IMAGES_EDGE_DUCK',           0, 100],
-                ['IMAGES_EDGE_DUCK_r=20_c=20', 0, 100],
-                ['IMAGES_EDGE_DUCK_r=21_c=21', 0, 100],
-                ['IMAGES_EDGE_DUCK_r=22_c=22', 0, 100],
-                ['IMAGES_EDGE_DUCK_r=23_c=23', 0, 100],
-                ['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
+                #['IMAGES_EDGE_DUCK', 0, 100],
+                #['IMAGES_EDGE_DUCK_r=20_c=20', 0, 100],
+                #['IMAGES_EDGE_DUCK_r=21_c=21', 0, 100],
+                #['IMAGES_EDGE_DUCK_r=22_c=22', 0, 100],
+                #['IMAGES_EDGE_DUCK_r=23_c=23', 0, 100],
+                #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
-    reconstruct_i = 1 # Which dataset index to reconstruct (in over_time())
+    patches = 1
+    reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
+    reset_after = 15
+    cells = 1 # Number of Gamma's
+    clambdav = 0.0
+    citers  = 10
+    #reset_after = -1 # -1 means never
 
     a_mode  = True # ahat or u mode
     patch_i   = 189
@@ -43,9 +51,20 @@ class Analysis():
 
     # Training parameters
     num_trials = 3000
-    eta_init   = 0.45
+    eta_init   = 0.200
     eta_inc    = 1200
-    Z_init     = 'AA_Log_4'
+
+    ceta       = 0.05
+    log_often  = 4
+    Z_init     = ''
+    G_init     = ''
+    G_init     = 'AA_Log_26'
+    #G_init     = 'AA_Log_18'
+    #G_init     = 'AA_Log_13'
+    #Z_init     = 'AA_Log_7'
+    #Z_init     = 'AA_Log_7'
+    #Z_init     = 'AA_Log_6'
+    #Z_init     = 'AA_Log_4'
 
     def __init__(self):
         parr = self.phi_name.split('_')
@@ -58,35 +77,43 @@ class Analysis():
             self.coeffs = range(self.neurons)
 
         'Log of ahat or u values'
-        self.logs = []
-        self.images = []
+        #self.logs = []
+        #self.images = []
         aname = 'activity' if self.a_mode else 'membrane'
         for ds in self.datasets:
-            idn = ds[0]
-            self.images.append(scipy.io.loadmat('mat/%s.mat' % idn)[idn])
-            (self.imsize, imsize, self.num_images) = np.shape(self.images[0])
-            self.patch_per_dim = int(np.floor(imsize / self.sz))
+            #idn = ds[0]
+            #self.images.append(scipy.io.loadmat('mat/%s.mat' % idn)[idn])
+            #(self.imsize, imsize, self.num_images) = np.shape(self.images[0])
+            #self.patch_per_dim = int(np.floor(imsize / self.sz))
 
-            log = np.load('activity/%s_%s_%s.npy' % (aname, self.phi_name, ds[0]))
-            log = log[self.coeffs, self.patch_i, ds[1]:ds[2]]
-            self.logs.append(log)
+            self.log = np.load('activity/%s_%s_%s.npy' % (aname, self.phi_name, ds[0]))
+            self.log = self.log[self.coeffs, 0:self.patches, ds[1]:ds[2]]
+            #self.logs.append(log)
 
-        #self.nframes = self.activity_log.shape[2] # num_frames
-        self.patches = self.logs[0].shape[1] # batch_size
+        self.timepoints = self.log.shape[2] # num_frames FIXME
+        self.batch_size = self.log.shape[1] # batch_size
         self.lambdav = 0.2
 
         self.log_idx = self.get_log_idx()
+
+        if self.G_init != '':
+            # Have to copy so Theano won't complain about unaligned np array
+            self.Gam = np.copy(scipy.io.loadmat('activity/%s' % self.G_init)['Gam'])
+        else:
+            self.Gam = None
 
         if self.Z_init != '':
             self.Z = scipy.io.loadmat('activity/%s' % self.Z_init)['Z']
         else:
             self.Z = None
 
+        if self.reset_after == -1:
+            self.reset_after = 9e10 # Never
+
         plt.ion()
 
-    def thresh(self, u):
+    def thresh(self, u, theta):
         'LCA threshold function'
-        theta = self.lambdav
         a = abs(u) - theta;
         a[a < 0] = 0
         a = np.sign(u) * a
@@ -103,7 +130,7 @@ class Analysis():
             all_coeffs = [coeffs]
         else:
             all_coeffs = [range(i, i+group_size) for i in range(0, self.neurons, group_size)]
-        all_patches = [patch_i] if patch_i != -1 else range(self.patches)
+        all_patches = [patch_i] if patch_i != -1 else range(self.batch_size)
 
         for coeffs in all_coeffs:
             for pi in all_patches:
@@ -158,15 +185,14 @@ class Analysis():
 
         # Replace activity with predictions of data if desired
         if self.Z != None:
-            reset_after = 10
             for log in self.logs:
                 activity = log[:, 0]
                 for t in range(1, log.shape[1]):
+                    if t % self.reset_after == 0:
+                        activity = log[:, t]
+                        continue
                     activity = np.dot(self.Z, activity)
-                    save_act = log[:, t]
                     log[coeffs, t] = activity # overwrite actual activity
-                    if t % reset_after == 0:
-                        activity = save_act
 
         # Plot Setup
         log = self.logs[self.reconstruct_i]
@@ -182,6 +208,7 @@ class Analysis():
 
             #ax_time.plot(range(tstart, tend), log[i, patch_i, tstart:tend], label='P_%d_A%d' % (patch_i, i))
             ax_time.plot(range(timepoints), log[i, :], label='A%d' % i)
+            ax_time.axis([0, timepoints, -1, 1])
             #ax_time.legend()
             #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
             #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
@@ -199,23 +226,27 @@ class Analysis():
                     ax.set_title("A%d" % coeffs[i])
 
             # Reconstruction and Images
-            ax_r = plt.subplot2grid((rows,cols), (2,1)) # Reconstruct
-            ax_i = plt.subplot2grid((rows,cols), (2,0)) # Images
             for iters in range(1000): # Show forever
                 for t in range(timepoints):
-                    img = np.zeros(self.sz ** 2)
-                    tlog = self.thresh(log[:, t])
-                    img = np.dot(self.phi[:, coeffs], tlog)
 
-                    ax_r.set_title("Partial Reconstruction t=%d" % t)
-                    ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                    k = 0
+                    for log in self.logs:
+                        ax_r = plt.subplot2grid((rows,cols), (2,k)) # Reconstruct
+                        tlog = self.thresh(log[:, t])
+                        img = np.dot(self.phi[:, coeffs], tlog)
 
+                        ax_r.set_title("PRecon t=%d" % t)
+                        ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                        k += 1
 
-                    ax_i.set_title("Image t=%d" % t)
-                    rr = (np.floor(patch_i / self.patch_per_dim)) * self.sz
-                    cc = (patch_i % self.patch_per_dim) * self.sz
-                    dimg = self.images[self.reconstruct_i][rr:rr+self.sz, cc:cc+self.sz, t].T
-                    ax_i.imshow(dimg, cmap = cm.binary, interpolation='nearest')
+                    for k in range(len(self.logs)):
+                        ax_i = plt.subplot2grid((rows,cols), (3,k)) # Images
+                        ax_i.set_title("Image_%d t=%d" % (i, t))
+                        rr = (np.floor(patch_i / self.patch_per_dim)) * self.sz
+                        cc = (patch_i % self.patch_per_dim) * self.sz
+                        dimg = self.images[k][rr:rr+self.sz, cc:cc+self.sz, t].T
+                        #dimg = self.images[self.reconstruct_i][rr:rr+self.sz, cc:cc+self.sz, t].T
+                        ax_i.imshow(dimg, cmap = cm.binary, interpolation='nearest')
                     plt.draw()
                     #plt.show(block=True)
 
@@ -226,7 +257,7 @@ class Analysis():
         if len(coeffs) != 2:
             raise Exception("Greater than 2 dim not supported.")
 
-        patches = range(self.patches)[:3]
+        patches = range(self.batch_size)[:3]
         x = self.activity_log[coeffs[0], patches, :]
         y = self.activity_log[coeffs[1], patches, :]
         if log:
@@ -248,16 +279,6 @@ class Analysis():
         plt.axis('equal')
         plt.show()
 
-    def get_eta(self, t):
-        'Return eta value for learning at time step t'
-        eta = self.eta_init
-
-        for i in range(1, 11):
-            if t < i * self.eta_inc:
-                return eta
-            eta /= 2.0
-        return eta
-
     def get_log_idx(self):
         f = open(self.LOG_NAME, 'r')
         rr = 0
@@ -269,7 +290,7 @@ class Analysis():
         f.close()
         return int(rr) + 1
 
-    def log_and_save(self, Z, write_params=False):
+    def log_and_save(self, varname, var, write_params=False):
         name = 'AA_Log_%d' % self.log_idx
         if write_params:
             f = open(self.LOG_NAME, 'a') # append to the log
@@ -280,18 +301,137 @@ class Analysis():
             f.write('phi_name=%s\n' % self.phi_name)
             f.write('coeffs=%s\n' % self.coeffs)
             f.write('Z_init=%s\n' % self.Z_init)
+            f.write('G_init=%s\n' % self.G_init)
+            f.write('cells=%d\n' % self.cells)
+            f.write('ceta=%f\n' % self.ceta)
+            f.write('citersceta=%f\n' % self.citers)
             f.write('num_trials=%s\n' % self.num_trials)
             f.write('eta_init=%s\n' % self.eta_init)
             f.write('eta_inc=%s\n' % self.eta_inc)
             f.write('%d\n' % (self.log_idx))
             f.close()
-        scipy.io.savemat('activity/%s' % name, {'Z': Z})
+        scipy.io.savemat('activity/%s' % name, {varname: var})
+
+    def get_eta(self, t):
+        'Return eta value for learning at time step t'
+        eta = self.eta_init
+
+        for i in range(1, 11):
+            if t < i * self.eta_inc:
+                return eta/self.batch_size
+            eta /= 2.0
+        return eta/self.batch_size
+
+    def rerr(self, R):
+        return np.sum(np.abs(R)) / (self.batch_size)
+
+    def csparsify(self, Gam, x_prev, x, v_prev=None):
+        v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
+        l = np.ones(self.batch_size) * self.clambdav
+        c = self.thresh(v, l)
+
+        max_active = self.cells * self.batch_size
+
+        BR = x - x_prev
+        for i in range(self.citers):
+            R = x - gam_predict(Gam, c, x_prev).T
+            v = self.ceta * csparsify_grad(R, Gam, x_prev).T + (1 - self.ceta) * v
+            c = self.thresh(v, l)
+
+            #if i % (self.citers-1) == 0:
+            if False:
+            #if True:
+                chat_c = np.copy(c)
+                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1 # XXX FIXME
+                ac = 100 * np.sum(chat_c)/max_active
+                print "\tResidual Error %.2d - AC: %.2f%%, Identity: %.3f, Prediction: %.3f," % (i, ac, self.rerr(BR), self.rerr(R))
+
+        return v, c
+
+    def train_G_dynamics(self):
+        'Train a Z matrix to learn the dynamics of the coefficients'
+        #Z = self.Z if self.Z is not None else np.zeros((self.neurons, self.neurons))
+        if self.Gam is None:
+            Gam = np.zeros((self.neurons, self.neurons, self.cells))
+            for i in range(self.cells):
+                #Gam[:,:,i] = np.zeros((self.neurons, self.neurons))
+                #Gam[:,:,i] = + np.random.normal(0, 0.01, (self.neurons, self.neurons))
+                Gam[:,:,i] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
+                #Gam[:,:,i] = np.eye(self.neurons)
+        else:
+            Gam = self.Gam
+        f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
+
+        for k in range(self.num_trials):
+            R_sum = np.zeros((self.neurons, self.batch_size))
+
+            v_prev = np.zeros((self.cells, self.batch_size))
+            for t in range(1, self.timepoints):
+                # Data
+                x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
+
+                # Inference
+                v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
+                #v, chat = 0, np.ones((self.cells, self.batch_size)).reshape(self.cells, self.batch_size)
+
+                # Residual
+                x_pred = gam_predict(Gam, chat, x_prev).T
+                R = x - x_pred
+                #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
+
+                dGam = t3tendot2(R, chat, x_prev)
+                Gam += self.get_eta(k) * dGam
+
+                for c in range(self.cells):
+                    Gam[:,:,c] = t2dot(Gam[:,:,c], np.diag(1/np.sqrt(np.sum(Gam[:,:,c]**2, axis = 0))))
+
+                R_sum += np.abs(R)
+                v_prev = v
+
+                x_pred = gam_predict(Gam, chat, x_prev).T
+                R = x - x_pred
+                #print '\t\tR After=%f' % (np.sum(np.abs(R)) / self.batch_size)
+
+            msg = 'T=%.4d, R=%f' % (k, np.sum(R_sum) / (self.timepoints * self.batch_size))
+            print msg
+            f.write(msg +'\n')
+
+            if k > 0  and k % self.log_often == 0:
+                self.log_and_save('Gam', Gam, k == self.log_often)
+                print 'Saved Gam_%d' % self.log_idx
+
+        f.close()
+        self.log_and_save('Gam', Gam)
 
     def train_dynamics(self):
         'Train a Z matrix to learn the dynamics of the coefficients'
-        Z = self.Z if self.Z else np.zeros((self.neurons, self.neurons))
+        #Z = self.Z if self.Z is not None else np.zeros((self.neurons, self.neurons))
+        Z = self.Z if self.Z is not None else np.eye(self.neurons)
+        f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
 
-        # Obj a - Za
+        #log(neurons, patches, timepoints)
+        for k in range(self.num_trials):
+            R_sum = np.zeros((self.neurons, self.batch_size))
+            for t in range(1, self.timepoints):
+                x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
+                R = x - np.dot(Z, x_prev)
+                Z = Z + self.get_eta(k) * np.dot(R, x_prev.T)
+                #Z = Z + self.get_eta(t) * np.dot(R.reshape(self.neurons,1) , x_prev.reshape(1,self.neurons))
+                R_sum += np.abs(R)
+            msg = 'T=%.4d, R=%f' % (k, np.sum(R_sum) / (self.timepoints * self.batch_size))
+            print msg
+            f.write(msg +'\n')
+
+            if k > 0 and k % self.log_often == 0:
+                self.log_and_save(Z, k == self.log_often)
+                print 'Saved Z%d' % self.log_idx
+
+        f.close()
+        self.log_and_save(Z)
+
+    def old_train_dynamics(self):
+
+        # Obj a - Za ** OLD **
         for t in range(self.num_trials):
             msg = 'T=%.4d, ' % t
             k = 0
@@ -303,16 +443,18 @@ class Analysis():
                     Z = Z + self.get_eta(t) * np.dot(R.reshape(self.neurons,1) , x_prev.reshape(1,self.neurons))
                     R_sum += np.abs(R)
                 msg += 'R%d = %.3f ' % (k, np.sqrt(np.sum(R_sum)))
+                #msg += 'R%d = %.3f ' % (k, np.sqrt(np.sum(R_sum) / log.shape[1])) # Later
                 k += 1
 
             print msg
+            f.write(msg +'\n')
             log_often = 200
             if t > 0 and t % log_often  == 0:
                 self.log_and_save(Z, t == log_often)
                 print 'Saved Z%d' % self.log_idx
 
+        f.close()
         self.log_and_save(Z)
-
 
     def temporal_correlation(self, coeffs, time, patch_i):
         'Make a scatter plot of the activity of a pair of coefficients and color by time point'
@@ -334,7 +476,6 @@ class Analysis():
             cmap = plt.get_cmap('autumn')
 
             #scat = plt.scatter(data[0], data[1], s=12, c=colors, cmap=cmap, lw=0)
-            pdb.set_trace()
             scat = ax[0].scatter(data[0], data[1], s=20, c=colors, lw=1)
             cbar = plt.colorbar(scat, ax=ax[0], ticks=[0, 0.5, 1])
             cbar.ax.set_yticklabels(['t=%d' % tstart, 't=%d' % np.average((tstart, tend)), 't=%d' % tend])
@@ -366,4 +507,5 @@ def get_neighbors(coeff, dist=2):
 
 a = Analysis()
 #a.over_time()
-a.train_dynamics()
+#a.train_dynamics()
+a.train_G_dynamics()

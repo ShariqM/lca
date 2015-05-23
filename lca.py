@@ -57,7 +57,7 @@ class LcaNetwork():
     #neurons      = 1024 # Number of basis functions
     neurons      = 18 ** 2
     #neurons      = patch_dim * 4 # Number of basis functions
-    sz           = np.sqrt(patch_dim)
+    sz           = int(np.sqrt(patch_dim))
     #Gam_size     = neurons
     Gam_size     = patch_dim / 2
     Gam_size     = 10
@@ -107,9 +107,9 @@ class LcaNetwork():
     # General Parameters
     #runtype            = RunType.vgLearning # See runtype.py for options
     #runtype            = RunType.vDynamics # See runtype.py for options
-    runtype            = RunType.vReconstruct # See runtype.py for options
-    #runtype            = RunType.vDynamics # See runtype.py for options
-    log_and_save = True # Log parameters save dictionaries
+    #runtype            = RunType.vReconstruct # See runtype.py for options
+    runtype            = RunType.vmLearning # See runtype.py for options
+    log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
@@ -129,7 +129,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[15]
+        self.image_data_name = self.datasets[2]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -170,6 +170,15 @@ class LcaNetwork():
 
         return I
 
+    def load_all_image(self, I, t):
+        '(5) Load all possible patches for image $t$. Used by vReconstruct()'
+        i = 0
+        for r in range(self.imsize - self.sz + 1):
+            for c in range(self.imsize - self.sz + 1):
+                I[:,i] = np.reshape(self.IMAGES[r:r+self.sz, c:c+self.sz, t], self.patch_dim, 1)
+                i = i + 1
+        return I
+
     def load_image(self, I, t):
         '(2) Load all patches for image $t$. Used by vReconstruct()'
 
@@ -194,7 +203,8 @@ class LcaNetwork():
 
         for x in range(self.batch_size):
             # Choose a random image less than time_batch_size images away from the end
-            imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
+            #imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
+            #imi = 0
             r   = 0
             c   = 0
             VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
@@ -214,9 +224,12 @@ class LcaNetwork():
                 #r = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
                 #c = border + np.ceil((imsize-sz-2*border) * random.uniform(0, 1))
                 # Choose a random image less than time_batch_size images away from the end
-                imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
+                #imi = np.floor((self.num_images - self.time_batch_size) * random.uniform(0, 1))
                 #r = (imsize-sz) * random.uniform(0, 1)
                 #c = (imsize-sz) * random.uniform(0, 1)
+                imi = 0
+                #r = 24
+                #c = 24
                 r = self.sz * np.floor(self.imsize/self.sz * random.uniform(0,1))
                 c = self.sz * np.floor(self.imsize/self.sz * random.uniform(0,1))
                 VI[:,x,:] = np.reshape(self.IMAGES[r:r+sz, c:c+sz, imi:imi+tbs], (self.patch_dim, tbs), 1)
@@ -395,11 +408,13 @@ class LcaNetwork():
 
         for t in range(self.start_t, self.num_trials):
             VI = self.load_videos()
+            #VI = self.load_specific()
 
             u_prev = np.zeros((self.neurons, self.batch_size))
             u_pred = np.zeros((self.neurons, self.batch_size))
             #a_prev = np.zeros((self.neurons, self.batch_size))
             #a_pred = np.zeros((self.neurons, self.batch_size))
+            UR_sum = np.zeros((self.neurons, self.batch_size))
             for i in range(0, self.time_batch_size):
                 I = VI[:,:,i]
 
@@ -413,6 +428,8 @@ class LcaNetwork():
 
                 # Learning
                 if i > 0:
+                    UR_sum += np.abs(UR)
+
                     if self.init_phi_name == '': # Update if not initialized
                         # Calculate dPhi
                         eta = get_veta(self.batch_size * t, self.neurons,
@@ -431,7 +448,8 @@ class LcaNetwork():
 
                 # For next iteration
                 u_prev = u
-                u_pred = u
+                #u_pred = u
+                u_pred = t2dot(Z, u_prev)
                 #u_pred = t2dot(Z, u_prev) + u_prev
 
                 # Logging
@@ -449,7 +467,7 @@ class LcaNetwork():
             mse = (R ** 2).mean()
             snr = 10 * log(var/mse, 10)
 
-            UR_mag = np.sqrt(np.sum(np.abs(UR)))
+            UR_mag = np.sqrt(np.sum(UR_sum / (self.batch_size * self.time_batch_size)))
             #AR_mag = np.sqrt(np.sum(np.abs(AR)))
             if np.mod(t, 5) == 0:
                 self.view_log_save(Phi, 100.0 * float(t)/self.num_trials, Z)
@@ -568,7 +586,7 @@ class LcaNetwork():
                         eta = get_veta(self.batch_size * t, self.neurons,
                                        self.runtype, self.time_batch_size)
 
-                        dGam = 20 * eta * t3tendot2(uR, chat, u) # Slightly faster
+                        dGam = 20 * eta * t3tendot2(uR, chat, u_prev)# THis was U !!!! # Slightly faster
                         #dGam = eta * np.einsum('pb,tb,nb->pnt', uR, c, u_prev)
                         Gam = Gam + dGam
                         u_pred_new = gam_predict(Gam, chat, u_prev).T
@@ -706,6 +724,10 @@ class LcaNetwork():
         if not self.coeff_visualizer:
             self.batch_size = self.patch_per_dim**2
 
+        #all_possible = True
+        #if all_possible: # Very expensive
+            #self.batch_size = (self.imsize - self.sz + 1) ** 2
+
         # Initialize batch of images
         I = np.zeros((self.patch_dim, self.batch_size))
 
@@ -734,6 +756,7 @@ class LcaNetwork():
 
             start = datetime.now()
             for t in range(self.num_frames):
+                #I = self.load_all_image(I, t)
                 I = self.load_image(I, t)
 
                 if run_p[run].initP == True:

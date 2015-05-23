@@ -20,10 +20,10 @@ smooth_show = False
 #sname = 'IMAGES_DUCK_LONG_FAKE_SMOOTH_0.7'
 
 #oname = 'IMAGES_PATCH_DUCK'
-#oname = 'IMAGES_DUCK_SHORT'
+oname = 'IMAGES_DUCK_SHORT'
 #oname = 'IMAGES_EDGE_RIGHT_DUCK'
 #oname = 'IMAGES_EDGE_DUCK'
-oname = 'IMAGES_EDGE_DUCK_2'
+#oname = 'IMAGES_EDGE_DUCK_2'
 #oname = 'IMAGES_DUCK'
 #oname = 'IMAGES_MOVE_RIGHT'
 #sname = 'IMAGES_DUCK_SMOOTH_0.7'

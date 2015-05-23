@@ -5,7 +5,7 @@ from theano import *
 import theano.tensor as T
 
 # Theano Matrix Multiplication Optimization
-if socket.gethostname() == 'redwood2':
+if True or socket.gethostname() == 'redwood2':
     Av = T.fmatrix('A')
     Bv = T.fmatrix('B')
     o2 = T.dot(Av, Bv)
@@ -53,12 +53,6 @@ if socket.gethostname() == 'redwood2':
     Yv = T.fmatrix('Y')
     o8 = T.batched_dot(Wv.T, T.tensordot(Xv, Yv, [[1], [0]]).dimshuffle(2, 0, 1))
     csparsify_grad = theano.function([Wv, Xv, Yv], o8, allow_input_downcast=True)
-
-
-
-
-
-
 
 else:
     def dot_many(*args):
@@ -197,13 +191,14 @@ def get_zeta(t, neurons, runtype, batch_size):
 # Move Right LCA
 def get_zeta_ar(t, batch_size):
 
-    start = 150
-    inc = 150
+    start = 75
+    inc = 75
 
     #eta = eta_start = 20.0
     #eta = eta_start = 0.6
     #eta = eta_start = 6.0
-    eta = eta_start = 0.800
+    #eta = eta_start = 0.800
+    eta = eta_start = 0.1
     #eta = eta_start = 0.001
 
     for i in range(6):

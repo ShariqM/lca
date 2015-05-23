@@ -16,3 +16,30 @@ Phi_596 (1024 neurons) doesn't seem to help
 
 5-21-15
 - Error on one dynamics: T=1200, R0 = 2.153
+
+5-22-15
+* vmLearning with imi=0, r,c = tiled patch (IMAGE_EDGE_DUCK)
+    0102) lambdav=0.200 || snr=9.31dB || UR=24.77 || AC=10.49% || ELAP=314
+            000) lambdav=0.200 || UR=49.277 || AC=8.02%
+            050) lambdav=0.200 || UR=25.947 || AC=11.42%
+    0185) lambdav=0.200 || snr=9.29dB || UR=20.36 || AC=8.64% || ELAP=571
+            000) lambdav=0.200 || UR=49.277 || AC=8.02%
+            050) lambdav=0.200 || UR=14.569 || AC=9.57%
+    * Apparently structure can be learned on 16 ** 2 = 256 patches for 100 time steps.
+* vmLearning with imi=9, r,c,=24 (IMAGE_EDGE_DUCK)
+    0105) lambdav=0.200 || snr=9.27dB || UR=23.17 || AC=9.88% || ELAP=381
+        000) lambdav=0.200 || UR=49.277 || AC=8.02%
+        050) lambdav=0.200 || UR=23.354 || AC=12.65%
+    * Woops, killed it.
+* same (IMAGE_DUCK)
+    0058) lambdav=0.200 || snr=11.51dB || UR=26.35 || AC=14.20% || ELAP=213
+            000) lambdav=0.200 || UR=66.745 || AC=21.30%
+            050) lambdav=0.200 || UR=26.876 || AC=16.98%
+* r=c= tiled
+    0138) lambdav=0.200 || snr=9.23dB || UR=35.37 || AC=19.78% || ELAP=553
+        000) lambdav=0.200 || UR=59.055 || AC=15.30%
+        050) lambdav=0.200 || UR=34.957 || AC=16.58%
+    * No structure..
+
+* Learned Gam_15 by cheating on csparsify (set it to 1 always)
+* GOing to try normalizing the Gamma matrix

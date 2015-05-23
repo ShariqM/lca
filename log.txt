@@ -13820,3 +13820,29 @@ Alpha left=4.000000
 Beta=0.010000
 Lambda_Scale=18.000000
 604
+
+*** Phi_605 ***
+Time=2015-05-22 14:38:48.958011
+RunType=vmLearning
+IMAGES=IMAGES_EDGE_DUCK
+patch_dim=144
+neurons=324
+lambdav=0.200
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=1200
+iter_per_frame=10
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed]
+InitPhi=Phi_463/Phi_463_0.3
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=4
+Topographic=False
+Alpha left=4.000000
+Beta=0.010000
+Lambda_Scale=18.000000
+605
