@@ -36,11 +36,11 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=23_c=23', 0, 100],
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
-    patches = 1
+    patches = 10
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
     cells = 1 # Number of Gamma's
-    clambdav = 0.0
+    clambdav = 0.2
     citers  = 10
     #reset_after = -1 # -1 means never
 
@@ -58,7 +58,7 @@ class Analysis():
     log_often  = 4
     Z_init     = ''
     G_init     = ''
-    G_init     = 'AA_Log_26'
+    #G_init     = 'AA_Log_26'
     #G_init     = 'AA_Log_18'
     #G_init     = 'AA_Log_13'
     #Z_init     = 'AA_Log_7'
@@ -362,6 +362,7 @@ class Analysis():
             Gam = self.Gam
         f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
 
+        start = datetime.now()
         for k in range(self.num_trials):
             R_sum = np.zeros((self.neurons, self.batch_size))
 
@@ -392,7 +393,9 @@ class Analysis():
                 R = x - x_pred
                 #print '\t\tR After=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
-            msg = 'T=%.4d, R=%f' % (k, np.sum(R_sum) / (self.timepoints * self.batch_size))
+            e = (datetime.now() - start).seconds
+            r = np.sum(R_sum) / (self.timepoints * self.batch_size)
+            msg = 'T=%.4d E=%ds, R=%f' % (k, e, r)
             print msg
             f.write(msg +'\n')
 
@@ -410,6 +413,7 @@ class Analysis():
         f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
 
         #log(neurons, patches, timepoints)
+        start = datetime.now()
         for k in range(self.num_trials):
             R_sum = np.zeros((self.neurons, self.batch_size))
             for t in range(1, self.timepoints):
@@ -418,16 +422,19 @@ class Analysis():
                 Z = Z + self.get_eta(k) * np.dot(R, x_prev.T)
                 #Z = Z + self.get_eta(t) * np.dot(R.reshape(self.neurons,1) , x_prev.reshape(1,self.neurons))
                 R_sum += np.abs(R)
-            msg = 'T=%.4d, R=%f' % (k, np.sum(R_sum) / (self.timepoints * self.batch_size))
+
+            e = (datetime.now() - start).seconds
+            r = np.sum(R_sum) / (self.timepoints * self.batch_size)
+            msg = 'T=%.4d E=%ds, R=%f' % (k, e, r)
             print msg
             f.write(msg +'\n')
 
             if k > 0 and k % self.log_often == 0:
-                self.log_and_save(Z, k == self.log_often)
+                self.log_and_save('Z', Z, k == self.log_often)
                 print 'Saved Z%d' % self.log_idx
 
         f.close()
-        self.log_and_save(Z)
+        self.log_and_save('Z', Z)
 
     def old_train_dynamics(self):
 

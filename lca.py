@@ -107,8 +107,8 @@ class LcaNetwork():
     # General Parameters
     #runtype            = RunType.vgLearning # See runtype.py for options
     #runtype            = RunType.vDynamics # See runtype.py for options
-    #runtype            = RunType.vReconstruct # See runtype.py for options
-    runtype            = RunType.vmLearning # See runtype.py for options
+    runtype            = RunType.vReconstruct # See runtype.py for options
+    #runtype            = RunType.vmLearning # See runtype.py for options
     log_and_save = False # Log parameters save dictionaries
 
     # Visualizer parameters
@@ -129,7 +129,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[2]
+        self.image_data_name = self.datasets[1]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
