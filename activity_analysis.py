@@ -38,15 +38,17 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=23_c=23', 0, 100],
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
-    patches = 2
+    start_patch = 100
+    patches = 10
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 2 # Number of Gamma's
-    clambdav = 0.00
-    citers  = 20
+    cells = 4 # Number of Gamma's
+    clambdav = 1.00
+    citers  = 10
     normalize_Gamma = True
     #reset_after = -1 # -1 means never
     inertia = True
+    sparsity = False
 
     a_mode  = True # ahat or u mode
     patch_i   = 189
@@ -55,13 +57,16 @@ class Analysis():
 
     # Training parameters
     num_trials = 3000
-    eta_init   = 0.200
-    eta_inc    = 1200
+    eta_init   = 1.2
+    eta_inc    = 80
 
     ceta       = 0.05
     log_often  = 8
     Z_init     = ''
     G_init     = ''
+    G_init     = 'AA_LOG_115'
+    #G_init     = 'AA_LOG_105'
+    #G_init     = 'AA_LOG_103'
     #G_init     = 'AA_LOG_80'
     #Z_init     = 'AA_Log_7'
 
@@ -75,7 +80,7 @@ class Analysis():
 
         self.sz = np.sqrt(self.phi.shape[0])
         self.neurons = self.phi.shape[1]
-        #self.neurons = 100
+        #self.neurons = 40
         if self.coeffs == None:
             self.coeffs = range(self.neurons)
 
@@ -93,7 +98,10 @@ class Analysis():
             #self.patch_per_dim = int(np.floor(imsize / self.sz))
 
             self.log = np.load('activity/%s_%s_%s.npy' % (aname, self.phi_name, ds[0]))
-            self.log = self.log[self.coeffs, 0:self.patches, ds[1]:ds[2]]
+            #patches = range(self.patches)[0:self.patches]
+            #pdb.set_trace()
+            #self.log = self.log[self.coeffs, patches, ds[1]:ds[2]]
+            self.log = self.log[self.coeffs, start_patch:start_patch+self.patches, ds[1]:ds[2]]
             #self.logs.append(log)
 
         self.timepoints = self.log.shape[2] # num_frames FIXME
@@ -351,7 +359,9 @@ class Analysis():
             f.write('\n*** %s ***\n' % name)
             f.write('Time=%s\n' % datetime.now())
             f.write('datasets=%s\n' % self.datasets)
+            f.write('start_patch=%d\n' % self.start_patch)
             f.write('patches=%d\n' % self.patches)
+            f.write('sparsity=%s\n' % self.sparsity)
             f.write('phi_name=%s\n' % self.phi_name)
             f.write('coeffs=%s\n' % self.coeffs)
             f.write('Z_init=%s\n' % self.Z_init)
@@ -390,10 +400,13 @@ class Analysis():
             #Gam[:,:,i] *= 1/np.linalg.norm(Gam[:,:,i], 'fro')
         return Gam
 
-    def csparsify(self, Gam, x_prev, x, c_prev=None):
+    def csparsify_grad(self, Gam, x_prev, x, c_prev=None):
         c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
+        #start = datetime.now()
         b = csparsify_grad(x, Gam, x_prev).T
         G = G_LCA(Gam, Gam, x_prev, x_prev)
+        #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
+        #print 'Setup:', (datetime.now() - start).microseconds
 
         for i in range(self.citers):
             #start = datetime.now()
@@ -408,55 +421,119 @@ class Analysis():
             c += self.ceta * gradient
         return 0, c
 
+    def csparsify(self, Gam, x_prev, x, v_prev=None):
+        v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
+        c = self.thresh(v, self.clambdav)
+        #start = datetime.now()
+        b = csparsify_grad(x, Gam, x_prev).T
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
+        #print 'Setup:', (datetime.now() - start).microseconds
+
+        for i in range(self.citers):
+            #start = datetime.now()
+            gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
+            #print 'Grad:', (datetime.now() - start).microseconds
+            #gradient = -self.gc(x, x_prev, Gam, c)
+
+            #if not np.allclose(test0, gradient, atol=1e-2):
+                #print 'bug found'
+                #test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
+                #pdb.set_trace()
+            v = self.ceta * gradient + (1 - self.ceta) * v
+            c = self.thresh(v, self.clambdav)
+
+        return v, c
+
+    def get_activity(self, c):
+        max_active = self.batch_size * self.cells
+        chat_c = np.copy(c)
+        chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1
+        ac = 100 * np.sum(chat_c)/max_active
+        return ac
+
     def train_G_dynamics(self):
         'Train a Z matrix to learn the dynamics of the coefficients'
         #Z = self.Z if self.Z is not None else np.zeros((self.neurons, self.neurons))
         if self.Gam is None:
             Gam = np.zeros((self.neurons, self.neurons, self.cells))
-            Gam[:,:,0] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
-            for i in range(1, self.cells):
-                Gam[:,:,i] = np.random.normal(0, 0.25, (self.neurons, self.neurons))
+
+            for i in range(self.cells):
+                Gam[:,:,i] = np.eye(self.neurons) + np.random.normal(0, 0.05, (self.neurons, self.neurons))
+            #Gam[:,:,0] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
+            #for i in range(1, self.cells):
+                #Gam[:,:,i] = np.random.normal(0, 0.25, (self.neurons, self.neurons))
             Gam = self.norm_Gam(Gam)
         else:
             Gam = self.Gam
         f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
 
-        start = datetime.now()
+        alg_start = datetime.now()
         for k in range(self.num_trials):
             R_sum = np.zeros((self.neurons, self.batch_size))
+            #C_sum = np.zeros((self.cells, self.batch_size))
+            C_sum = 0
 
             c_prev = None
-            v_prev = np.zeros((self.cells, self.batch_size))
+            v_prev = None
             for t in range(1, self.timepoints):
                 # Data
                 x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
 
                 # Inference
-                v, chat = self.csparsify(Gam, x_prev, x, c_prev=c_prev)
+                if self.sparsity:
+                    v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
+                else:
+                    v, chat = self.csparsify_grad(Gam, x_prev, x, c_prev=c_prev)
 
                 # Residual
-                x_pred = gam_predict(Gam, chat, x_prev).T
+                option = 1
+                if option == 1:
+                    #start = datetime.now()
+                    tmp = np.einsum('tb,nb->bnt', chat, x_prev)
+                    x_pred = tgam_predict(Gam, tmp)
+                    #print 'Predict2:', (datetime.now() - start).microseconds
+                elif option == 2:
+                    # 10x slower?
+                    start = datetime.now()
+                    x_pred = gam_predict(Gam, chat, x_prev).T
+                    print 'Predict:', (datetime.now() - start).microseconds
+                else:
+                    start = datetime.now()
+                    x_pred = np.einsum('pnt,tb,nb->pb', Gam, chat, x_prev)
+                    print 'Predict3:', (datetime.now() - start).microseconds
+
                 R = x - x_pred
                 #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
-                dGam = t3tendot2(R, chat, x_prev)
-                #print np.max(np.abs(dGam))
-                Gam += self.get_eta(k) * dGam
+                option = 1
+                if option == 1:
+                    #start = datetime.now()
+                    dGam = np.einsum('pb,tb,nb->pnt', R, chat, x_prev)
+                    #print 'DGam2:', (datetime.now() - start).microseconds
+                elif option == 2:
+                    # 2x slower, too much shuffling?
+                    start = datetime.now()
+                    dGam = t3tendot2(R, chat, x_prev)
+                    print 'DGam:', (datetime.now() - start).microseconds
+                else:
+                    # Really slow
+                    start = datetime.now()
+                    ttdGam = np.einsum('Pb,Nb,Tb->PNT', x, x_prev, chat) - np.einsum('ib,Tb,Pri,rb,Nb->PNT', chat, chat, Gam, x_prev, x_prev)
+                    print 'DGam3:', (datetime.now() - start).microseconds
 
+                Gam += self.get_eta(k) * dGam
                 Gam = self.norm_Gam(Gam)
 
                 R_sum += np.abs(R)
-                v_prev = v
-                c_prev = chat if self.inertia else None
+                C_sum += self.get_activity(chat)
+                if self.inertia:
+                    v_prev = v
+                    c_prev = chat
 
-                #v, chat = 0, csparsify_grad(x, Gam, x_prev).T
-                #x_pred = gam_predict(Gam, chat, x_prev).T
-                #R = x - x_pred
-                #print '\t\tR After=%f' % (np.sum(np.abs(R)) / self.batch_size)
-
-            e = (datetime.now() - start).seconds
+            e = (datetime.now() - alg_start).seconds
             r = np.sum(R_sum) / (self.timepoints * self.batch_size)
-            msg = 'T=%.4d E=%ds, R=%f, c=%f' % (k, e, r, np.average(np.abs(chat)))
+            msg = 'T=%.4d E=%ds, R=%f, C=%.2f%%' % (k, e, r, C_sum / self.timepoints)
             print msg
             f.write(msg +'\n')
 

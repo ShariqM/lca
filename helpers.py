@@ -39,6 +39,11 @@ if True or socket.gethostname() == 'redwood2':
     o6 = T.batched_dot(T.tensordot(Ov, Pv, 1).dimshuffle(2, 0, 1), Qv.T)
     gam_predict = theano.function([Ov, Pv, Qv], o6, allow_input_downcast=True)
 
+    TOv = T.tensor3('O')
+    TPv = T.tensor3('P')
+    to6 = T.tensordot(TOv, TPv, [[1,2], [1,2]])
+    tgam_predict = theano.function([TOv, TPv], to6, allow_input_downcast=True)
+
 # R,S missing
     Rv = T.fmatrix('R')
     Sv = T.fmatrix('S')
@@ -47,6 +52,10 @@ if True or socket.gethostname() == 'redwood2':
                Sv.dimshuffle('x', 'x', 0, 1) * \
                Tv.dimshuffle('x', 0, 'x', 1), axis=3)
     t3tendot2 = theano.function([Rv, Sv, Tv], o7, allow_input_downcast=True)
+
+    t3tendot2 = theano.function([Rv, Sv, Tv], o7, allow_input_downcast=True)
+
+
 
     Uv = T.fmatrix('U')
     Vv = T.tensor3('V')

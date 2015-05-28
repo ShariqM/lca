@@ -76,4 +76,36 @@ Saved Gam_79
     T=2161 E=6276s, R=0.711078, c=1.023136
     T=2162 E=6278s, R=0.711014, c=1.023195
     T=2163 E=6279s, R=0.710950, c=1.023255
-T=2164 E=6281s, R=0.710886, c=1.023314
+    T=2164 E=6281s, R=0.710886, c=1.023314
+
+    Saved Gam_86 (2 cells)
+    T=1289 E=2463s, R=0.710987, c=0.480979
+
+    Didn't seem to help much ? maybe a little
+
+* Try harder
+    Gets stuck 20 patches
+    T=0030 E=40s, R=3.901448, C=100.00%
+    T=0031 E=41s, R=3.903080, C=100.00%
+
+    3 cells makes it worse somehow...
+    T=0021 E=128s, R=3.962094, C=100.00%
+    T=0022 E=134s, R=3.963901, C=100.00%
+
+    3 cells with sparsity (even worse! woohoo I'm a genius*)
+    T=0011 E=72s, R=4.358963, C=63.33%
+
+    T=0160 E=93s, R=0.895195, C=100.00%
+    Saved Gam_103
+    T=0161 E=94s,
+
+    # BETTER WITH 2 CELLS WOOO some positive results
+    T=0128 E=189s, R=0.755671, C=100.00%
+    Saved Gam_104
+    T=0267 E=404s, R=0.569361, C=100.00%
+
+    NEXT TEST
+        * AA_112 gets to 4.16 (1 cell
+        * AA_113 gets to 3.99 easy (2 cells) WOOHOOO
+        Saved Gam_113
+        T=0025 E=101s, R=3.995591, C=98.95%
