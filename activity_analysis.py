@@ -38,13 +38,15 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=23_c=23', 0, 100],
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
-    patches = 10
+    patches = 2
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 3 # Number of Gamma's
+    cells = 2 # Number of Gamma's
     clambdav = 0.00
     citers  = 20
+    normalize_Gamma = True
     #reset_after = -1 # -1 means never
+    inertia = True
 
     a_mode  = True # ahat or u mode
     patch_i   = 189
@@ -56,18 +58,12 @@ class Analysis():
     eta_init   = 0.200
     eta_inc    = 1200
 
-    ceta       = 0.5
-    log_often  = 4
+    ceta       = 0.05
+    log_often  = 8
     Z_init     = ''
     G_init     = ''
-    #G_init     = 'AA_LOG_37'
-    #G_init     = 'AA_Log_26'
-    #G_init     = 'AA_Log_18'
-    #G_init     = 'AA_Log_13'
+    #G_init     = 'AA_LOG_80'
     #Z_init     = 'AA_Log_7'
-    #Z_init     = 'AA_Log_7'
-    #Z_init     = 'AA_Log_6'
-    #Z_init     = 'AA_Log_4'
 
     coeff_visualizer = False
     graphics_initialized = False
@@ -355,11 +351,13 @@ class Analysis():
             f.write('\n*** %s ***\n' % name)
             f.write('Time=%s\n' % datetime.now())
             f.write('datasets=%s\n' % self.datasets)
-            f.write('patch_i=%d\n' % self.patch_i)
+            f.write('patches=%d\n' % self.patches)
             f.write('phi_name=%s\n' % self.phi_name)
             f.write('coeffs=%s\n' % self.coeffs)
             f.write('Z_init=%s\n' % self.Z_init)
             f.write('G_init=%s\n' % self.G_init)
+            f.write('Norm_G=%s\n' % self.normalize_Gamma)
+            f.write('Inertia=%s\n' % self.inertia)
             f.write('cells=%d\n' % self.cells)
             f.write('ceta=%f\n' % self.ceta)
             f.write('citersceta=%f\n' % self.citers)
@@ -383,194 +381,41 @@ class Analysis():
         return np.sum(np.abs(R)) / (self.batch_size)
 
     def norm_Gam(self, Gam):
+        if not self.normalize_Gamma:
+            return Gam
+
         for i in range(self.cells):
-            #Gam[:,:,i] = t2dot(Gam[:,:,i], np.diag(1/np.sqrt(np.sum(Gam[:,:,i]**2, axis = 0))))
+            Gam[:,:,i] = t2dot(Gam[:,:,i], np.diag(1/np.sqrt(np.sum(Gam[:,:,i]**2, axis = 0))))
             #Gam[:,:,i] *= 1/np.sqrt(np.sum(Gam[:,:,i]**2))
-            Gam[:,:,i] *= 1/np.linalg.norm(Gam[:,:,i], 'fro')
+            #Gam[:,:,i] *= 1/np.linalg.norm(Gam[:,:,i], 'fro')
         return Gam
 
-    def csparsify(self, Gam, x_prev, x):
-        c = np.zeros((self.cells, self.batch_size))
+    def csparsify(self, Gam, x_prev, x, c_prev=None):
+        c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
         b = csparsify_grad(x, Gam, x_prev).T
-        #G = gamma_prod(Gam, Gam)
-        #G = np.einsum('pni,pnT,nB->iTB', Gam, Gam, x_prev ** 2)
-        start = datetime.now()
-        #G_old = np.einsum('pri,pnT,rB,nB->iTB', Gam, Gam, x_prev, x_prev)
         G = G_LCA(Gam, Gam, x_prev, x_prev)
 
-        print 'A%d' % (datetime.now() - start).microseconds
-
         for i in range(self.citers):
-            #R = x - gam_predict(Gam, c, x_prev).T
-            #c += self.ceta * csparsify_grad(R, Gam, x_prev).T
-            start = datetime.now()
-            #mine = (b - np.einsum('iB, iTB->TB', c, G))
-            mine = (b - np.einsum('iB, BiT->TB', c, G))
-            print 'B%d' % (datetime.now() - start).microseconds
-
             #start = datetime.now()
-            #test0 = self.gc(x, x_prev, Gam, c)
-            #print 'C%d' % (datetime.now() - start).microseconds
+            gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
+            #print 'Grad:', (datetime.now() - start).microseconds
+            #gradient = -self.gc(x, x_prev, Gam, c)
 
-            if np.max(np.abs(test0) - np.abs(mine)) > 0.1:
-                R = x - gam_predict(Gam, c, x_prev).T
-                old = csparsify_grad(R, Gam, x_prev).T
-                print 'bug found'
-                test = np.zeros((self.cells, self.batch_size))
-                test2 = np.zeros((self.cells, self.batch_size))
-                test3 = np.zeros((self.cells, self.batch_size))
-                newr = np.zeros((self.neurons, self.batch_size))
-
-                test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
-
-                '''
-                for T in range(self.cells):
-                    for B in range(self.cells):
-                        # Summing over
-                        for pp in range(self.neurons):
-                            for nn in range(self.neurons):
-                                for qq in range(self.neurons):
-                                    for rr in range(self.neurons):
-                                        for ii in range(self.cells):
-                                        test[T,B] +=
-                for T in range(self.cells):
-                    for B in range(self.cells):
-                        # Summing over
-                        for pp in range(self.neurons):
-                            for nn in range(self.neurons):
-                                for qq in range(self.neurons):
-                                    test += x[qq,B] * Gam[pp,nn,T] * x_prev[nn,B]
-
-                                    for ii in range(self.cells):
-                                        for rr in range(self.neurons):
-                                            test[T,B] -= c[ii,B] * Gam[qq,rr,T] * Gam[pp,nn,T] * x[rr,B] * x[nn,B]
-                for T in range (self.cells):
-                    for B in range(self.batch_size):
-                        for pp in range(self.neurons):
-                            for nn in range(self.neurons):
-                                s = 0
-                                for ii in range(self.cells):
-                                    s += c[ii, B] * Gam[pp,nn,ii] * Gam[pp,nn, T] * (x_prev[nn, B] ** 2)
-                                test[T, B] += (x[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]) - s
-
-                                test2[T, B] += x[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]
-
-                                test3[T,B] += R[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]
-
-
-                 for T in range (self.cells):
-                    for B in range(self.batch_size):
-                        for pp in range(self.neurons):
-                            s = 0
-                            for nn in range(self.neurons):
-                                s += Gam[pp, nn, T] * x[nn, B]
-                            s = 1
-                            test[T,B] += x[pp,B] * s
-
-                        for nn in range(self.neurons):
-                            s = 0
-                            for ii in range(self.cells):
-                                for pp in range(self.neurons):
-                                    #s += Gam[pp, nn, ii] * Gam[pp, nn, T]
-                                    s += Gam[pp, nn, ii]
-                                s = s * c[ii, B]
-                            #test[T, B] -= (x[nn,B] ** 2) * s
-                            test[T, B] -= (x[nn,B]) * s
-                for T in range (self.cells):
-                    for B in range(self.batch_size):
-                        for pp in range(self.neurons):
-                            newr[pp,B] += x[pp,B]
-                            for nn in range(self.neurons):
-                                for ii in range(self.cells):
-                                    newr[pp,B] += -c[ii, B] * Gam[pp,nn,ii] * x_prev[nn, B]
-                '''
-
-                pdb.set_trace()
-
-            c += self.ceta * mine
-            if np.max(np.abs(c)) > 100:
-                pdb.set_trace()
-
-
-            #test3 = b - np.einsum('iB, iTB->TB', c, G)
-
-            #pdb.s##et_trace()
-
-            #c += self.ceta * (b - t2dot(G, c))
-            #print 'A:', csparsify_grad(R, Gam, x_prev).T, '\nB:', b - np.einsum("iB,iTB->TB", c, G), '\nC:', self.gc(x, x_prev, Gam, c)
-            #print 'B:', b - np.einsum('iB,iTB->TB', c, G), '\nC:', self.gc(x, x_prev, Gam, c)
+            #if not np.allclose(test0, gradient, atol=1e-2):
+                #print 'bug found'
+                #test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
+                #pdb.set_trace()
+            c += self.ceta * gradient
         return 0, c
-
-    def csparsify_2(self, Gam, x_prev, x):
-        c = np.zeros((self.cells, self.batch_size))
-        for i in range(self.citers):
-            R = x - gam_predict(Gam, c, x_prev).T
-            c += self.ceta * csparsify_grad(R, Gam, x_prev).T
-            #print 'R=%f' % np.sum(np.abs(R))
-        return 0, c
-
-
-    def csparsify_old(self, Gam, x_prev, x, v_prev=None):
-        v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
-        l = np.ones(self.batch_size) * self.clambdav
-        c = self.thresh(v, l)
-
-        max_active = self.cells * self.batch_size
-        b = csparsify_grad(x, Gam, x_prev).T
-        G = gamma_prod(Gam, Gam)
-        np.fill_diagonal(G, 0)
-
-        if self.coeff_visualizer:
-            if not self.graphics_initialized:
-                self.graphics_initialized = True
-                fg, self.ax = plt.subplots(1)
-
-                self.ax.set_title('Coefficients t=%d' % 0)
-                self.ax.set_xlabel('Coefficient Index')
-                self.ax.set_ylabel('Activity')
-
-                self.coeffs = self.ax.bar(range(self.cells), np.abs(c), color='r', lw=0)
-                self.lthresh = self.ax.plot(range(self.cells+1), [self.clambdav] * (self.cells+1), color='g')
-
-                axis_height = 1.00
-                self.ax.axis([0, self.cells, 0, axis_height])
-                plt.draw()
-
-        BR = x - x_prev
-        for i in range(self.citers):
-            v = self.ceta * (b - t2dot(G, c)) + (1 - self.ceta) * v
-            c = self.thresh(v, l)
-
-            if self.coeff_visualizer:
-                for coeff, j in zip(self.coeffs, range(self.cells)):
-                    coeff.set_height(abs(v[j]))  # Update the potentials
-
-                self.ax.set_title('Coefficients t=%d' % i)
-                plt.draw()
-
-            #if i % (self.citers-1) == 0:
-            if False:
-            #if True:
-                chat_c = np.copy(c)
-                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1
-                ac = 100 * np.sum(chat_c)/max_active
-                R = x - gam_predict(Gam, c, x_prev).T
-                print "\tResidual Error %.2d - AC: %.2f%%, Identity: %.3f, Prediction: %.3f," % (i, ac, self.rerr(BR), self.rerr(R))
-                #print "\t\t c =", c
-                #time.sleep(0.1)
-
-        return v, c
 
     def train_G_dynamics(self):
         'Train a Z matrix to learn the dynamics of the coefficients'
         #Z = self.Z if self.Z is not None else np.zeros((self.neurons, self.neurons))
         if self.Gam is None:
             Gam = np.zeros((self.neurons, self.neurons, self.cells))
-            for i in range(self.cells):
-                #Gam[:,:,i] = np.zeros((self.neurons, self.neurons))
-                #Gam[:,:,i] = + np.random.normal(0, 0.01, (self.neurons, self.neurons))
-                Gam[:,:,i] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
-                #Gam[:,:,i] = np.eye(self.neurons)
+            Gam[:,:,0] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
+            for i in range(1, self.cells):
+                Gam[:,:,i] = np.random.normal(0, 0.25, (self.neurons, self.neurons))
             Gam = self.norm_Gam(Gam)
         else:
             Gam = self.Gam
@@ -580,17 +425,14 @@ class Analysis():
         for k in range(self.num_trials):
             R_sum = np.zeros((self.neurons, self.batch_size))
 
+            c_prev = None
             v_prev = np.zeros((self.cells, self.batch_size))
             for t in range(1, self.timepoints):
                 # Data
                 x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
 
                 # Inference
-                #v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
-                v, chat = self.csparsify(Gam, x_prev, x)
-                #v, chat = 0, 1.0 * np.ones((self.cells, self.batch_size)).reshape(self.cells, self.batch_size)
-                #v, chat = 0, csparsify_grad(x, Gam, x_prev).T
-                #pdb.set_trace()
+                v, chat = self.csparsify(Gam, x_prev, x, c_prev=c_prev)
 
                 # Residual
                 x_pred = gam_predict(Gam, chat, x_prev).T
@@ -601,10 +443,11 @@ class Analysis():
                 #print np.max(np.abs(dGam))
                 Gam += self.get_eta(k) * dGam
 
-                #Gam = self.norm_Gam(Gam)
+                Gam = self.norm_Gam(Gam)
 
                 R_sum += np.abs(R)
                 v_prev = v
+                c_prev = chat if self.inertia else None
 
                 #v, chat = 0, csparsify_grad(x, Gam, x_prev).T
                 #x_pred = gam_predict(Gam, chat, x_prev).T

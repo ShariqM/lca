@@ -62,3 +62,18 @@ T=0041 E=2736s, R=nan, c=nan
 T=0042 E=2769s, R=nan, c=nan
 T=0043 E=2803s, R=nan, c=nan
 T=0044 E=2837s, R=nan, c=nan0
+
+* Dictionary 73+ seemed to be doing well with Fronorm but then it hit INF gradient (NVM!! wasn't fornorm)
+    T=0004 E=137s, R=2.315816, c=1.947872
+* Woohoo!
+    Saved Gam_77
+    T=0177 E=116s, R=0.901448, c=0.841980
+T=0048 E=121s, R=1.446949, c=0.891109
+Saved Gam_79
+
+* Can I learn more with 2 cells?
+    Saved Gam_85 (1 cell)
+    T=2161 E=6276s, R=0.711078, c=1.023136
+    T=2162 E=6278s, R=0.711014, c=1.023195
+    T=2163 E=6279s, R=0.710950, c=1.023255
+T=2164 E=6281s, R=0.710886, c=1.023314
