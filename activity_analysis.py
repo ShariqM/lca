@@ -15,6 +15,7 @@ import pprint
 import argparse
 import pdb
 from helpers import *
+from Recurrnet.recurrnet.optimizer import *
 
 #class DataSet():
     #def __init__(self, log, tstart, tend):
@@ -22,6 +23,7 @@ from helpers import *
         #self.tstart = tstart
         #self.tend   = tend
 
+dtype = theano.config.floatX
 class Analysis():
 
     LOG_NAME = 'aalog.txt'
@@ -39,9 +41,9 @@ class Analysis():
     patches = 10
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 1 # Number of Gamma's
-    clambdav = 0.2
-    citers  = 10
+    cells = 3 # Number of Gamma's
+    clambdav = 0.00
+    citers  = 20
     #reset_after = -1 # -1 means never
 
     a_mode  = True # ahat or u mode
@@ -54,10 +56,11 @@ class Analysis():
     eta_init   = 0.200
     eta_inc    = 1200
 
-    ceta       = 0.05
+    ceta       = 0.5
     log_often  = 4
     Z_init     = ''
     G_init     = ''
+    #G_init     = 'AA_LOG_37'
     #G_init     = 'AA_Log_26'
     #G_init     = 'AA_Log_18'
     #G_init     = 'AA_Log_13'
@@ -66,6 +69,9 @@ class Analysis():
     #Z_init     = 'AA_Log_6'
     #Z_init     = 'AA_Log_4'
 
+    coeff_visualizer = False
+    graphics_initialized = False
+
     def __init__(self):
         parr = self.phi_name.split('_')
         direc = parr[0] + '_' + parr[1]
@@ -73,8 +79,12 @@ class Analysis():
 
         self.sz = np.sqrt(self.phi.shape[0])
         self.neurons = self.phi.shape[1]
+        #self.neurons = 100
         if self.coeffs == None:
             self.coeffs = range(self.neurons)
+
+        if self.coeff_visualizer:
+            self.patches = 1
 
         'Log of ahat or u values'
         #self.logs = []
@@ -110,7 +120,55 @@ class Analysis():
         if self.reset_after == -1:
             self.reset_after = 9e10 # Never
 
+        np.set_printoptions(precision=4)
         plt.ion()
+        self.init_theano()
+
+    def init_theano(self):
+        if True:
+            Ahat = T.fmatrix('Ahat')
+            A_prev = T.fmatrix('A_prev')
+            Gam = T.tensor3('Gam')
+            C = T.fmatrix('C')
+            ##E = 0.5 * ((Ahat - T.batched_dot(T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1), A_prev.T)).norm(2) ** 2)
+            #E = 0.5 * ((T.batched_dot(T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1), A_prev.T)).norm(2) ** 2)
+            E = 0.5 * ((Ahat - T.batched_dot(T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1), A_prev.T).T).norm(2) ** 2)
+            #E = 0.5 * (T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1).norm(2) ** 2)
+            gc = T.grad(E, C)
+            self.gc = function([Ahat, A_prev, Gam, C], gc, allow_input_downcast=True)
+            #self.gc = function([A_prev, Gam, C], gc, allow_input_downcast=True)
+            #self.gc = function([Gam, C], gc, allow_input_downcast=True)
+
+        else:
+            Ahat = T.fmatrix('Ahat')
+
+            Gamm = np.random.randn(self.neurons, self.neurons, np.cells)
+            Gam = self.Gam = theano.shared(Gammm.astype(dtype))
+
+            Cm = np.zeros((self.cells, self.batch_size))
+            C = self.C = theano.shared(Cm.astype(dtype))
+
+            A_prev = T.fmatrix('A_prev')
+
+            E = 0.5 * ((Ahat - T.batched_dot(T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1), A_prev.T)).norm(2) ** 2)
+            self.fE = function([Ahat, A_prev], E, allow_input_downcast=True)
+            params = [Gam, C]
+            gparams = T.grad(E, wrt=params)
+            updates = adadelta_update(params, gparams)
+
+            #self.learn_D = theano.function(inputs = [I, l],
+                                    #outputs = E,
+                                    #updates = [[D, updates[D]]],
+                                    #allow_input_downcast=True)
+#
+            #self.learn_A = theano.function(inputs = [I, l],
+                                    #outputs = E,
+                                    #updates = [[A, updates[A]]],
+                                    #allow_input_downcast=True) # Brian doesn't seem to use this
+
+
+
+
 
     def thresh(self, u, theta):
         'LCA threshold function'
@@ -315,7 +373,6 @@ class Analysis():
     def get_eta(self, t):
         'Return eta value for learning at time step t'
         eta = self.eta_init
-
         for i in range(1, 11):
             if t < i * self.eta_inc:
                 return eta/self.batch_size
@@ -325,26 +382,182 @@ class Analysis():
     def rerr(self, R):
         return np.sum(np.abs(R)) / (self.batch_size)
 
-    def csparsify(self, Gam, x_prev, x, v_prev=None):
+    def norm_Gam(self, Gam):
+        for i in range(self.cells):
+            #Gam[:,:,i] = t2dot(Gam[:,:,i], np.diag(1/np.sqrt(np.sum(Gam[:,:,i]**2, axis = 0))))
+            #Gam[:,:,i] *= 1/np.sqrt(np.sum(Gam[:,:,i]**2))
+            Gam[:,:,i] *= 1/np.linalg.norm(Gam[:,:,i], 'fro')
+        return Gam
+
+    def csparsify(self, Gam, x_prev, x):
+        c = np.zeros((self.cells, self.batch_size))
+        b = csparsify_grad(x, Gam, x_prev).T
+        #G = gamma_prod(Gam, Gam)
+        #G = np.einsum('pni,pnT,nB->iTB', Gam, Gam, x_prev ** 2)
+        start = datetime.now()
+        #G_old = np.einsum('pri,pnT,rB,nB->iTB', Gam, Gam, x_prev, x_prev)
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+
+        print 'A%d' % (datetime.now() - start).microseconds
+
+        for i in range(self.citers):
+            #R = x - gam_predict(Gam, c, x_prev).T
+            #c += self.ceta * csparsify_grad(R, Gam, x_prev).T
+            start = datetime.now()
+            #mine = (b - np.einsum('iB, iTB->TB', c, G))
+            mine = (b - np.einsum('iB, BiT->TB', c, G))
+            print 'B%d' % (datetime.now() - start).microseconds
+
+            #start = datetime.now()
+            #test0 = self.gc(x, x_prev, Gam, c)
+            #print 'C%d' % (datetime.now() - start).microseconds
+
+            if np.max(np.abs(test0) - np.abs(mine)) > 0.1:
+                R = x - gam_predict(Gam, c, x_prev).T
+                old = csparsify_grad(R, Gam, x_prev).T
+                print 'bug found'
+                test = np.zeros((self.cells, self.batch_size))
+                test2 = np.zeros((self.cells, self.batch_size))
+                test3 = np.zeros((self.cells, self.batch_size))
+                newr = np.zeros((self.neurons, self.batch_size))
+
+                test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
+
+                '''
+                for T in range(self.cells):
+                    for B in range(self.cells):
+                        # Summing over
+                        for pp in range(self.neurons):
+                            for nn in range(self.neurons):
+                                for qq in range(self.neurons):
+                                    for rr in range(self.neurons):
+                                        for ii in range(self.cells):
+                                        test[T,B] +=
+                for T in range(self.cells):
+                    for B in range(self.cells):
+                        # Summing over
+                        for pp in range(self.neurons):
+                            for nn in range(self.neurons):
+                                for qq in range(self.neurons):
+                                    test += x[qq,B] * Gam[pp,nn,T] * x_prev[nn,B]
+
+                                    for ii in range(self.cells):
+                                        for rr in range(self.neurons):
+                                            test[T,B] -= c[ii,B] * Gam[qq,rr,T] * Gam[pp,nn,T] * x[rr,B] * x[nn,B]
+                for T in range (self.cells):
+                    for B in range(self.batch_size):
+                        for pp in range(self.neurons):
+                            for nn in range(self.neurons):
+                                s = 0
+                                for ii in range(self.cells):
+                                    s += c[ii, B] * Gam[pp,nn,ii] * Gam[pp,nn, T] * (x_prev[nn, B] ** 2)
+                                test[T, B] += (x[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]) - s
+
+                                test2[T, B] += x[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]
+
+                                test3[T,B] += R[pp,B] * Gam[pp,nn,T] * x_prev[nn,B]
+
+
+                 for T in range (self.cells):
+                    for B in range(self.batch_size):
+                        for pp in range(self.neurons):
+                            s = 0
+                            for nn in range(self.neurons):
+                                s += Gam[pp, nn, T] * x[nn, B]
+                            s = 1
+                            test[T,B] += x[pp,B] * s
+
+                        for nn in range(self.neurons):
+                            s = 0
+                            for ii in range(self.cells):
+                                for pp in range(self.neurons):
+                                    #s += Gam[pp, nn, ii] * Gam[pp, nn, T]
+                                    s += Gam[pp, nn, ii]
+                                s = s * c[ii, B]
+                            #test[T, B] -= (x[nn,B] ** 2) * s
+                            test[T, B] -= (x[nn,B]) * s
+                for T in range (self.cells):
+                    for B in range(self.batch_size):
+                        for pp in range(self.neurons):
+                            newr[pp,B] += x[pp,B]
+                            for nn in range(self.neurons):
+                                for ii in range(self.cells):
+                                    newr[pp,B] += -c[ii, B] * Gam[pp,nn,ii] * x_prev[nn, B]
+                '''
+
+                pdb.set_trace()
+
+            c += self.ceta * mine
+            if np.max(np.abs(c)) > 100:
+                pdb.set_trace()
+
+
+            #test3 = b - np.einsum('iB, iTB->TB', c, G)
+
+            #pdb.s##et_trace()
+
+            #c += self.ceta * (b - t2dot(G, c))
+            #print 'A:', csparsify_grad(R, Gam, x_prev).T, '\nB:', b - np.einsum("iB,iTB->TB", c, G), '\nC:', self.gc(x, x_prev, Gam, c)
+            #print 'B:', b - np.einsum('iB,iTB->TB', c, G), '\nC:', self.gc(x, x_prev, Gam, c)
+        return 0, c
+
+    def csparsify_2(self, Gam, x_prev, x):
+        c = np.zeros((self.cells, self.batch_size))
+        for i in range(self.citers):
+            R = x - gam_predict(Gam, c, x_prev).T
+            c += self.ceta * csparsify_grad(R, Gam, x_prev).T
+            #print 'R=%f' % np.sum(np.abs(R))
+        return 0, c
+
+
+    def csparsify_old(self, Gam, x_prev, x, v_prev=None):
         v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
         l = np.ones(self.batch_size) * self.clambdav
         c = self.thresh(v, l)
 
         max_active = self.cells * self.batch_size
+        b = csparsify_grad(x, Gam, x_prev).T
+        G = gamma_prod(Gam, Gam)
+        np.fill_diagonal(G, 0)
+
+        if self.coeff_visualizer:
+            if not self.graphics_initialized:
+                self.graphics_initialized = True
+                fg, self.ax = plt.subplots(1)
+
+                self.ax.set_title('Coefficients t=%d' % 0)
+                self.ax.set_xlabel('Coefficient Index')
+                self.ax.set_ylabel('Activity')
+
+                self.coeffs = self.ax.bar(range(self.cells), np.abs(c), color='r', lw=0)
+                self.lthresh = self.ax.plot(range(self.cells+1), [self.clambdav] * (self.cells+1), color='g')
+
+                axis_height = 1.00
+                self.ax.axis([0, self.cells, 0, axis_height])
+                plt.draw()
 
         BR = x - x_prev
         for i in range(self.citers):
-            R = x - gam_predict(Gam, c, x_prev).T
-            v = self.ceta * csparsify_grad(R, Gam, x_prev).T + (1 - self.ceta) * v
+            v = self.ceta * (b - t2dot(G, c)) + (1 - self.ceta) * v
             c = self.thresh(v, l)
+
+            if self.coeff_visualizer:
+                for coeff, j in zip(self.coeffs, range(self.cells)):
+                    coeff.set_height(abs(v[j]))  # Update the potentials
+
+                self.ax.set_title('Coefficients t=%d' % i)
+                plt.draw()
 
             #if i % (self.citers-1) == 0:
             if False:
             #if True:
                 chat_c = np.copy(c)
-                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1 # XXX FIXME
+                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1
                 ac = 100 * np.sum(chat_c)/max_active
+                R = x - gam_predict(Gam, c, x_prev).T
                 print "\tResidual Error %.2d - AC: %.2f%%, Identity: %.3f, Prediction: %.3f," % (i, ac, self.rerr(BR), self.rerr(R))
+                #print "\t\t c =", c
+                #time.sleep(0.1)
 
         return v, c
 
@@ -358,6 +571,7 @@ class Analysis():
                 #Gam[:,:,i] = + np.random.normal(0, 0.01, (self.neurons, self.neurons))
                 Gam[:,:,i] = np.eye(self.neurons) + np.random.normal(0, 0.01, (self.neurons, self.neurons))
                 #Gam[:,:,i] = np.eye(self.neurons)
+            Gam = self.norm_Gam(Gam)
         else:
             Gam = self.Gam
         f = open('activity/logs/AA_%d_log.txt' % self.log_idx, 'w')
@@ -372,8 +586,11 @@ class Analysis():
                 x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
 
                 # Inference
-                v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
-                #v, chat = 0, np.ones((self.cells, self.batch_size)).reshape(self.cells, self.batch_size)
+                #v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
+                v, chat = self.csparsify(Gam, x_prev, x)
+                #v, chat = 0, 1.0 * np.ones((self.cells, self.batch_size)).reshape(self.cells, self.batch_size)
+                #v, chat = 0, csparsify_grad(x, Gam, x_prev).T
+                #pdb.set_trace()
 
                 # Residual
                 x_pred = gam_predict(Gam, chat, x_prev).T
@@ -381,21 +598,22 @@ class Analysis():
                 #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
                 dGam = t3tendot2(R, chat, x_prev)
+                #print np.max(np.abs(dGam))
                 Gam += self.get_eta(k) * dGam
 
-                for c in range(self.cells):
-                    Gam[:,:,c] = t2dot(Gam[:,:,c], np.diag(1/np.sqrt(np.sum(Gam[:,:,c]**2, axis = 0))))
+                #Gam = self.norm_Gam(Gam)
 
                 R_sum += np.abs(R)
                 v_prev = v
 
-                x_pred = gam_predict(Gam, chat, x_prev).T
-                R = x - x_pred
+                #v, chat = 0, csparsify_grad(x, Gam, x_prev).T
+                #x_pred = gam_predict(Gam, chat, x_prev).T
+                #R = x - x_pred
                 #print '\t\tR After=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
             e = (datetime.now() - start).seconds
             r = np.sum(R_sum) / (self.timepoints * self.batch_size)
-            msg = 'T=%.4d E=%ds, R=%f' % (k, e, r)
+            msg = 'T=%.4d E=%ds, R=%f, c=%f' % (k, e, r, np.average(np.abs(chat)))
             print msg
             f.write(msg +'\n')
 

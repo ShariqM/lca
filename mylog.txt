@@ -43,3 +43,22 @@ Phi_596 (1024 neurons) doesn't seem to help
 
 * Learned Gam_15 by cheating on csparsify (set it to 1 always)
 * GOing to try normalizing the Gamma matrix
+* Normalization
+    * Fro Norm prevents learning even without csparsify
+    * Row norm doesn't, but makes learning slower
+        T=0433 E=201s, R=0.867401 (chat=1.65, better with 1)
+    # can do learning with 1 patch row norm with csparsify
+        T=0379 E=1559s, R=0.960848
+    *  can learn with actual gradient (my lCA is fucked) and no NORM
+        T=0058 E=97s, R=1.040657, c=1.432641
+        * with norm doesn't work still.
+
+T=0037 E=2607s, R=1.801739, c=1.684466
+T=0038 E=2639s, R=1.794766, c=1.680012
+T=0039 E=2671s, R=1.788182, c=1.675286
+T=0040 E=2704s, R=nan, c=nan
+Saved Gam_67
+T=0041 E=2736s, R=nan, c=nan
+T=0042 E=2769s, R=nan, c=nan
+T=0043 E=2803s, R=nan, c=nan
+T=0044 E=2837s, R=nan, c=nan0

@@ -487,7 +487,7 @@ class LcaNetwork():
     def rerr(self, R):
         return np.sqrt(np.sum(np.abs(R)))
 
-    def csparsify(self, Gam, u_prev, u, d_prev=None):
+    def csparsify_old(self, Gam, u_prev, u, d_prev=None):
         d = d_prev if d_prev is not None else np.zeros((self.Gam_size, self.batch_size))
         l = np.ones(self.batch_size) * self.clambdav
         c = self.thresh(d, l)
@@ -502,6 +502,35 @@ class LcaNetwork():
             R = u - gam_predict(Gam, c, u_prev).T # c
             #d += eta * csparsify_grad(R, Gam, u_prev).T
             d = eta * csparsify_grad(R, Gam, u_prev).T + (1 - eta) * d
+            c = self.thresh(d, l)
+
+            #if i % (self.citers - 1) == 0: # First and Last
+            if i % (self.citers-1) == 0:
+                #print "Residual Error %.2d - None: %.3f, Identity: %.3f, Prediction: %.3f," % (i, self.rerr(NR), self.rerr(BR), self.rerr(R))
+                chat_c = np.copy(c)
+                chat_c[np.abs(chat_c) > self.clambdav/1000.0] = 1 # XXX FIXME
+                ac = 100 * np.sum(chat_c)/max_active
+                print "Residual Error %.2d - AC: %.2f%%, Identity: %.3f, Prediction: %.3f," % (i, ac, self.rerr(BR), self.rerr(R))
+
+        return d, c
+
+
+    def csparsify(self, Gam, u_prev, u, d_prev=None):
+        d = d_prev if d_prev is not None else np.zeros((self.Gam_size, self.batch_size))
+        l = np.ones(self.batch_size) * self.clambdav
+        c = self.thresh(d, l)
+
+        max_active = self.Gam_size * self.batch_size
+
+        b = csparsify_grad(u, Gam, u_prev).T
+        G = gamme_prod(Gam, Gam) - np.eye(self.cells)
+
+        #NR = u
+        BR = u - u_prev
+        #eta = 0.0001
+        eta = 0.00050
+        for i in range(self.citers):
+            d = eta * (b - t2dot(G, c)) + (1 - eta) * d
             c = self.thresh(d, l)
 
             #if i % (self.citers - 1) == 0: # First and Last
@@ -882,6 +911,7 @@ class LcaNetwork():
         b = t2dot(Phi.T, I)
         G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
         u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
+        pdb.set_trace()
 
         if self.lambda_type == LambdaType.Fixed:
             l = np.ones(self.batch_size)

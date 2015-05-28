@@ -40,19 +40,41 @@ if True or socket.gethostname() == 'redwood2':
     gam_predict = theano.function([Ov, Pv, Qv], o6, allow_input_downcast=True)
 
 # R,S missing
+    Rv = T.fmatrix('R')
+    Sv = T.fmatrix('S')
     Tv = T.fmatrix('T')
-    Uv = T.fmatrix('U')
-    Vv = T.fmatrix('V')
-    o7 = T.sum(Tv.dimshuffle(0, 'x', 'x', 1) * \
-               Uv.dimshuffle('x', 'x', 0, 1) * \
-               Vv.dimshuffle('x', 0, 'x', 1), axis=3)
-    t3tendot2 = theano.function([Tv, Uv, Vv], o7, allow_input_downcast=True)
+    o7 = T.sum(Rv.dimshuffle(0, 'x', 'x', 1) * \
+               Sv.dimshuffle('x', 'x', 0, 1) * \
+               Tv.dimshuffle('x', 0, 'x', 1), axis=3)
+    t3tendot2 = theano.function([Rv, Sv, Tv], o7, allow_input_downcast=True)
 
+    Uv = T.fmatrix('U')
+    Vv = T.tensor3('V')
     Wv = T.fmatrix('W')
-    Xv = T.tensor3('X')
-    Yv = T.fmatrix('Y')
-    o8 = T.batched_dot(Wv.T, T.tensordot(Xv, Yv, [[1], [0]]).dimshuffle(2, 0, 1))
-    csparsify_grad = theano.function([Wv, Xv, Yv], o8, allow_input_downcast=True)
+    o8 = T.batched_dot(Uv.T, T.tensordot(Vv, Wv, [[1], [0]]).dimshuffle(2, 0, 1))
+    csparsify_grad = theano.function([Uv, Vv, Wv], o8, allow_input_downcast=True)
+
+    GRv = T.tensor3('GR')
+    GNv = T.tensor3('GN')
+    XRv = T.fmatrix('XR')
+    XNv = T.fmatrix('XN')
+    o9 = T.batched_dot(T.tensordot(GRv, XRv, [[1], [0]]).dimshuffle(2,1,0), T.tensordot(GNv, XNv, [[1], [0]]).dimshuffle(2,0,1))
+    G_LCA = theano.function([GRv, GNv, XRv, XNv], o9, allow_input_downcast=True)
+
+    #Xv = T.tensor3('X')
+    #Yv = T.tensor3('Y')
+    #Zv = T.fmatrix('Z')
+    #o9 = T.tensordot(Xv, Yv, [[0,1], [0,1]])
+     #T.batched_dot(Yv, Zv,
+    #gamma_prod = theano.function([Xv, Yv, Zv], o9, allow_input_downcast=True)
+    #o9 = T.tensordot(Xv, Yv, [[0,1], [0,1]])
+    #gamma_prod = theano.function([Xv, Yv], o9, allow_input_downcast=True)
+
+    #AAv = T.fmatrix('AA')
+    #ABv = T.tensor3('AB')
+    #ACv = T.fmatrix('AC')
+    #o9 = T.batched_dot(Av.T, T.tensordot(Xv, Yv, [[1], [0]]).dimshuffle(2, 0, 1))
+    #csparsify_grad = theano.function([Wv, Xv, Yv], o8, allow_input_downcast=True)
 
 else:
     def dot_many(*args):
