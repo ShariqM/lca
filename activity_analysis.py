@@ -64,9 +64,6 @@ class Analysis():
     log_often  = 8
     Z_init     = ''
     G_init     = ''
-    #G_init     = 'AA_LOG_115'
-    #G_init     = 'AA_LOG_105'
-    #G_init     = 'AA_LOG_103'
     #G_init     = 'AA_LOG_80'
     #Z_init     = 'AA_Log_7'
 
@@ -492,12 +489,12 @@ class Analysis():
                     #start = datetime.now()
                     tmp = np.einsum('tb,nb->bnt', chat, x_prev)
                     x_pred = tgam_predict(Gam, tmp)
-                    #print 'Predict2:', (datetime.now() - start).microseconds
+                    #print 'Predict1:', (datetime.now() - start).microseconds
                 elif option == 2:
                     # 10x slower?
-                    start = datetime.now()
+                    #start = datetime.now()
                     x_pred = gam_predict(Gam, chat, x_prev).T
-                    print 'Predict:', (datetime.now() - start).microseconds
+                    #print 'Predict2:', (datetime.now() - start).microseconds
                 else:
                     start = datetime.now()
                     x_pred = np.einsum('pnt,tb,nb->pb', Gam, chat, x_prev)
@@ -506,18 +503,18 @@ class Analysis():
                 R = x - x_pred
                 #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
-                option = 1
+                option = 1 if 'redwood' not in socket.gethostname() else 2
                 if option == 1:
                     #start = datetime.now()
                     dGam = np.einsum('pb,tb,nb->pnt', R, chat, x_prev)
-                    #print 'DGam2:', (datetime.now() - start).microseconds
+                    #print 'DGam1:', (datetime.now() - start).microseconds
                 elif option == 2:
                     # 2x slower, too much shuffling?
-                    start = datetime.now()
+                    #start = datetime.now()
                     dGam = t3tendot2(R, chat, x_prev)
-                    print 'DGam:', (datetime.now() - start).microseconds
+                    #print 'DGam2:', (datetime.now() - start).microseconds
                 else:
-                    # Really slow
+                    # Really slow (Don't try it.)
                     start = datetime.now()
                     ttdGam = np.einsum('Pb,Nb,Tb->PNT', x, x_prev, chat) - np.einsum('ib,Tb,Pri,rb,Nb->PNT', chat, chat, Gam, x_prev, x_prev)
                     print 'DGam3:', (datetime.now() - start).microseconds
