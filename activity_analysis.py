@@ -64,7 +64,7 @@ class Analysis():
     log_often  = 8
     Z_init     = ''
     G_init     = ''
-    G_init     = 'AA_LOG_115'
+    #G_init     = 'AA_LOG_115'
     #G_init     = 'AA_LOG_105'
     #G_init     = 'AA_LOG_103'
     #G_init     = 'AA_LOG_80'
@@ -101,7 +101,7 @@ class Analysis():
             #patches = range(self.patches)[0:self.patches]
             #pdb.set_trace()
             #self.log = self.log[self.coeffs, patches, ds[1]:ds[2]]
-            self.log = self.log[self.coeffs, start_patch:start_patch+self.patches, ds[1]:ds[2]]
+            self.log = self.log[self.coeffs, self.start_patch:self.start_patch+self.patches, ds[1]:ds[2]]
             #self.logs.append(log)
 
         self.timepoints = self.log.shape[2] # num_frames FIXME
