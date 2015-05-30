@@ -4,8 +4,15 @@ import numpy as np
 from theano import *
 import theano.tensor as T
 
+def have_gpu():
+    if 'eweiss' in socket.gethostname():
+        return True
+    if 'redwood' in socket.gethostname():
+        return True
+    return False
+
 # Theano Matrix Multiplication Optimization
-if True or socket.gethostname() == 'redwood2':
+if have_gpu():
     Av = T.fmatrix('A')
     Bv = T.fmatrix('B')
     o2 = T.dot(Av, Bv)
@@ -107,6 +114,7 @@ else:
         for i in range(b):
             R[:,i] = np.dot(x[:,:,i], C[:,i])
         return R
+
 
 def get_images(image_data_name):
     if 'LONG' or '120' in image_data_name:

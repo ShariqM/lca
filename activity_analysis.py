@@ -39,17 +39,17 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
     start_patch = 100
-    patches = 100
+    patches = 40
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 10 # Number of Gamma's
+    cells = 20  # Number of Gamma's
     clambdav = 1.00
     citers  = 10
     normalize_Gamma = True
     #reset_after = -1 # -1 means never
-    inertia = True
-    sparsity = False
-    profile = True
+    inertia = False
+    sparsify = False
+    profile = False
 
     a_mode  = True # ahat or u mode
     patch_i   = 189
@@ -359,7 +359,7 @@ class Analysis():
             f.write('datasets=%s\n' % self.datasets)
             f.write('start_patch=%d\n' % self.start_patch)
             f.write('patches=%d\n' % self.patches)
-            f.write('sparsity=%s\n' % self.sparsity)
+            f.write('sparsify=%s\n' % self.sparsify)
             f.write('phi_name=%s\n' % self.phi_name)
             f.write('coeffs=%s\n' % self.coeffs)
             f.write('Z_init=%s\n' % self.Z_init)
@@ -403,21 +403,33 @@ class Analysis():
             return
         print '%s %7d microseconds' % (msg, time)
 
-    def csparsify_grad(self, Gam, x_prev, x, c_prev=None):
+    def check_activity(self, c):
+        if np.sum(np.abs(c)) > (self.cells * self.batch_size * 0.50): # Coeff explosion check
+            print 'Activity Explosion!!!'
+            print 'Data:'
+            #print 'c (sum, min, max)',np.sum(np.abs(c)), np.min(c), np.max(c)
+            print 'c (min, max)', np.min(c), np.max(c)
+            print 'c index', np.where(c==np.min(c)), np.where(c==np.max(c))
+            return True
+
+    def c_grad(self, Gam, x_prev, x, c_prev=None):
         c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
 
-        #start = datetime.now()
-        #b = csparsify_grad(x, Gam, x_prev).T
-        #self.profile_print('B0:', (datetime.now() - start).microseconds)
-
-        #start = datetime.now()
-        #b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
-        #self.profile_print('B1:', (datetime.now() - start).microseconds)
-
-        start = datetime.now()
-        tmp = np.einsum('pB,nB->pnB', x, x_prev)
-        b = csparsify_grad_2(Gam, tmp)
-        self.profile_print('B2:', (datetime.now() - start).microseconds)
+        #options = [0,1,2]
+        options = [0]
+        if 0 in options:
+            start = datetime.now()
+            b = csparsify_grad(x, Gam, x_prev).T
+            self.profile_print('B0:', (datetime.now() - start).microseconds)
+        if 1 in options:
+            start = datetime.now()
+            b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
+            self.profile_print('B1:', (datetime.now() - start).microseconds)
+        if 2 in options:
+            start = datetime.now()
+            tmp = np.einsum('pB,nB->pnB', x, x_prev)
+            b = csparsify_grad_2(Gam, tmp)
+            self.profile_print('B2:', (datetime.now() - start).microseconds)
 
         #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
         start = datetime.now()
@@ -425,39 +437,46 @@ class Analysis():
         self.profile_print('G0:', (datetime.now() - start).microseconds)
 
         for i in range(self.citers):
-            #start = datetime.now()
-            gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
-            #print 'Grad:', (datetime.now() - start).microseconds
-            #gradient = -self.gc(x, x_prev, Gam, c)
+            #gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
+            gradient = -self.gc(x, x_prev, Gam, c)
 
-            #if not np.allclose(test0, gradient, atol=1e-2):
-                #print 'bug found'
-                #test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
-                #pdb.set_trace()
             c += self.ceta * gradient
+            self.check_activity(c)
+            #print 'Activity: %.2f%%' % self.get_activity(c)
         return 0, c
 
     def csparsify(self, Gam, x_prev, x, v_prev=None):
         v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
         c = self.thresh(v, self.clambdav)
-        #start = datetime.now()
-        b = csparsify_grad(x, Gam, x_prev).T
-        G = G_LCA(Gam, Gam, x_prev, x_prev)
+
+        #options = [0,1,2]
+        options = [0]
+        if 0 in options:
+            start = datetime.now()
+            b = csparsify_grad(x, Gam, x_prev).T
+            self.profile_print('B0:', (datetime.now() - start).microseconds)
+        if 1 in options:
+            start = datetime.now()
+            b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
+            self.profile_print('B1:', (datetime.now() - start).microseconds)
+        if 2 in options:
+            start = datetime.now()
+            tmp = np.einsum('pB,nB->pnB', x, x_prev)
+            b = csparsify_grad_2(Gam, tmp)
+            self.profile_print('B2:', (datetime.now() - start).microseconds)
+
         #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
-        #print 'Setup:', (datetime.now() - start).microseconds
+        start = datetime.now()
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        self.profile_print('G0:', (datetime.now() - start).microseconds)
 
         for i in range(self.citers):
-            #start = datetime.now()
             gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
-            #print 'Grad:', (datetime.now() - start).microseconds
             #gradient = -self.gc(x, x_prev, Gam, c)
-
-            #if not np.allclose(test0, gradient, atol=1e-2):
-                #print 'bug found'
-                #test = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev) - np.einsum('iB,pri,pnT,rB,nB->TB', c, Gam, Gam, x_prev, x_prev)
-                #pdb.set_trace()
             v = self.ceta * gradient + (1 - self.ceta) * v
             c = self.thresh(v, self.clambdav)
+            self.check_activity(c)
+            print 'Activity: %.2f%%' % self.get_activity(c)
 
         return v, c
 
@@ -497,10 +516,10 @@ class Analysis():
                 x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
 
                 # Inference
-                if self.sparsity:
+                if self.sparsify:
                     v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
                 else:
-                    v, chat = self.csparsify_grad(Gam, x_prev, x, c_prev=c_prev)
+                    v, chat = self.c_grad(Gam, x_prev, x, c_prev=c_prev)
 
                 # Residual
                 #options = [0,1,2]
@@ -522,8 +541,8 @@ class Analysis():
                 R = x - x_pred
                 #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
-                options = [0] if 'redwood' not in socket.gethostname() else [1]
                 #options = [0,1]
+                options = [1] if have_gpu() else [0]
                 if 0 in options:
                     start = datetime.now()
                     dGam = np.einsum('pb,tb,nb->pnt', R, chat, x_prev)
