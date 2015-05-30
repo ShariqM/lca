@@ -39,16 +39,17 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
     start_patch = 100
-    patches = 10
+    patches = 100
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 4 # Number of Gamma's
+    cells = 10 # Number of Gamma's
     clambdav = 1.00
     citers  = 10
     normalize_Gamma = True
     #reset_after = -1 # -1 means never
     inertia = True
     sparsity = False
+    profile = True
 
     a_mode  = True # ahat or u mode
     patch_i   = 189
@@ -397,13 +398,31 @@ class Analysis():
             #Gam[:,:,i] *= 1/np.linalg.norm(Gam[:,:,i], 'fro')
         return Gam
 
+    def profile_print(self, msg, time, ind=0):
+        if not self.profile or ind != 0:
+            return
+        print '%s %7d microseconds' % (msg, time)
+
     def csparsify_grad(self, Gam, x_prev, x, c_prev=None):
         c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
+
         #start = datetime.now()
-        b = csparsify_grad(x, Gam, x_prev).T
-        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        #b = csparsify_grad(x, Gam, x_prev).T
+        #self.profile_print('B0:', (datetime.now() - start).microseconds)
+
+        #start = datetime.now()
+        #b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
+        #self.profile_print('B1:', (datetime.now() - start).microseconds)
+
+        start = datetime.now()
+        tmp = np.einsum('pB,nB->pnB', x, x_prev)
+        b = csparsify_grad_2(Gam, tmp)
+        self.profile_print('B2:', (datetime.now() - start).microseconds)
+
         #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
-        #print 'Setup:', (datetime.now() - start).microseconds
+        start = datetime.now()
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        self.profile_print('G0:', (datetime.now() - start).microseconds)
 
         for i in range(self.citers):
             #start = datetime.now()
@@ -484,40 +503,39 @@ class Analysis():
                     v, chat = self.csparsify_grad(Gam, x_prev, x, c_prev=c_prev)
 
                 # Residual
-                option = 1
-                if option == 1:
-                    #start = datetime.now()
+                #options = [0,1,2]
+                options = [0]
+                if 0 in options:
+                    start = datetime.now()
                     tmp = np.einsum('tb,nb->bnt', chat, x_prev)
                     x_pred = tgam_predict(Gam, tmp)
-                    #print 'Predict1:', (datetime.now() - start).microseconds
-                elif option == 2:
-                    # 10x slower?
-                    #start = datetime.now()
+                    self.profile_print('P0:', (datetime.now() - start).microseconds)
+                if 1 in options: # 10x slower?
+                    start = datetime.now()
                     x_pred = gam_predict(Gam, chat, x_prev).T
-                    #print 'Predict2:', (datetime.now() - start).microseconds
-                else:
+                    self.profile_print('P1:', (datetime.now() - start).microseconds)
+                if 2 in options:
                     start = datetime.now()
                     x_pred = np.einsum('pnt,tb,nb->pb', Gam, chat, x_prev)
-                    print 'Predict3:', (datetime.now() - start).microseconds
+                    self.profile_print('P2:', (datetime.now() - start).microseconds)
 
                 R = x - x_pred
                 #print '\t\tR=%f' % (np.sum(np.abs(R)) / self.batch_size)
 
-                option = 1 if 'redwood' not in socket.gethostname() else 2
-                if option == 1:
-                    #start = datetime.now()
+                options = [0] if 'redwood' not in socket.gethostname() else [1]
+                #options = [0,1]
+                if 0 in options:
+                    start = datetime.now()
                     dGam = np.einsum('pb,tb,nb->pnt', R, chat, x_prev)
-                    #print 'DGam1:', (datetime.now() - start).microseconds
-                elif option == 2:
-                    # 2x slower, too much shuffling?
-                    #start = datetime.now()
+                    self.profile_print('D0:', (datetime.now() - start).microseconds)
+                if 1 in options: # 2x slower, too much shuffling?
+                    start = datetime.now()
                     dGam = t3tendot2(R, chat, x_prev)
-                    #print 'DGam2:', (datetime.now() - start).microseconds
-                else:
-                    # Really slow (Don't try it.)
+                    self.profile_print('D1:', (datetime.now() - start).microseconds)
+                elif False: # Really slow (Don't try it.)
                     start = datetime.now()
                     ttdGam = np.einsum('Pb,Nb,Tb->PNT', x, x_prev, chat) - np.einsum('ib,Tb,Pri,rb,Nb->PNT', chat, chat, Gam, x_prev, x_prev)
-                    print 'DGam3:', (datetime.now() - start).microseconds
+                    self.profile_print('D2:', (datetime.now() - start).microseconds)
 
                 Gam += self.get_eta(k) * dGam
                 Gam = self.norm_Gam(Gam)

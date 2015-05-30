@@ -53,8 +53,6 @@ if True or socket.gethostname() == 'redwood2':
                Tv.dimshuffle('x', 0, 'x', 1), axis=3)
     t3tendot2 = theano.function([Rv, Sv, Tv], o7, allow_input_downcast=True)
 
-    t3tendot2 = theano.function([Rv, Sv, Tv], o7, allow_input_downcast=True)
-
 
 
     Uv = T.fmatrix('U')
@@ -62,6 +60,11 @@ if True or socket.gethostname() == 'redwood2':
     Wv = T.fmatrix('W')
     o8 = T.batched_dot(Uv.T, T.tensordot(Vv, Wv, [[1], [0]]).dimshuffle(2, 0, 1))
     csparsify_grad = theano.function([Uv, Vv, Wv], o8, allow_input_downcast=True)
+
+    TUv = T.tensor3('O')
+    TVv = T.tensor3('P')
+    to8 = T.tensordot(TUv, TVv, [[0,1], [0,1]])
+    csparsify_grad_2 = theano.function([TUv, TVv], to8, allow_input_downcast=True)
 
     GRv = T.tensor3('GR')
     GNv = T.tensor3('GN')

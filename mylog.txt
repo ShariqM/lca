@@ -109,3 +109,5 @@ Saved Gam_79
         * AA_113 gets to 3.99 easy (2 cells) WOOHOOO
         Saved Gam_113
         T=0025 E=101s, R=3.995591, C=98.95%
+
+    Big Problem 125s for 10cells, 100patches
