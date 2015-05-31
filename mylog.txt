@@ -111,3 +111,9 @@ Saved Gam_79
         T=0025 E=101s, R=3.995591, C=98.95%
 
     Big Problem 125s for 10cells, 100patches
+
+    AA_120
+        Learns 10 patches with 4 cells no sparsity, R=2.1? (stopped at 2.6 for now)
+    AA_121
+        With sparsity, 10 cells, get down to 3.4 sparsity only uses 12% though.
+        sparsity falls after initial 20 rounds

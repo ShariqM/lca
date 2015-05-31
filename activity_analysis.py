@@ -39,16 +39,17 @@ class Analysis():
                 #['IMAGES_EDGE_DUCK_r=24_c=24', 0, 100],
                ]
     start_patch = 100
-    patches = 40
+    patches = 10
     reconstruct_i = 2 # Which dataset index to reconstruct (in over_time())
     reset_after = 15
-    cells = 20  # Number of Gamma's
-    clambdav = 1.00
+    cells = 10  # Number of Gamma's
+    clambdav = 0.50
     citers  = 10
     normalize_Gamma = True
     #reset_after = -1 # -1 means never
-    inertia = False
-    sparsify = False
+    inertia = True
+    sparsify = 1
+    zero_diagonal = False
     profile = False
 
     a_mode  = True # ahat or u mode
@@ -65,7 +66,7 @@ class Analysis():
     log_often  = 8
     Z_init     = ''
     G_init     = ''
-    #G_init     = 'AA_LOG_80'
+    G_init     = 'AA_Log_121'
     #Z_init     = 'AA_Log_7'
 
     coeff_visualizer = False
@@ -138,39 +139,6 @@ class Analysis():
             #E = 0.5 * (T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1).norm(2) ** 2)
             gc = T.grad(E, C)
             self.gc = function([Ahat, A_prev, Gam, C], gc, allow_input_downcast=True)
-            #self.gc = function([A_prev, Gam, C], gc, allow_input_downcast=True)
-            #self.gc = function([Gam, C], gc, allow_input_downcast=True)
-
-        else:
-            Ahat = T.fmatrix('Ahat')
-
-            Gamm = np.random.randn(self.neurons, self.neurons, np.cells)
-            Gam = self.Gam = theano.shared(Gammm.astype(dtype))
-
-            Cm = np.zeros((self.cells, self.batch_size))
-            C = self.C = theano.shared(Cm.astype(dtype))
-
-            A_prev = T.fmatrix('A_prev')
-
-            E = 0.5 * ((Ahat - T.batched_dot(T.tensordot(Gam, C, 1).dimshuffle(2, 0, 1), A_prev.T)).norm(2) ** 2)
-            self.fE = function([Ahat, A_prev], E, allow_input_downcast=True)
-            params = [Gam, C]
-            gparams = T.grad(E, wrt=params)
-            updates = adadelta_update(params, gparams)
-
-            #self.learn_D = theano.function(inputs = [I, l],
-                                    #outputs = E,
-                                    #updates = [[D, updates[D]]],
-                                    #allow_input_downcast=True)
-#
-            #self.learn_A = theano.function(inputs = [I, l],
-                                    #outputs = E,
-                                    #updates = [[A, updates[A]]],
-                                    #allow_input_downcast=True) # Brian doesn't seem to use this
-
-
-
-
 
     def thresh(self, u, theta):
         'LCA threshold function'
@@ -234,7 +202,7 @@ class Analysis():
         for t in range(self.tstart, self.tend):
             print 't=%d) Norm=%f' % (t, np.linalg.norm(self.activity_log[:, patch_i, t]))
 
-    def over_time(self, time_only=False):
+    def over_time_2(self, time_only=False):
         'Plot the activity over time, the video, and the reconstruction, simultaneously'
 
         coeffs = self.coeffs
@@ -245,18 +213,16 @@ class Analysis():
 
         # Replace activity with predictions of data if desired
         if self.Z != None:
-            for log in self.logs:
-                activity = log[:, 0]
-                for t in range(1, log.shape[1]):
-                    if t % self.reset_after == 0:
-                        activity = log[:, t]
-                        continue
-                    activity = np.dot(self.Z, activity)
-                    log[coeffs, t] = activity # overwrite actual activity
+            for t in range(1, log.shape[1]):
+                if t % self.reset_after == 0:
+                    activity = log[:, t]
+                    continue
+                activity = np.dot(self.Z, activity)
+                log[coeffs, t] = activity # overwrite actual activity
 
         # Plot Setup
-        log = self.logs[self.reconstruct_i]
-        timepoints = self.logs[0].shape[1]
+        log = self.log
+        timepoints = self.log.shape[1]
         rows = 1 if time_only else 4
         cols = 4
 
@@ -412,59 +378,28 @@ class Analysis():
             print 'c index', np.where(c==np.min(c)), np.where(c==np.max(c))
             return True
 
+    def calc_b(self, Gam, x_prev, x):
+        #options = [0,1,2]
+        options = [0]
+        if 0 in options:
+            start = datetime.now()
+            b = csparsify_grad(x, Gam, x_prev).T
+            self.profile_print('B0:', (datetime.now() - start).microseconds)
+        if 1 in options:
+            start = datetime.now()
+            b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
+            self.profile_print('B1:', (datetime.now() - start).microseconds)
+        if 2 in options:
+            start = datetime.now()
+            tmp = np.einsum('pB,nB->pnB', x, x_prev)
+            b = csparsify_grad_2(Gam, tmp)
+            self.profile_print('B2:', (datetime.now() - start).microseconds)
+        return b
+
     def c_grad(self, Gam, x_prev, x, c_prev=None):
         c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
 
-        #options = [0,1,2]
-        options = [0]
-        if 0 in options:
-            start = datetime.now()
-            b = csparsify_grad(x, Gam, x_prev).T
-            self.profile_print('B0:', (datetime.now() - start).microseconds)
-        if 1 in options:
-            start = datetime.now()
-            b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
-            self.profile_print('B1:', (datetime.now() - start).microseconds)
-        if 2 in options:
-            start = datetime.now()
-            tmp = np.einsum('pB,nB->pnB', x, x_prev)
-            b = csparsify_grad_2(Gam, tmp)
-            self.profile_print('B2:', (datetime.now() - start).microseconds)
-
-        #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
-        start = datetime.now()
-        G = G_LCA(Gam, Gam, x_prev, x_prev)
-        self.profile_print('G0:', (datetime.now() - start).microseconds)
-
-        for i in range(self.citers):
-            #gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
-            gradient = -self.gc(x, x_prev, Gam, c)
-
-            c += self.ceta * gradient
-            self.check_activity(c)
-            #print 'Activity: %.2f%%' % self.get_activity(c)
-        return 0, c
-
-    def csparsify(self, Gam, x_prev, x, v_prev=None):
-        v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
-        c = self.thresh(v, self.clambdav)
-
-        #options = [0,1,2]
-        options = [0]
-        if 0 in options:
-            start = datetime.now()
-            b = csparsify_grad(x, Gam, x_prev).T
-            self.profile_print('B0:', (datetime.now() - start).microseconds)
-        if 1 in options:
-            start = datetime.now()
-            b = np.einsum('pB,pnT,nB->TB', x, Gam, x_prev)
-            self.profile_print('B1:', (datetime.now() - start).microseconds)
-        if 2 in options:
-            start = datetime.now()
-            tmp = np.einsum('pB,nB->pnB', x, x_prev)
-            b = csparsify_grad_2(Gam, tmp)
-            self.profile_print('B2:', (datetime.now() - start).microseconds)
-
+        b = self.calc_b(Gam, x_prev, x)
         #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
         start = datetime.now()
         G = G_LCA(Gam, Gam, x_prev, x_prev)
@@ -473,12 +408,52 @@ class Analysis():
         for i in range(self.citers):
             gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
             #gradient = -self.gc(x, x_prev, Gam, c)
+
+            c += self.ceta * gradient
+            self.check_activity(c)
+            #print 'Activity: %.2f%%' % self.get_activity(c)
+        return 0, c
+
+    def csparsify_thresh(self, Gam, x_prev, x, v_prev=None):
+        v = v_prev if v_prev is not None else np.zeros((self.cells, self.batch_size))
+        c = self.thresh(v, self.clambdav)
+
+        b = self.calc_b(Gam, x_prev, x)
+        #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
+        start = datetime.now()
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        if self.zero_diagonal:
+            for i in range(self.patches):
+                np.fill_diagonal(G[i], 0)
+        self.profile_print('G0:', (datetime.now() - start).microseconds)
+
+        for i in range(self.citers):
+            gradient = (b - np.einsum('iB, BiT->TB', c, G)) # Optimize? 23 microseconds last time
+            #gradient = -self.gc(x, x_prev, Gam, c)
             v = self.ceta * gradient + (1 - self.ceta) * v
             c = self.thresh(v, self.clambdav)
             self.check_activity(c)
-            print 'Activity: %.2f%%' % self.get_activity(c)
+            #print 'Activity: %.2f%%' % self.get_activity(c)
 
         return v, c
+
+    def csparsify(self, Gam, x_prev, x, c_prev=None):
+        c = c_prev if c_prev is not None else np.zeros((self.cells, self.batch_size))
+
+        b = self.calc_b(Gam, x_prev, x)
+        #G2 = np.einsum('pri,pnT,rB,nB->BiT', Gam, Gam, x_prev, x_prev)
+        start = datetime.now()
+        G = G_LCA(Gam, Gam, x_prev, x_prev)
+        self.profile_print('G0:', (datetime.now() - start).microseconds)
+
+        for i in range(self.citers):
+            sparse_cost = self.clambdav * (2 * c) / (c ** 2 + 1)
+            gradient = (b - np.einsum('iB, BiT->TB', c, G)) - sparse_cost
+            c += self.ceta * gradient
+            self.check_activity(c)
+            #print 'Activity: %.2f%%' % self.get_activity(c)
+
+        return 0, c
 
     def get_activity(self, c):
         max_active = self.batch_size * self.cells
@@ -516,10 +491,12 @@ class Analysis():
                 x_prev, x = (self.log[:, :, t-1], self.log[:, :, t])
 
                 # Inference
-                if self.sparsify:
-                    v, chat = self.csparsify(Gam, x_prev, x, v_prev=v_prev)
-                else:
+                if self.sparsify == 0: # No sparsity
                     v, chat = self.c_grad(Gam, x_prev, x, c_prev=c_prev)
+                elif self.sparsify == 1: # Threshold
+                    v, chat = self.csparsify_thresh(Gam, x_prev, x, v_prev=v_prev)
+                elif self.sparsify == 2: # log(1+x^2)
+                    v, chat = self.csparsify(Gam, x_prev, x, c_prev=c_prev)
 
                 # Residual
                 #options = [0,1,2]
@@ -685,6 +662,6 @@ def get_neighbors(coeff, dist=2):
     return group
 
 a = Analysis()
-#a.over_time()
+a.over_time_2()
 #a.train_dynamics()
-a.train_G_dynamics()
+#a.train_G_dynamics()
