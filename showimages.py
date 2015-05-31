@@ -50,7 +50,6 @@ if orig_show:
 
     shape = OIMAGES.shape
 
-
 print 'Shape:', shape
 
 plt.ion()
@@ -63,8 +62,8 @@ for i in range(start, stop, interval):
         r = 144
         c = 144
         #plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
-        plt.imshow(OIMAGES[24:36,24:36,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
-        #plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+        #plt.imshow(OIMAGES[24:36,24:36,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+        plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
         plt.title('Original %d Var=%.4f' % (i, OIMAGES[:,:,i].var().mean()))
         time.sleep(0.2)
 
