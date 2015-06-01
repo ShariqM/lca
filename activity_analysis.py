@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.rcParams.update({'figure.autolayout': True}) # Magical tight layout
 
+import traceback
 import math
 import socket
 import os
@@ -18,6 +19,9 @@ import argparse
 import pdb
 from helpers import *
 from Recurrnet.recurrnet.optimizer import *
+from multiprocessing import Pool, Queue, Manager
+import multiprocessing
+import sys
 
 dtype = theano.config.floatX
 class Analysis():
@@ -166,97 +170,144 @@ class Analysis():
 
     def survey_activity(self):
         tlen = 20
-        for tstart in range(0, self.timepoints, tlen):
+        jobs = []
+        for tstart in range(0, self.timepoints-tlen, tlen):
             for patch in range(self.batch_size):
-                self.over_time(patch, tstart, tstart+tlen)
+                coeffs = self.find_coeffs(patch, tstart, tstart+tlen)
+                jobs += [(patch, coeffs, tstart, tstart+tlen)]
 
-    def over_time(self, patch, tstart, tend, time_only=False):
+        njobs = len(jobs)
+
+        self.nprocesses = multiprocessing.cpu_count()
+
+        start = datetime.now()
+        m = Manager()
+        q = m.Queue()
+        p = Pool(self.nprocesses)
+        running = 0
+
+        for j in range(self.nprocesses):
+            patch, coeffs, tstart, tend = jobs.pop()
+            #p.apply_async(self.over_time, args=(patch, tstart, tstart+tlen, q))
+            p.apply_async(test, args=(q, patch, tstart, tend))
+            running += 1
+
+        print running
+        z = 0
+        while running > 0:
+            e = q.get()
+            print e
+            print 'Job %d/%d completed E=%d' % (z, njobs, (datetime.now() - start).seconds)
+            sys.stdout.flush()
+            z = z + 1
+
+            if len(jobs):
+                patch, coeffs, tstart, tend = jobs.pop()
+                p.apply_async(over_time_2, args=(self.image, self.phi_name, self.patch_per_dim, self.sz, self.phi, self.log, coeffs, patch, tstart, tstart+tlen, q))
+            else:
+                running -= 1 # Didn't start another job to replace this one
+
+        p.close()
+        p.join()
+
+    def over_time(self, patch, tstart, tend, q=None, time_only=False):
         'Plot the activity over time, the video, and the reconstruction, simultaneously'
-        coeffs = self.coeffs
-        if coeffs == None:
-            coeffs = self.find_coeffs(patch, tstart, tend)
-        print 'Plotting %d coeffs for p=%d, t=(%d,%d): %s' % (len(coeffs), patch, tstart, tend, coeffs)
+        try:
+            coeffs = self.coeffs
+            if coeffs == None:
+                coeffs = self.find_coeffs(patch, tstart, tend)
+            print 'Plotting %d coeffs for p=%d, t=(%d,%d): %s' % (len(coeffs), patch, tstart, tend, coeffs)
 
-        # Plot Setup
-        log = self.log
-        tlen = tend - tstart
-        row_start = 2
-        rows = 1 if time_only else 6
-        cols = 6
+            # Plot Setup
+            log = self.log
+            tlen = tend - tstart
+            row_start = 2
+            rows = 1 if time_only else 6
+            cols = 6
 
-        fg = matplotlib.pyplot.figure(figsize=(10.0, 10.0))
+            fg = matplotlib.pyplot.figure(figsize=(10.0, 10.0))
 
-        # Time graph
-        ax_time = plt.subplot2grid((rows,cols), (0,0), rowspan=row_start, colspan=cols)
-        for i in coeffs:
-            ax_time.plot(range(tlen), [0] * tlen, color='k') # X axis
-            ax_time.plot([0, 0], [-1.0, 1.0], color='k')                 # Y axis
+            # Time graph
+            ax_time = plt.subplot2grid((rows,cols), (0,0), rowspan=row_start, colspan=cols)
+            for i in coeffs:
+                ax_time.plot(range(tlen), [0] * tlen, color='k') # X axis
+                ax_time.plot([0, 0], [-1.0, 1.0], color='k')                 # Y axis
 
-            ax_time.plot(range(tlen), log[i, patch, tstart:tend], label='A%d' % i)
-            #ax_time.legend()
-            #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
-            #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
-            lg = ax_time.legend(bbox_to_anchor=(0., 0, 1., .102), loc=3,
-                       ncol=2, fontsize=10, borderaxespad=0.)
-            lg.draw_frame(False)
-            ax_time.axis([0, tlen - 1, -1, 1])
-            ax_time.set_title("Patch=%d, t=(%d,%d) Dict=%s" % (patch, tstart, tend, self.phi_name))
+                ax_time.plot(range(tlen), log[i, patch, tstart:tend], label='A%d' % i)
+                #ax_time.legend()
+                #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
+                #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
+                lg = ax_time.legend(bbox_to_anchor=(0., 0, 1., .102), loc=3,
+                           ncol=2, fontsize=10, borderaxespad=0.)
+                lg.draw_frame(False)
+                ax_time.axis([0, tlen - 1, -1, 1])
+                ax_time.set_title("Patch=%d, t=(%d,%d) Dict=%s" % (patch, tstart, tend, self.phi_name))
 
-        if not time_only:
-            # Coefficients
-            i = 0
-            for r in range(row_start+1, rows):
-                for c in range(cols):
-                    if i >= len(coeffs):
-                        break
-                    ax = plt.subplot2grid((rows,cols), (r,c))
-                    ax.get_xaxis().set_visible(False)
-                    ax.get_yaxis().set_visible(False)
-                    ax.imshow(np.reshape(self.phi[:,coeffs[i]], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
-                    ax.set_title("A%d" % coeffs[i])
-                    i = i + 1
+            if not time_only:
+                # Coefficients
+                i = 0
+                for r in range(row_start+1, rows):
+                    for c in range(cols):
+                        if i >= len(coeffs):
+                            break
+                        ax = plt.subplot2grid((rows,cols), (r,c))
+                        ax.get_xaxis().set_visible(False)
+                        ax.get_yaxis().set_visible(False)
+                        ax.imshow(np.reshape(self.phi[:,coeffs[i]], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                        ax.set_title("A%d" % coeffs[i])
+                        i = i + 1
 
-            # Reconstruction and Images
-            direc = 'activity/images/'
-            name = '%s_P%d_T%d.%d' % (self.phi_name, patch, tstart, tend)
-            for iters in range(1): # Show forever
-                for t in range(tstart, tend):
-                    #for log in self.logs:
-                    k = 0
-                    col = int(np.floor(cols/2) - 1)
-                    ax_r = plt.subplot2grid((rows,cols), (row_start, col)) # Reconstruct
-                    img = np.dot(self.phi[:, coeffs], log[coeffs,patch,t])
+                # Reconstruction and Images
+                direc = 'activity/images/'
+                name = '%s_P%d_T%d.%d' % (self.phi_name, patch, tstart, tend)
+                for iters in range(1): # Show forever
+                    for t in range(tstart, tend):
+                        #for log in self.logs:
+                        k = 0
+                        col = int(np.floor(cols/2) - 1)
+                        ax_r = plt.subplot2grid((rows,cols), (row_start, col)) # Reconstruct
+                        img = np.dot(self.phi[:, coeffs], log[coeffs,patch,t])
 
-                    ax_r.set_title("Rec t=%d" % t)
-                    ax_r.get_xaxis().set_visible(False)
-                    ax_r.get_yaxis().set_visible(False)
+                        ax_r.set_title("Rec t=%d" % t)
+                        ax_r.get_xaxis().set_visible(False)
+                        ax_r.get_yaxis().set_visible(False)
 
-                    ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                        ax_r.imshow(np.reshape(img, (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
 
-                    col = int(np.floor((cols/2) + 1) - 1)
-                    ax_i = plt.subplot2grid((rows,cols), (row_start, col)) # Images
-                    ax_i.get_xaxis().set_visible(False)
-                    ax_i.get_yaxis().set_visible(False)
-                    ax_i.set_title("Img  t=%d" % t)
+                        col = int(np.floor((cols/2) + 1) - 1)
+                        ax_i = plt.subplot2grid((rows,cols), (row_start, col)) # Images
+                        ax_i.get_xaxis().set_visible(False)
+                        ax_i.get_yaxis().set_visible(False)
+                        ax_i.set_title("Img  t=%d" % t)
 
-                    rr = (np.floor(patch / self.patch_per_dim)) * self.sz
-                    cc = (patch % self.patch_per_dim) * self.sz
+                        rr = (np.floor(patch / self.patch_per_dim)) * self.sz
+                        cc = (patch % self.patch_per_dim) * self.sz
 
-                    dimg = self.image[rr:rr+self.sz, cc:cc+self.sz, t].T
-                    ax_i.imshow(dimg, cmap = cm.binary, interpolation='nearest')
-                    plt.draw()
-                    plt.savefig('%sstage/%s_t=%d.png' % (direc, name, t))
-                    #mng = plt.get_current_fig_manager()
-                    #mng.frame.Maximize(True)
-                    #plt.show()
+                        dimg = self.image[rr:rr+self.sz, cc:cc+self.sz, t].T
+                        ax_i.imshow(dimg, cmap = cm.binary, interpolation='nearest')
+                        plt.draw()
+                        #plt.savefig('%sstage/%s_t=%3d.png' % (direc, name, t))
+                        plt.savefig('%s/%s_t=%3d.png' % (direc, name, t))
+                        #mng = plt.get_current_fig_manager()
+                        #mng.frame.Maximize(True)
+                        #plt.show()
 
-                    #dimg = self.images[k][rr:rr+self.sz, cc:cc+self.sz, t].T
-                    #dimg = self.images[self.reconstruct_i][rr:rr+self.sz, cc:cc+self.sz, t].T
-                    #plt.show(block=True)
+                        #dimg = self.images[k][rr:rr+self.sz, cc:cc+self.sz, t].T
+                        #dimg = self.images[self.reconstruct_i][rr:rr+self.sz, cc:cc+self.sz, t].T
+                        #plt.show(block=True)
 
-        os.system('convert -delay 40 -loop 0 %sstage/*.png activity/gifs/%s.gif' % (direc, name))
-        os.system('mv %sstage/* %s' % (direc, direc))
-        plt.close()
+            #os.system('convert -delay 40 -loop 0 %sstage/*.png activity/gifs/%s.gif' % (direc, name))
+            os.system('convert -delay 40 -loop 0 %s/%s*.png activity/gifs/%s.gif' % (direc, name, name))
+            #os.system('mv %sstage/*.png %s' % (direc, direc))
+            plt.close()
+
+            if q is not None:
+                q.put(1)
+        except Exception as e:
+            if q is not None:
+                q.put(e)
+            else:
+                raise e
         #plt.show(block=True)
 
     def spatial_correlation(self, log=False):
@@ -643,8 +694,112 @@ def get_neighbors(coeff, dist=2):
             group.append(coeff + col * 18 + row * 1)
     return group
 
-a = Analysis()
-a.survey_activity()
 #a.over_time()
 #a.train_dynamics()
 #a.train_G_dynamics()
+
+def foo(patch, tstart, tend):
+    return 1
+
+def test(q, patch, tstart, tend):
+    try:
+        q.put((1,2))
+    except Exception as e:
+        traceback.print_exc()
+        print 'e', e.value
+        q.put((2,3))
+    return -1
+
+def over_time_2(image, phi_name, patch_per_dim, sz, phi, log, coeffs, patch, tstart, tend, q=None, time_only=False):
+    'Plot the activity over time, the video, and the reconstruction, simultaneously'
+    try:
+        # Plot Setup
+        tlen = tend - tstart
+        row_start = 2
+        rows = 1 if time_only else 6
+        cols = 6
+
+        fg = matplotlib.pyplot.figure(figsize=(10.0, 10.0))
+
+        # Time graph
+        ax_time = plt.subplot2grid((rows,cols), (0,0), rowspan=row_start, colspan=cols)
+        height = 1.2 * np.max(np.abs(log[:, patch, tstart:tend]))
+        ax_time.plot(range(tlen), [0] * tlen, color='k') # X axis
+        ax_time.plot([0, 0], [-height, height], color='k') # Y axis
+        for i in coeffs:
+            ax_time.plot(range(tlen), log[i, patch, tstart:tend], label='A%d' % i)
+        #ax_time.legend()
+        #lg = ax_time.legend(bbox_to_anchor=(-0.6 , 0.40), loc=2, fontsize=10)
+        #lg = ax_time.legend(bbox_to_anchor=(1.05, 1), loc=2, fontsize=50)
+        lg = ax_time.legend(bbox_to_anchor=(0., 0, 1., .102), loc=3,
+                   ncol=2, fontsize=10, borderaxespad=0.)
+        lg.draw_frame(False)
+        ax_time.axis([0, tlen - 1, -height, height])
+        ax_time.set_title("Patch=%d, t=(%d,%d) Dict=%s" % (patch, tstart, tend, phi_name))
+
+        if not time_only:
+            # Coefficients
+            i = 0
+            for r in range(row_start+1, rows):
+                for c in range(cols):
+                    if i >= len(coeffs):
+                        break
+                    ax = plt.subplot2grid((rows,cols), (r,c))
+                    ax.get_xaxis().set_visible(False)
+                    ax.get_yaxis().set_visible(False)
+                    ax.imshow(np.reshape(phi[:,coeffs[i]], (sz, sz)), cmap = cm.binary, interpolation='nearest')
+                    ax.set_title("A%d" % coeffs[i])
+                    i = i + 1
+
+            # Reconstruction and Images
+            direc = 'activity/images/'
+            name = '%s_P%d_T%d.%d' % (phi_name, patch, tstart, tend)
+            for iters in range(1): # Show forever
+                for t in range(tstart, tend):
+                    #for log in self.logs:
+                    k = 0
+                    col = int(np.floor(cols/2) - 1)
+                    ax_r = plt.subplot2grid((rows,cols), (row_start, col)) # Reconstruct
+                    img = np.dot(phi[:, coeffs], log[coeffs,patch,t])
+
+                    ax_r.set_title("Rec t=%d" % t)
+                    ax_r.get_xaxis().set_visible(False)
+                    ax_r.get_yaxis().set_visible(False)
+
+                    ax_r.imshow(np.reshape(img, (sz, sz)), cmap = cm.binary, interpolation='nearest')
+
+                    col = int(np.floor((cols/2) + 1) - 1)
+                    ax_i = plt.subplot2grid((rows,cols), (row_start, col)) # Images
+                    ax_i.get_xaxis().set_visible(False)
+                    ax_i.get_yaxis().set_visible(False)
+                    ax_i.set_title("Img  t=%d" % t)
+
+                    rr = (np.floor(patch / patch_per_dim)) * sz
+                    cc = (patch % patch_per_dim) * sz
+
+                    dimg = image[rr:rr+sz, cc:cc+sz, t].T
+                    ax_i.imshow(dimg, cmap = cm.binary, interpolation='nearest')
+                    plt.draw()
+                    #plt.savefig('%sstage/%s_t=%3d.png' % (direc, name, t))
+                    plt.savefig('%s/%s_t=%3d.png' % (direc, name, t))
+
+        #os.system('convert -delay 40 -loop 0 %sstage/*.png activity/gifs/%s.gif' % (direc, name))
+        os.system('convert -delay 40 -loop 0 %s/%s*.png activity/gifs/%s.gif' % (direc, name, name))
+        #os.system('mv %sstage/*.png %s' % (direc, direc))
+        plt.close()
+        if q is not None:
+            q.put(1)
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        if q is not None:
+            q.put(e, exc_type, exc_obj, exc_tb)
+        else:
+            print e, exc_type, exc_obj, 'lineno', exc_tb.tb_lineno
+            raise e
+    #plt.show(block=True)
+
+
+
+a = Analysis()
+a.survey_activity()
+
