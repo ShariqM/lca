@@ -652,11 +652,12 @@ class Analysis():
 
         tstart, tend = time[0], time[1]
         pi = patch_i
-        data = self.activity_log[coeffs, pi, tstart:tend]
+        data = self.log[coeffs, pi, tstart:tend]
 
         cartesian = False
         if True:
             fg, ax = plt.subplots(3,1)
+            fg.set_size_inches(8.0,8.0)
             h = np.max(np.abs(data))
             ax[0].plot([-h, h], [0, 0], color='k')
             ax[0].plot([0, 0], [-h, h], color='k')
@@ -665,7 +666,7 @@ class Analysis():
             cmap = plt.get_cmap('autumn')
 
             #scat = plt.scatter(data[0], data[1], s=12, c=colors, cmap=cmap, lw=0)
-            scat = ax[0].scatter(data[0], data[1], s=20, c=colors, lw=1)
+            scat = ax[0].scatter(data[0], data[1], s=50, c=colors, lw=1)
             cbar = plt.colorbar(scat, ax=ax[0], ticks=[0, 0.5, 1])
             cbar.ax.set_yticklabels(['t=%d' % tstart, 't=%d' % np.average((tstart, tend)), 't=%d' % tend])
             ax[0].set_xlabel("A%d" % coeffs[0], fontdict={'fontsize':18})
@@ -801,5 +802,6 @@ def over_time_2(image, phi_name, patch_per_dim, sz, phi, log, coeffs, patch, tst
 
 
 a = Analysis()
-a.survey_activity()
-
+#a.survey_activity()
+#a.temporal_correlation([219, 181], [0,20], 189)
+a.temporal_correlation([219, 181], [0,7], 189)
