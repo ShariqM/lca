@@ -7,7 +7,7 @@ import socket
 import os
 import scipy.io
 import scipy.stats as stats
-from datetime import datetime
+from datetime import datetime as dt
 import time
 import numpy as np
 from numpy import reshape, zeros, ones
@@ -38,6 +38,7 @@ class SpaceTime():
     eta_inc  = 100
 
     data_name = 'IMAGES_DUCK_SHORT'
+    profile = True
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
@@ -101,6 +102,12 @@ class SpaceTime():
                             pdb.set_trace()
         return result
 
+    def profile_print(self, msg, start):
+        if not self.profile:
+            return
+        diff = dt.now() - start
+        print '%10s | E=%s' % (msg, diff)
+
     def train(self):
         Phi = np.random.randn(self.patch_dim, self.neurons, self.timepoints)
         for i in range(self.timepoints):
@@ -111,15 +118,21 @@ class SpaceTime():
         for trial in range(self.num_trials):
             VI = self.load_videos()
             a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-
             e = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
 
             for c in range(self.citers):
+                start = dt.now()
                 for t in range(self.time_batch_size):
                     I = VI[:,:,t]
                     e[:,:,t] = I - self.convolve(t, Phi, a)
+                self.profile_print("E Calc", start)
+
                 print '%d) E=%.3f' % (c, np.sum(np.abs(e)))
+
+                start = dt.now()
                 da = self.cot(Phi, e)
+                self.profile_print("dA Calc", start)
+
                 a += self.coeff_eta * da
 
             dPhi = 0
@@ -128,3 +141,46 @@ class SpaceTime():
 
 st = SpaceTime()
 st.train()
+
+'''
+0) E=7426.219
+1) E=5177.111
+2) E=4308.444
+3) E=3767.701
+4) E=3382.294
+5) E=3087.779
+6) E=2853.028
+7) E=2660.199
+8) E=2497.302
+9) E=2356.864
+10) E=2234.185
+11) E=2125.351
+12) E=2027.599
+13) E=1939.026
+14) E=1858.183
+15) E=1783.910
+16) E=1715.262
+17) E=1651.470
+18) E=1592.055
+19) E=1536.475
+20) E=1484.344
+21) E=1435.355
+22) E=1389.266
+23) E=1345.834
+24) E=1304.782
+25) E=1265.887
+26) E=1229.005
+27) E=1193.985
+28) E=1160.674
+29) E=1128.928
+30) E=1098.651
+31) E=1069.770
+32) E=1042.149
+33) E=1015.716
+34) E=990.441
+35) E=966.263
+36) E=943.056
+37) E=920.765
+38) E=899.332
+39) E=878.731
+'''
