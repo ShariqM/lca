@@ -88,18 +88,12 @@ class SpaceTime():
 
     def cot(self, Phi, e):
         'Correlation over time'
+        start = dt.now()
         result = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-        for b in range(self.batch_size):
-            for i in range(self.neurons):
-                for t in range(self.time_batch_size):
-                    for tau in range(self.timepoints):
-                        if t+tau >= self.time_batch_size:
-                            continue
-                        prod = np.dot(Phi[:,i,tau], e[:,b,t+tau])
-                        result[i, b, t] += prod
-                        if np.abs(prod) > 20.0:
-                            print 'prod', prod
-                            pdb.set_trace()
+        for t in range(self.time_batch_size):
+            size = min(self.timepoints, self.time_batch_size - t)
+            result[:,:,t] = np.einsum('pnt,pbt->nb', Phi[:,:,0:size], e[:,:,t:t+size])
+        self.profile_print("dA2 Calc", start)
         return result
 
     def profile_print(self, msg, start):
@@ -129,10 +123,7 @@ class SpaceTime():
 
                 print '%d) E=%.3f' % (c, np.sum(np.abs(e)))
 
-                start = dt.now()
                 da = self.cot(Phi, e)
-                self.profile_print("dA Calc", start)
-
                 a += self.coeff_eta * da
 
             dPhi = 0
