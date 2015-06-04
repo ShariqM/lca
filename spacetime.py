@@ -38,7 +38,7 @@ class SpaceTime():
     eta_inc  = 100
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = False
+    profile = True
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
@@ -99,17 +99,37 @@ class SpaceTime():
     def phi_cot(self, a, e):
         'Correlation over time'
         start = dt.now()
-        result = np.zeros((self.patch_dim, self.neurons, self.timepoints))
+        x = np.zeros((self.patch_dim, self.neurons, self.timepoints))
 
-        for b in range(self.batch_size)
+        for b in range(self.batch_size):
             for p in range(self.patch_dim):
                 for n in range(self.neurons):
-                    for t in range(self.time_batch_size):
-                        for tau in range(self.timepoints):
+                    for tau in range(self.timepoints):
+                        for t in range(self.time_batch_size):
                             if t - tau < 0:
                                 break
                             if t+tau >= self.time_batch_size:
-                                result[p,n,tau] = a[p,n,t-tau] * e[p,b,t+tau]
+                                break
+                            x[p,n,tau] = a[n,b,t-tau] * e[p,b,t+tau]
+        self.profile_print("dPhi Calc", start)
+
+        start = dt.now()
+        result = np.zeros((self.patch_dim, self.neurons, self.timepoints))
+        for tau in range(self.timepoints):
+            for t in range(self.time_batch_size):
+                if t - tau < 0:
+                    break
+                if t+tau >= self.time_batch_size:
+                    break
+                result[:,:,tau] = np.einsum('nb,pb->pn', a[:,:,t-tau], e[:,:,t+tau])
+
+        #for tau in range(self.timepoints):
+            #end = self.time_batch_size - tau
+            #end2 = self.time_batch_size
+            #result[:,:,tau] = np.einsum('nbt,pbt->pn', a[:,:,0:end], e[:,:,tau:end2])
+        #if not np.allclose(result, x):
+            #pdb.set_trace()
+        self.profile_print("dPhi2 Calc", start)
 
         #for t in range(self.timepoints):
             #size = self.time_batch_size
@@ -135,7 +155,7 @@ class SpaceTime():
         print '%10s | E=%s' % (msg, diff)
 
     def train(self):
-        load = True
+        load = False
         if not load:
             Phi = np.random.randn(self.patch_dim, self.neurons, self.timepoints)
             for i in range(self.timepoints):
@@ -163,11 +183,10 @@ class SpaceTime():
                 e = self.error(VI, Phi, a)
                 print 'E=%.3f' % (np.sum(np.abs(e)))
             dPhi = self.phi_cot(a, e)
-            pdb.set_trace()
+            #pdb.set_trace()
             Phi += self.get_eta(trial) * dPhi
             e = self.error(VI, Phi, a)
             print 'E2=%.3f' % (np.sum(np.abs(e)))
-
             Phi = self.normalize_Phi(Phi)
 
 st = SpaceTime()
