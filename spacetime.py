@@ -39,7 +39,7 @@ class SpaceTime():
     load_phi   = True
     save_phi   = True
     batch_size = 60
-    time_batch_size = 128
+    time_batch_size = 24
     num_trials = 1000
 
     eta_init = 1.5
@@ -241,7 +241,7 @@ class SpaceTime():
 
         VI = self.load_video()
         a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-        for c in range(100):
+        for c in range(10):
             e = self.error(VI, Phi, a)
             if c == self.citers or c % self.citers/4 == 0:
                 print '\t%d) E=%.3f Activity=%.2f%%' % \
@@ -249,23 +249,27 @@ class SpaceTime():
             da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
 
-        reconstruct = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        reconstruct = np.zeros((self.imsize, self.imsize, self.time_batch_size))
         for t in range(self.time_batch_size):
             I = VI[:,:,t]
             size = min(self.timepoints - 1, t)
-            reconstruct[:,:,t] = tendot(Phi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
+            r_t = tendot(Phi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
 
-        for t in range(self.time_batch_size):
-            img = np.zeros((self.imsize, self.imsize))
             i = 0
             for r in range(self.patch_per_dim):
                 for c in range(self.patch_per_dim):
-                    rr = r * sz
-                    cc = c * sz
-                    img[rr:rr+sz, cc:cc+sz] = np.reshape(reconstruct[:,i,t], self.sz, self.sz)
+                    rr = r * self.sz
+                    cc = c * self.sz
+                    reconstruct[rr:rr+self.sz, cc:cc+self.sz, t] = \
+                            np.reshape(r_t[:,i], (self.sz, self.sz))
                     i = i + 1
 
-            plt.imshow(img, cmap = cm.binary, interpolation='none')
+        np.save('reconstruct', reconstruct)
+
+    def show_reconstruct(self):
+        reconstruct = np.load('reconstruct.npy')
+        for t in range(reconstruct.shape[2]):
+            plt.imshow(reconstruct[:,:,t], cmap = cm.binary, interpolation='none')
             plt.title('Reconstruction t=%d' % t)
             plt.draw()
             time.sleep(0.5)
@@ -305,4 +309,5 @@ class SpaceTime():
 
 st = SpaceTime()
 #st.train()
-st.reconstruct()
+#st.reconstruct()
+st.show_reconstruct()
