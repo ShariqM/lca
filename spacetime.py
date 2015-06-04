@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from math import floor, ceil, sqrt
 import pdb
-from helpers import *
+from st_helpers import *
 import sys
 import random
 
@@ -43,6 +43,7 @@ class SpaceTime():
 
     data_name = 'IMAGES_DUCK_SHORT'
     profile = True
+    show = False
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
@@ -171,6 +172,8 @@ class SpaceTime():
             self.showbfs(Phi)
 
     def showbfs(self, Phi):
+        if not self.show:
+            return
         L = self.patch_dim
         M = self.neurons
         sz = self.sz
