@@ -30,31 +30,27 @@ class SpaceTime():
     neurons   = 96
     timepoints = 5
 
-    #patch_dim = 144
-    #neurons   = 200
-    #patch_dim = 100
-    #neurons   = 100
-    #timepoints = 7
-
-    load_phi   = True
-    save_phi   = True
-    batch_size = 60
-    time_batch_size = 24
+    load_phi   = False
+    save_phi   = False
+    batch_size = 10
+    time_batch_size = 64
     num_trials = 1000
 
-    eta_init = 1.5
+    eta_init = 0.2
     eta_inc  = 10
 
     citers    = 40
     coeff_eta = 0.05
-    lambdav   = 1.00
+    lambdav   = 0.00
 
-    data_name = 'IMAGES_DUCK'
+    data_name = 'IMAGES_DUCK_SHORT'
     profile = False
+    visualizer = True
     show = True
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
+    graphics_initialized = False # Don't change
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
@@ -91,9 +87,11 @@ class SpaceTime():
         return VI
 
     def normalize_Phi(self, Phi, a):
-        #Phi = np.einsum('pnt,nn->pnt', Phi, np.diag(np.average(np.sum(a ** 2, axis=2), axis=1)))
-        for i in range(self.timepoints):
-            Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
+        #print 'norm 0', np.linalg.norm(Phi[:,0,:])
+        Phi = np.einsum('pnt,nn->pnt', Phi, np.diag(np.average(np.sum(a ** 2, axis=2), axis=1)))
+        #print 'norm 0 after', np.linalg.norm(Phi[:,0,:])
+        #for i in range(self.timepoints):
+            #Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
         return Phi
 
     def get_eta(self, trial):
@@ -104,24 +102,15 @@ class SpaceTime():
             eta /= 2.0
         return eta/self.batch_size
 
-    def sparsify(self, I, Phi, num_iterations=80):
-        pass
-
-    def error(self, VI, Phi, a):
+    def get_error(self, VI, Phi, a):
         e = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
-        #start = dt.now()
-        #for t in range(self.time_batch_size):
-            #I = VI[:,:,t]
-            #size = min(self.timepoints - 1, t)
-            #e[:,:,t] = I - np.einsum('pnt,nbt->pb', Phi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
-        #self.profile_print("Error Calc", start)
-
         start = dt.now()
         for t in range(self.time_batch_size):
             I = VI[:,:,t]
             size = min(self.timepoints - 1, t)
             e[:,:,t] = I - tendot(Phi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
-        self.profile_print("Error2 Calc", start)
+
+        self.profile_print("get_error2 Calc", start)
 
         return e
 
@@ -181,11 +170,51 @@ class SpaceTime():
         snr_sum = 0.0
         for t in range(self.time_batch_size):
             I = VI[:,:,t]
-            R = e[:,:,t]
+            R = I - e[:,:,t]
             var = I.var().mean()
             mse = (R ** 2).mean()
             snr_sum += 10 * math.log(var/mse, 10)
         return snr_sum/self.time_batch_size
+
+    def sparsify(self, VI, Phi):
+        a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
+        e = self.get_error(VI, Phi, a)
+        recon = VI - e
+
+        if self.visualizer:
+            if not self.graphics_initialized:
+                self.graphics_initialized = True
+                fg, self.ax = plt.subplots(2)
+
+            for t in range(self.time_batch_size):
+                self.ax[0].imshow(np.reshape(recon[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                self.ax.set_title('Recon t=%d' % t)
+                self.ax[1].imshow(np.reshape(VI[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                self.ax.set_title('Image t=%d' % t)
+                plt.draw()
+                time.sleep(0.05)
+
+        for c in range(self.citers):
+            if c == self.citers or c % (self.citers/4) == 0:
+                print '\t%d) 1-SNR=%.2fdB' % (c, self.get_snr(VI, e))
+                print '\t%d) E=%.3f Activity=%.2f%%' % \
+                    (c, np.sum(np.abs(e)), self.get_activity(a))
+
+            da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
+            a += self.coeff_eta * da
+            e = self.get_error(VI, Phi, a)
+            recon = VI - e
+
+            if self.visualizer:
+                for t in range(self.time_batch_size):
+                    self.ax[0].imshow(np.reshape(recon[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                    self.ax.set_title('Recon t=%d' % t)
+                    self.ax[1].imshow(np.reshape(VI[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+                    self.ax.set_title('Image t=%d' % t)
+                    plt.draw()
+                    time.sleep(0.05)
+
+        return e, a
 
     def train(self):
         if self.load_phi:
@@ -200,32 +229,17 @@ class SpaceTime():
             else:
                 for i in range(self.timepoints):
                     Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
-        self.showbfs(Phi)
 
         for trial in range(self.num_trials):
             VI = self.load_videos()
-            a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-
-            for c in range(self.citers):
-                e = self.error(VI, Phi, a)
-                if c == self.citers or c % self.citers/4 == 0:
-                    print '\t%d) E=%.3f Activity=%.2f%%' % \
-                        (c, np.sum(np.abs(e)), self.get_activity(a))
-                da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
-                if False and c > 0:
-                    print 'COT_M', np.max(np.abs(self.a_cot(Phi, e)))
-                    print 'COT_A', np.average(np.abs(self.a_cot(Phi, e)))
-                    print 'SC_M', np.max(np.abs(self.lambdav * self.sparse_cost(a)))
-                    print 'SC_A', np.average(np.abs(self.lambdav * self.sparse_cost(a)))
-                    pdb.set_trace()
-                a += self.coeff_eta * da
+            e, a = self.sparsify(VI, Phi)
 
             print '%d) E1=%.3f' % (trial, np.sum(np.abs(e)))
             print '%d) 1-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
             dPhi = self.phi_cot(a, e)
             Phi += self.get_eta(trial) * dPhi
 
-            e = self.error(VI, Phi, a)
+            e = self.get_error(VI, Phi, a)
             print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
             print '%d) E2=%.3f' % (trial, np.sum(np.abs(e)))
             Phi = self.normalize_Phi(Phi, a)
@@ -241,11 +255,10 @@ class SpaceTime():
 
         VI = self.load_video()
         a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-        for c in range(10):
-            e = self.error(VI, Phi, a)
-            if c == self.citers or c % self.citers/4 == 0:
-                print '\t%d) E=%.3f Activity=%.2f%%' % \
-                    (c, np.sum(np.abs(e)), self.get_activity(a))
+        for c in range(60):
+            e = self.get_error(VI, Phi, a)
+            print '\t%d) E=%.3f Activity=%.2f%%' % \
+                (c, np.sum(np.abs(e)), self.get_activity(a))
             da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
 
@@ -304,10 +317,9 @@ class SpaceTime():
             plt.draw()
             plt.savefig('Phi_%d.png' % t)
             plt.show()
-            time.sleep(0.5)
 
 
 st = SpaceTime()
-#st.train()
+st.train()
 #st.reconstruct()
-st.show_reconstruct()
+#st.show_reconstruct()
