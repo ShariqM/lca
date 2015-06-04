@@ -38,7 +38,7 @@ class SpaceTime():
     eta_inc  = 100
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = True
+    profile = False
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
@@ -76,24 +76,56 @@ class SpaceTime():
     def sparsify(self, I, Phi, num_iterations=80):
         pass
 
-    def convolve(self, t, Phi, a):
-        result = np.zeros((self.patch_dim, self.batch_size))
-        for b in range(self.batch_size):
-            for i in range(self.neurons):
-                for tau in range(self.timepoints):
-                    if t - tau < 0:
-                        break
-                    result[:,b] += a[i,b,t - tau] * Phi[:, i, tau]
-        return result
+    def error(self, VI, Phi, a):
+        e = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        start = dt.now()
+        for t in range(self.time_batch_size):
+            I = VI[:,:,t]
+            size = min(self.timepoints - 1, t)
+            e[:,:,t] = I - np.einsum('pnt,nbt->pb', Phi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
+        self.profile_print("Error Calc", start)
+        return e
 
-    def cot(self, Phi, e):
+    def a_cot(self, Phi, e):
         'Correlation over time'
         start = dt.now()
         result = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
         for t in range(self.time_batch_size):
             size = min(self.timepoints, self.time_batch_size - t)
             result[:,:,t] = np.einsum('pnt,pbt->nb', Phi[:,:,0:size], e[:,:,t:t+size])
-        self.profile_print("dA2 Calc", start)
+        self.profile_print("dA Calc", start)
+        return result
+
+    def phi_cot(self, a, e):
+        'Correlation over time'
+        start = dt.now()
+        result = np.zeros((self.patch_dim, self.neurons, self.timepoints))
+
+        for b in range(self.batch_size)
+            for p in range(self.patch_dim):
+                for n in range(self.neurons):
+                    for t in range(self.time_batch_size):
+                        for tau in range(self.timepoints):
+                            if t - tau < 0:
+                                break
+                            if t+tau >= self.time_batch_size:
+                                result[p,n,tau] = a[p,n,t-tau] * e[p,b,t+tau]
+
+        #for t in range(self.timepoints):
+            #size = self.time_batch_size
+            #result[:,:,t] = np.einsum('nbt,pbt->pn', a[:,:,t::-1][:,:,0:size+1],
+                                      #e[:,:,t:t+size+1])
+#
+        #for t in range(self.time_batch_size):
+            #size = min(self.timepoints - 1, self.time_batch_size - t - 1)
+            #size = min(size, t)
+            #print 't=%d, size=%d' % (t, size)
+            #try:
+                #result[:,:,t] = np.einsum('nbt,pbt->pn', a[:,:,t::-1][:,:,0:size+1],
+                                          #e[:,:,t:t+size+1])
+            #except Exception as ex:
+                #pdb.set_trace()
+        #self.profile_print("dPhi Calc", start)
         return result
 
     def profile_print(self, msg, start):
@@ -103,75 +135,40 @@ class SpaceTime():
         print '%10s | E=%s' % (msg, diff)
 
     def train(self):
-        Phi = np.random.randn(self.patch_dim, self.neurons, self.timepoints)
-        for i in range(self.timepoints):
-            Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
+        load = True
+        if not load:
+            Phi = np.random.randn(self.patch_dim, self.neurons, self.timepoints)
+            for i in range(self.timepoints):
+                Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
+            np.save('tmp_phi', Phi)
+        else:
+            Phi = np.load('tmp_phi.npy')
+
         self.coeff_eta = 0.05
         self.citers = 40
 
         for trial in range(self.num_trials):
             VI = self.load_videos()
             a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-            e = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
 
-            for c in range(self.citers):
-                start = dt.now()
-                for t in range(self.time_batch_size):
-                    I = VI[:,:,t]
-                    e[:,:,t] = I - self.convolve(t, Phi, a)
-                self.profile_print("E Calc", start)
-
-                print '%d) E=%.3f' % (c, np.sum(np.abs(e)))
-
-                da = self.cot(Phi, e)
-                a += self.coeff_eta * da
-
-            dPhi = 0
+            if not load:
+                for c in range(self.citers):
+                    e = self.error(VI, Phi, a)
+                    print '%d) E=%.3f' % (c, np.sum(np.abs(e)))
+                    da = self.a_cot(Phi, e)
+                    a += self.coeff_eta * da
+                np.save('tmp_a', a)
+            else:
+                a = np.load('tmp_a.npy')
+                e = self.error(VI, Phi, a)
+                print 'E=%.3f' % (np.sum(np.abs(e)))
+            dPhi = self.phi_cot(a, e)
+            pdb.set_trace()
             Phi += self.get_eta(trial) * dPhi
+            e = self.error(VI, Phi, a)
+            print 'E2=%.3f' % (np.sum(np.abs(e)))
+
             Phi = self.normalize_Phi(Phi)
 
 st = SpaceTime()
 st.train()
-
-'''
-0) E=7426.219
-1) E=5177.111
-2) E=4308.444
-3) E=3767.701
-4) E=3382.294
-5) E=3087.779
-6) E=2853.028
-7) E=2660.199
-8) E=2497.302
-9) E=2356.864
-10) E=2234.185
-11) E=2125.351
-12) E=2027.599
-13) E=1939.026
-14) E=1858.183
-15) E=1783.910
-16) E=1715.262
-17) E=1651.470
-18) E=1592.055
-19) E=1536.475
-20) E=1484.344
-21) E=1435.355
-22) E=1389.266
-23) E=1345.834
-24) E=1304.782
-25) E=1265.887
-26) E=1229.005
-27) E=1193.985
-28) E=1160.674
-29) E=1128.928
-30) E=1098.651
-31) E=1069.770
-32) E=1042.149
-33) E=1015.716
-34) E=990.441
-35) E=966.263
-36) E=943.056
-37) E=920.765
-38) E=899.332
-39) E=878.731
-'''
