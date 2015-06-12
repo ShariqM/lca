@@ -27,22 +27,25 @@ dtype = theano.config.floatX
 class SpaceTime():
 
     # Parameters
-    patch_dim = 144
-    neurons   = 200
-    timepoints = 5
+    patch_dim = 64
+    neurons   = 96
+    timepoints = 10
+    #patch_dim = 144
+    #neurons   = 200
+    #timepoints = 10
 
-    load_phi   = False
+    load_phi   = True
     save_phi   = True
     batch_size = 10
-    time_batch_size = 64
+    time_batch_size = 100
     num_trials = 1000
 
-    eta_init = 0.6
-    eta_inc  = 10
+    eta_init = 0.3
+    eta_inc  = 4
 
-    citers    = 40
-    coeff_eta = 0.05
-    lambdav   = 1.00
+    citers    = 20
+    coeff_eta = 0.25
+    lambdav   = 0.30
 
     data_name = 'IMAGES_DUCK_SHORT'
     profile = False
@@ -87,33 +90,9 @@ class SpaceTime():
             VI[:,x,:] = np.reshape(img, (self.patch_dim, tbs), 1)
         return VI
 
-    def normalize_Phi(self, Phi, a):
-        norm0 = np.linalg.norm(Phi[:,0,:])
+    def normalize_Phi(self, Phi):
         for i in range(self.neurons):
-            #Phi[:,i,:] *= 0.02/np.linalg.norm(Phi[:,i,:])
             Phi[:,i,:] *= 0.1/np.linalg.norm(Phi[:,i,:])
-            #Phi[:,i,:] *= np.mean(a[i,:,:] ** 2)
-            #print np.mean(a[i,:,:] ** 2)
-        print 'Norm Transfer %.8f->%.8f' % (norm0, np.linalg.norm(Phi[:,0,:]))
-        return Phi
-
-        for i in range(self.neurons):
-            sq = a[i,:,:] ** 2
-            mean = np.mean(sq)
-            g_old = np.linalg.norm(Phi[:,i,:])
-            g_desired = g_old * mean
-            print "G Desired ", g_desired
-
-            Phi_new = Phi[:,i,:] * mean
-
-            print "G new ", np.linalg.norm(Phi_new)
-
-        norm0 = np.linalg.norm(Phi[:,0,:])
-        Phi = np.einsum('pnt,nn->pnt', Phi, np.diag(np.average(np.sum(a ** 2, axis=2), axis=1)))
-        print 'Norm Transfer %.3f->%.3f' % (norm0, np.linalg.norm(Phi[:,0,:]))
-
-        #for i in range(self.timepoints):
-            #Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
         return Phi
 
     def get_eta(self, trial):
@@ -225,7 +204,6 @@ class SpaceTime():
                 print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
                     (c, self.get_snr(VI, e), np.sum(np.abs(e)), self.get_activity(a))
 
-        self.coeff_eta = 0.25
         return e, recon, a
 
     def train(self):
@@ -233,14 +211,7 @@ class SpaceTime():
             Phi = np.load('spacetime_phi.npy')
         else:
             Phi = np.random.randn(self.patch_dim, self.neurons, self.timepoints)
-            if False:
-                Phi[:,:,0] = np.dot(Phi[:,:,0], np.diag(1/np.sqrt(np.sum(Phi[:,:,0]**2, axis = 0))))
-                for i in range(1, self.timepoints):
-                    Phi[:,:,i] = Phi[:,:,i-1] + 0.1 * np.random.randn(self.patch_dim, self.neurons)
-                    Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
-            else:
-                for i in range(self.timepoints):
-                    Phi[:,:,i] = np.dot(Phi[:,:,i], np.diag(1/np.sqrt(np.sum(Phi[:,:,i]**2, axis = 0))))
+            Phi = self.normalize_Phi(Phi)
 
         for trial in range(self.num_trials):
             VI = self.load_videos()
@@ -253,7 +224,7 @@ class SpaceTime():
             recon = self.get_reconstruction(VI, Phi, a)
             e = VI - recon
             print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
-            Phi = self.normalize_Phi(Phi, a)
+            Phi = self.normalize_Phi(Phi)
 
             self.showbfs(Phi)
             if self.save_phi:
