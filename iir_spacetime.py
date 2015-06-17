@@ -22,6 +22,7 @@ import pdb
 from st_helpers import *
 import sys
 import random
+from numpy import tensordot as tdot
 
 dtype = theano.config.floatX
 class IIRSpaceTime():
@@ -45,7 +46,7 @@ class IIRSpaceTime():
     eta_init = 0.6
     eta_inc  = 10
 
-    citers    = 40
+    citers    = 2
     coeff_eta = 5e-3
     lambdav   = 1.00
 
@@ -136,6 +137,24 @@ class IIRSpaceTime():
             #time.sleep(0.01)
         plt.close()
 
+    def old_grad_M(self, Phi, error, u):
+        start = dt.now()
+        result = np.zeros((self.neurons, self.neurons))
+        for L in range(self.neurons):
+            for N in range(self.neurons):
+                for p in range(self.patch_dim):
+                    for t in range(self.time_batch_size):
+                        for b in range(self.batch_size):
+                            result[L, N] += error[p,b,t] * Phi[p,L] * u[N,b,t]
+        self.profile_print("dM Calc", start)
+        return -1
+
+    def grad_M(self, Phi, error, u):
+        start = dt.now()
+        result = np.tensordot(np.tensordot(error, Phi, [[0], [0]]), u, [[0,1], [1,2]])
+        self.profile_print("dM2 Calc", start)
+        return result
+
     def grad_a(self, error, Phi, M, B):
         start = dt.now()
         result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
@@ -145,7 +164,9 @@ class IIRSpaceTime():
         iplusm[:,:,0] = I
         for t in range(1, self.time_batch_size):
             iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
+        self.profile_print("dA iplusm Calc", start)
 
+        start = dt.now()
         for TT in range(self.time_batch_size):
             for JJ in range(self.cells):
                 for BB in range(self.batch_size):
@@ -161,6 +182,38 @@ class IIRSpaceTime():
                             tmp_t += error[k, BB, t] * tmp_k
                         result[JJ, BB, TT] += tmp_t
         self.profile_print("dA Calc", start)
+
+
+        #niplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
+        #for t in range(1, self.time_batch_size):
+            #niplusm[:,:,t] = iplusm[:,:,t-1]]
+
+        start = dt.now()
+        r2 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        r3 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        for TT in range(self.time_batch_size - 1):
+            try:
+                tmp = iplusm[:,:,:self.time_batch_size-TT-1]
+                #r2[:,:,TT] = np.einsum('kBt,ki,ilt,lJ->JB', error[:,:,TT+1:], Phi, tmp, B)
+#Bti * itJ
+                x = tdot(error[:,:,TT+1:], Phi, [[0], [0]])
+                y = tdot(tmp, B, [[1], [0]])
+                #r3[:,:,TT] = tdot(tdot(error[:,:,TT+1:], Phi, [[0], [0]]), tdot(Phi, tmp, [[1], [0]]), [[1,2], [1,0]]).T
+                r3[:,:,TT] = tdot(x, y, [[1,2], [1,0]]).T
+            except Exception as e:
+                pdb.set_trace()
+
+            print 'sugg'
+
+        #r2 = np.einsum('pBT,pi,ilt,lJ->JBT', error, Phi, iplusm, B)
+        print 'Max Diff', np.max(result - r2)
+        print 'Same?', np.allclose(r2, result)
+        print 'Max Diff', np.max(result - r3)
+        print 'Same?', np.allclose(r3, result)
+
+        #r3 = np.tensordot(
+        self.profile_print("dA Calc2", start)
+        pdb.set_trace()
         return result
 
     def get_reconstruction(self, VI, Phi, M, B, a):
@@ -172,13 +225,13 @@ class IIRSpaceTime():
             u[:,:,t] = np.dot((I+M), u[:,:,t-1]) + np.dot(B, a[:,:,t])
         r = np.tensordot(Phi, u, [[1], [0]])
         self.profile_print("get_reconstruction Calc", start)
-        return r
+        return u, r
 
     def sparsify(self, VI, Phi, M, B):
         #a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
         #a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
         a = 1.0 * np.random.randn(self.neurons, self.batch_size, self.time_batch_size)
-        recon = self.get_reconstruction(VI, Phi, M, B, a)
+        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
         print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
@@ -189,7 +242,7 @@ class IIRSpaceTime():
             da = self.grad_a(error, Phi, M, B)
             a += self.coeff_eta * da
 
-            recon = self.get_reconstruction(VI, Phi, M, B, a)
+            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
             #pdb.set_trace()
 
@@ -201,7 +254,7 @@ class IIRSpaceTime():
                     (c, self.get_snr(VI, error), np.sum(np.abs(error)), self.get_activity(a))
 
         self.coeff_eta = 0.25
-        return e, recon, a
+        return error, recon, a
 
     def train(self):
         Phi = np.random.randn(self.patch_dim, self.neurons)
@@ -212,21 +265,30 @@ class IIRSpaceTime():
 
         for trial in range(self.num_trials):
             VI = self.load_videos()
-            e, recon, a = self.sparsify(VI, Phi, M, B)
+            error, recon, a = self.sparsify(VI, Phi, M, B)
             pdb.set_trace()
 
-            print '%d) 1-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
-            dPhi = self.phi_cot(a, e)
-            Phi += self.get_eta(trial) * dPhi
+            print '%d) 1-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
+            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
 
-            recon = self.get_reconstruction(VI, Phi, a)
-            e = VI - recon
-            print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
-            Phi = self.normalize_Phi(Phi, a)
+            grad_M = self.grad_M(Phi, error, u)
+            M += 0.001 * self.get_eta(trial) * grad_M
+            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
+            error = VI - recon
 
-            self.showbfs(Phi)
+            print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
+            pdb.set_trace()
+            #dPhi = self.grad_phi(error, Phi, M, B)
+            #Phi += self.get_eta(trial) * dPhi
+
+            #u, recon = self.get_reconstruction(VI, Phi, M, B, a)
+            #e = VI - recon
+            #print '%d) 3-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
+            #Phi = self.normalize_Phi(Phi, a)
+
+            #self.showbfs(Phi)
             if self.save_phi:
-                np.save('spacetime_phi', Phi)
+                np.save('iir_spacetime_phi', Phi)
 
     def showbfs(self, Phi):
         if not self.show:
