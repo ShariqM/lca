@@ -46,7 +46,7 @@ class IIRSpaceTime():
     eta_init = 0.6
     eta_inc  = 10
 
-    citers    = 2
+    citers    = 10
     coeff_eta = 5e-3
     lambdav   = 1.00
 
@@ -137,18 +137,6 @@ class IIRSpaceTime():
             #time.sleep(0.01)
         plt.close()
 
-    def old_grad_M(self, Phi, error, u):
-        start = dt.now()
-        result = np.zeros((self.neurons, self.neurons))
-        for L in range(self.neurons):
-            for N in range(self.neurons):
-                for p in range(self.patch_dim):
-                    for t in range(self.time_batch_size):
-                        for b in range(self.batch_size):
-                            result[L, N] += error[p,b,t] * Phi[p,L] * u[N,b,t]
-        self.profile_print("dM Calc", start)
-        return -1
-
     def grad_M(self, Phi, error, u):
         start = dt.now()
         result = np.tensordot(np.tensordot(error, Phi, [[0], [0]]), u, [[0,1], [1,2]])
@@ -164,56 +152,15 @@ class IIRSpaceTime():
         iplusm[:,:,0] = I
         for t in range(1, self.time_batch_size):
             iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
-        self.profile_print("dA iplusm Calc", start)
 
         start = dt.now()
-        for TT in range(self.time_batch_size):
-            for JJ in range(self.cells):
-                for BB in range(self.batch_size):
-                    for t in range(TT+1, self.time_batch_size):
-                        tmp_t = 0
-                        for k in range(self.patch_dim):
-                            tmp_k = 0
-                            for i in range(self.neurons):
-                                tmp_i = 0
-                                for l in range(self.neurons):
-                                    tmp_i += iplusm[i, l, t-1-TT] * B[l, JJ]
-                                tmp_k += Phi[k, i] * tmp_i
-                            tmp_t += error[k, BB, t] * tmp_k
-                        result[JJ, BB, TT] += tmp_t
-        self.profile_print("dA Calc", start)
-
-
-        #niplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
-        #for t in range(1, self.time_batch_size):
-            #niplusm[:,:,t] = iplusm[:,:,t-1]]
-
-        start = dt.now()
-        r2 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        r3 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         for TT in range(self.time_batch_size - 1):
-            try:
-                tmp = iplusm[:,:,:self.time_batch_size-TT-1]
-                #r2[:,:,TT] = np.einsum('kBt,ki,ilt,lJ->JB', error[:,:,TT+1:], Phi, tmp, B)
-#Bti * itJ
-                x = tdot(error[:,:,TT+1:], Phi, [[0], [0]])
-                y = tdot(tmp, B, [[1], [0]])
-                #r3[:,:,TT] = tdot(tdot(error[:,:,TT+1:], Phi, [[0], [0]]), tdot(Phi, tmp, [[1], [0]]), [[1,2], [1,0]]).T
-                r3[:,:,TT] = tdot(x, y, [[1,2], [1,0]]).T
-            except Exception as e:
-                pdb.set_trace()
+            tmp = iplusm[:,:,:self.time_batch_size-TT-1]
+            x = tdot(error[:,:,TT+1:], Phi, [[0], [0]])
+            y = tdot(tmp, B, [[1], [0]])
+            result[:,:,TT] = tdot(x, y, [[1,2], [1,0]]).T
 
-            print 'sugg'
-
-        #r2 = np.einsum('pBT,pi,ilt,lJ->JBT', error, Phi, iplusm, B)
-        print 'Max Diff', np.max(result - r2)
-        print 'Same?', np.allclose(r2, result)
-        print 'Max Diff', np.max(result - r3)
-        print 'Same?', np.allclose(r3, result)
-
-        #r3 = np.tensordot(
         self.profile_print("dA Calc2", start)
-        pdb.set_trace()
         return result
 
     def get_reconstruction(self, VI, Phi, M, B, a):
