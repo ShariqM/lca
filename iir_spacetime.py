@@ -160,23 +160,8 @@ class IIRSpaceTime():
 
     def grad_B(self, error, Phi, a):
         start = dt.now()
-        result = np.zeros((self.neurons, self.cells))
-        for L in range(self.neurons):
-            for C in range(self.cells):
-                for p in range(self.patch_dim):
-                    for b in range(self.batch_size):
-                        for t in range(1, self.time_batch_size):
-                            result[L,C] += error[p,b,t] * Phi[p,L] * a[C,b,t-1]
-
-        self.profile_print("dB Calc", start)
-
-        start = dt.now()
         x = tdot(error[:,:,1:], Phi, [[0], [0]])
-        r2 = tdot(x, a[:,:,:-1], [[0,1], [1,2]])
-        print np.max(r2 - result)
-        assert np.allclose(r2, result)
-        self.profile_print("dB2 Calc", start)
-
+        result = tdot(x, a[:,:,:-1], [[0,1], [1,2]])
         return result
 
     def debug_a(self, error, Phi, M, B, iplusm):
