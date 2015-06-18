@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from math import floor, ceil, sqrt
 import pdb
-from st_helpers import *
+from iir_helpers import *
 import sys
 import random
 from numpy import tensordot as tdot
@@ -37,23 +37,28 @@ class IIRSpaceTime():
 
     load_phi   = False
     save_phi   = False
-    batch_size = 2
-    time_batch_size = 8
+    batch_size = 20
+    time_batch_size = 64
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 1000
 
-    M_eta_init = 0.02
     Phi_eta_init = 0.02
-    B_eta_init = 0.02
+    M_eta_init   = 0.002 # Depend on the dim on input
+    B_eta_init   = 0.002 # Depend on the dim on input
+
     eta_inc  = 200
+
+    Phi_norm = 1
+    M_norm   = 0.01
+    B_norm   = 0.1
 
     citers    = 40
     coeff_eta = 5e-2
     lambdav   = 1.00
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = False
+    profile = True
     visualizer = False
     show = True
 
@@ -148,7 +153,7 @@ class IIRSpaceTime():
 
     def grad_Phi(self, error, u):
         start = dt.now()
-        tdot(error, u, [[1,2], [1,2]])
+        result = tdot(error, u, [[1,2], [1,2]])
         self.profile_print("dPhi Calc", start)
         return result
 
@@ -178,7 +183,6 @@ class IIRSpaceTime():
         return result
 
     def grad_a(self, error, Phi, M, B, debug=False):
-        start = dt.now()
         result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
 
         I = np.eye(self.neurons)
@@ -187,18 +191,26 @@ class IIRSpaceTime():
         for t in range(1, self.time_batch_size):
             iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
 
+        start = dt.now()
         for TT in range(self.time_batch_size - 1):
             tmp = iplusm[:,:,:self.time_batch_size-TT-1]
             x = tdot(error[:,:,TT+1:], Phi, [[0], [0]])
             y = tdot(tmp, B, [[1], [0]])
             result[:,:,TT] = tdot(x, y, [[1,2], [1,0]]).T
 
+        self.profile_print("dA Calc", start)
+
+        start = dt.now()
+        for TT in range(self.time_batch_size - 1):
+            tmp = iplusm[:,:,:self.time_batch_size-TT-1]
+            result[:,:,TT] = grad_a_TT(error[:,:,TT+1:], Phi, tmp, B)
+        self.profile_print("dA Calc2", start)
+
         if debug:
             r2 = self.debug_a(error, Phi, M, B, iplusm)
             print np.max(result - r2)
             assert np.allclose(result, r2)
 
-        self.profile_print("dA Calc2", start)
         return result
 
     def get_reconstruction(self, VI, Phi, M, B, a):
@@ -240,13 +252,13 @@ class IIRSpaceTime():
         return error, recon, a
 
     def norm_Phi(self, Phi):
-        return np.dot(Phi, np.diag(1/np.sqrt(np.sum(Phi**2, axis = 0))))
+        return np.dot(Phi, np.diag(self.Phi_norm/np.sqrt(np.sum(Phi**2, axis = 0))))
 
     def norm_B(self, B):
-        return np.dot(B, np.diag(0.1/np.sqrt(np.sum(B**2, axis = 0))))
+        return np.dot(B, np.diag(self.B_norm/np.sqrt(np.sum(B**2, axis = 0))))
 
     def norm_M(self, M):
-        return np.dot(M, np.diag(0.01/np.sqrt(np.sum(M**2, axis = 0))))
+        return np.dot(M, np.diag(self.M_norm/np.sqrt(np.sum(M**2, axis = 0))))
 
     def train(self):
         Phi = np.random.randn(self.patch_dim, self.neurons)
