@@ -149,6 +149,14 @@ class IIRSpaceTime():
                         for t in range(1, self.time_batch_size):
                             result[L,N] += error[p,b,t] * Phi[p,L] * u[N,b,t-1]
 
+        self.profile_print("dM Calc", start)
+
+        start = dt.now()
+        x = tdot(error[:,:,1:], Phi, [[0], [0]])
+        r2 = tdot(x, u[:,:,:-1], [[0,1], [1,2]])
+        print np.max(r2 - result)
+        assert np.allclose(r2, result)
+
         #return np.einsum('pbt,pL,LN
 
         self.profile_print("dM2 Calc", start)
