@@ -142,7 +142,7 @@ class IIRSpaceTime():
     def grad_M(self, Phi, error, u):
         start = dt.now()
         x = tdot(error[:,:,1:], Phi, [[0], [0]])
-        r2 = tdot(x, u[:,:,:-1], [[0,1], [1,2]])
+        result = tdot(x, u[:,:,:-1], [[0,1], [1,2]])
         self.profile_print("dM Calc", start)
         return result
 
@@ -169,14 +169,14 @@ class IIRSpaceTime():
                             result[L,C] += error[p,b,t] * Phi[p,L] * a[C,b,t-1]
 
         self.profile_print("dB Calc", start)
-        return result
 
-
-
-    def new_grad_M(self, Phi, error, u):
         start = dt.now()
-        result = np.tensordot(np.tensordot(error, Phi, [[0], [0]]), u, [[0,1], [1,2]])
-        self.profile_print("dM2 Calc", start)
+        x = tdot(error[:,:,1:], Phi, [[0], [0]])
+        r2 = tdot(x, a[:,:,:-1], [[0,1], [1,2]])
+        print np.max(r2 - result)
+        assert np.allclose(r2, result)
+        self.profile_print("dB2 Calc", start)
+
         return result
 
     def debug_a(self, error, Phi, M, B, iplusm):
