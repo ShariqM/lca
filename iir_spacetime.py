@@ -35,31 +35,34 @@ class IIRSpaceTime():
     neurons   = patch_dim * 4
     cells     = patch_dim
 
-    load_phi   = False
-    save_phi   = False
+    #load_phi   = None
+    load_phi   = 'iir_spacetime_3'
+    save_phi   = None
+    save_phi   = 'iir_spacetime_3'
     batch_size = 20
     time_batch_size = 64
     #batch_size = 10
     #time_batch_size = 64
-    num_trials = 1000
+    num_trials = 10000
 
-    Phi_eta_init = 0.02
-    M_eta_init   = 0.002 # Depend on the dim on input
-    B_eta_init   = 0.002 # Depend on the dim on input
+    Phi_eta_init = 0.04
+    M_eta_init   = 0.0004 # Depend on the dim on input
+    B_eta_init   = 0.04   # Depend on the dim on input
 
-    eta_inc  = 200
+    eta_inc  = 500
 
     Phi_norm = 1
-    M_norm   = 0.01
+    M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
     citers    = 40
-    coeff_eta = 5e-2
-    lambdav   = 1.00
+    coeff_eta = 5e-3
+    lambdav   = 15.00
+    coeff_backprop_steps = 10
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = True
-    visualizer = False
+    profile = False
+    visualizer = True
     show = True
 
     # Inferred parameters
@@ -131,7 +134,7 @@ class IIRSpaceTime():
     def draw(self, c, a, recon, VI):
         fg, ax = plt.subplots(3)
         ax[2].set_title('Activity')
-        for i in range(self.neurons):
+        for i in range(self.cells):
             ax[2].plot(range(self.time_batch_size), a[i,0,:])
 
         for t in range(self.time_batch_size):
@@ -183,8 +186,6 @@ class IIRSpaceTime():
         return result
 
     def grad_a(self, error, Phi, M, B, debug=False):
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-
         I = np.eye(self.neurons)
         iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
         iplusm[:,:,0] = I
@@ -192,19 +193,17 @@ class IIRSpaceTime():
             iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
 
         start = dt.now()
+        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        steps = self.coeff_backprop_steps
         for TT in range(self.time_batch_size - 1):
-            tmp = iplusm[:,:,:self.time_batch_size-TT-1]
-            x = tdot(error[:,:,TT+1:], Phi, [[0], [0]])
-            y = tdot(tmp, B, [[1], [0]])
-            result[:,:,TT] = tdot(x, y, [[1,2], [1,0]]).T
+            end1 = min(steps, self.time_batch_size-TT-1)
+            tmp = iplusm[:,:,:end1]
+            #tmp = iplusm[:,:,:self.time_batch_size-TT-1]
 
+            end2 = min(self.time_batch_size, TT+1+steps)
+            result[:,:,TT] = grad_a_TT(error[:,:,TT+1:end2], Phi, tmp, B)
+            #result[:,:,TT] = grad_a_TT(error[:,:,TT+1], Phi, tmp, B)
         self.profile_print("dA Calc", start)
-
-        start = dt.now()
-        for TT in range(self.time_batch_size - 1):
-            tmp = iplusm[:,:,:self.time_batch_size-TT-1]
-            result[:,:,TT] = grad_a_TT(error[:,:,TT+1:], Phi, tmp, B)
-        self.profile_print("dA Calc2", start)
 
         if debug:
             r2 = self.debug_a(error, Phi, M, B, iplusm)
@@ -236,13 +235,14 @@ class IIRSpaceTime():
 
         for c in range(self.citers):
             #da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
-            da = self.grad_a(error, Phi, M, B, debug)
+            da = self.grad_a(error, Phi, M, B, debug) - \
+                        self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
 
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
 
-            if c == self.citers or c % (self.citers/4) == 0:
+            if c == self.citers - 1 or c % (self.citers/4) == 0:
             #if True:
                 if self.visualizer:
                     self.draw(c, a, recon, VI)
@@ -261,13 +261,20 @@ class IIRSpaceTime():
         return np.dot(M, np.diag(self.M_norm/np.sqrt(np.sum(M**2, axis = 0))))
 
     def train(self):
-        Phi = np.random.randn(self.patch_dim, self.neurons)
-        Phi = self.norm_Phi(Phi)
+        if self.load_phi is not None:
+            d = np.load(self.load_phi + '.npz')
+            Phi, B, M = d['Phi'], d['B'], d['M']
+        else:
+            Phi = np.random.randn(self.patch_dim, self.neurons)
+            Phi = self.norm_Phi(Phi)
 
-        B = 0.1 * np.random.randn(self.neurons, self.cells)
-        B = self.norm_B(B)
-        M = 0.1 * np.random.randn(self.neurons, self.neurons)
-        M = self.norm_M(M)
+            B = 0.1 * np.random.randn(self.neurons, self.cells)
+            B = self.norm_B(B)
+            M = 0.1 * np.random.randn(self.neurons, self.neurons)
+            M = self.norm_M(M)
+
+        if self.visualizer:
+            self.batch_size = 1
 
         for trial in range(self.num_trials):
             VI = self.load_videos()
@@ -283,7 +290,7 @@ class IIRSpaceTime():
             error = VI - recon
 
             print '%d) 2-GRAD_M-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
-            M = self.norm_M(M)
+            #M = self.norm_M(M)
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             print '%d) 3-NORM_M-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
 
@@ -317,8 +324,8 @@ class IIRSpaceTime():
                 #pdb.set_trace()
 
             #self.showbfs(Phi)
-            if self.save_phi:
-                np.save('iir_spacetime_phi', Phi)
+            if self.save_phi is not None:
+                np.savez(self.save_phi, Phi=Phi, B=B, M=M)
 
     def showbfs(self, Phi):
         if not self.show:

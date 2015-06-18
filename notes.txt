@@ -23,3 +23,10 @@
 
 11-17-14
 - http://intelligenttradingtech.blogspot.com/2010/05/is-it-possible-to-get-causal-smoothed.html
+
+
+6-18-15
+* 1 - M=0.01, B=0.1 interesting Phi
+* 2 - experiments eh
+* 3 - no norm M, B=0.1
+* 4 - try B=1? Failed even with 0.3
