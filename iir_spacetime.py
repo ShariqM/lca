@@ -28,12 +28,12 @@ dtype = theano.config.floatX
 class IIRSpaceTime():
 
     # Parameters
-    patch_dim = 16
+    #patch_dim = 16
+    #neurons   = patch_dim * 2
+    #cells     = patch_dim
+    patch_dim = 64
     neurons   = patch_dim * 4
     cells     = patch_dim
-    #patch_dim = 64
-    #neurons   = patch_dim * 4
-    #cells     = patch_dim
 
     load_phi   = False
     save_phi   = False
@@ -46,14 +46,14 @@ class IIRSpaceTime():
     M_eta_init = 0.02
     Phi_eta_init = 0.02
     B_eta_init = 0.02
-    eta_inc  = 40
+    eta_inc  = 200
 
     citers    = 40
     coeff_eta = 5e-2
     lambdav   = 1.00
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = True
+    profile = False
     visualizer = False
     show = True
 
@@ -148,13 +148,7 @@ class IIRSpaceTime():
 
     def grad_Phi(self, error, u):
         start = dt.now()
-        result = np.zeros((self.patch_dim, self.neurons))
-        for P in range(self.patch_dim):
-            for L in range(self.neurons):
-                for b in range(self.batch_size):
-                    for t in range(1, self.time_batch_size):
-                        result[P,L] += error[P,b,t] * u[L,b,t]
-
+        tdot(error, u, [[1,2], [1,2]])
         self.profile_print("dPhi Calc", start)
         return result
 
