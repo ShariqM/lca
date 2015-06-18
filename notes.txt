@@ -30,3 +30,38 @@
 * 2 - experiments eh
 * 3 - no norm M, B=0.1
 * 4 - try B=1? Failed even with 0.3
+
+Spiral Out of Control:
+0) 6-NORM_Phi-SNR=0.64dB
+        -1) SNR=-32.50dB, E=18383.959 Activity=24.87%
+        0) SNR=-42.59dB, E=52653.291 Activity=24.77%
+        10) SNR=-28.68dB, E=10028.886 Activity=24.43%
+        20) SNR=-9.23dB, E=1372.693 Activity=22.76%
+        30) SNR=1.18dB, E=510.532 Activity=19.12%
+        39) SNR=2.51dB, E=409.209 Activity=15.47%
+1) 1-SPARSIFY-SNR=2.51dB
+1) 2-GRAD_M-SNR=2.63dB
+1) 3-NORM_M-SNR=2.63dB
+1) 4-GRAD_B-SNR=2.61dB
+1) 5-NORM_B-SNR=2.61dB
+1) 5-GRAD_Phi-SNR=2.70dB
+1) 6-NORM_Phi-SNR=2.70dB
+        -1) SNR=-24.53dB, E=18918.718 Activity=24.82%
+        0) SNR=-34.92dB, E=51468.546 Activity=24.79%
+        10) SNR=-21.85dB, E=10153.733 Activity=24.38%
+        20) SNR=-4.53dB, E=1834.502 Activity=22.96%
+        30) SNR=2.57dB, E=924.721 Activity=20.75%
+        39) SNR=3.15dB, E=819.935 Activity=18.59%
+2) 1-SPARSIFY-SNR=3.15dB
+2) 2-GRAD_M-SNR=-0.71dB <--- Bad gradient
+2) 3-NORM_M-SNR=-0.71dB
+2) 4-GRAD_B-SNR=-0.66dB
+2) 5-NORM_B-SNR=-0.66dB
+2) 5-GRAD_Phi-SNR=3.04dB
+2) 6-NORM_Phi-SNR=3.04dB
+        -1) SNR=-34.38dB, E=34972.454 Activity=24.84%
+        0) SNR=-45.27dB, E=103326.786 Activity=24.84%
+        10) SNR=-62.66dB, E=720759.489 Activity=24.67%
+        20) SNR=-76.69dB, E=3647119.117 Activity=24.73%
+        30) SNR=-89.78dB, E=16419867.346 Activity=24.77%
+        39) SNR=-100.84dB, E=58612144.948 Activity=24.64% <---- explosion

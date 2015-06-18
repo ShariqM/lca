@@ -36,18 +36,18 @@ class IIRSpaceTime():
     cells     = patch_dim
 
     #load_phi   = None
-    load_phi   = 'iir_spacetime_3'
+    load_phi   = 'iir_spacetime'
     save_phi   = None
-    save_phi   = 'iir_spacetime_3'
+    #save_phi   = 'iir_spacetime'
     batch_size = 20
     time_batch_size = 64
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 10000
 
-    Phi_eta_init = 0.04
-    M_eta_init   = 0.0004 # Depend on the dim on input
-    B_eta_init   = 0.04   # Depend on the dim on input
+    Phi_eta_init = 1.2  / time_batch_size
+    M_eta_init   = 0.02 / time_batch_size # Depend on the dim on input?
+    B_eta_init   = 0.02 / time_batch_size # Depend on the dim on input?
 
     eta_inc  = 500
 
@@ -57,7 +57,7 @@ class IIRSpaceTime():
 
     citers    = 40
     coeff_eta = 5e-3
-    lambdav   = 15.00
+    lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
     coeff_backprop_steps = 10
 
     data_name = 'IMAGES_DUCK_SHORT'
@@ -144,7 +144,7 @@ class IIRSpaceTime():
             ax[1].set_title('Image iter=%d, t=%d' % (c, t))
 
             plt.draw()
-            #time.sleep(0.01)
+            time.sleep(0.02)
         plt.close()
 
     def grad_M(self, Phi, error, u):
@@ -244,10 +244,11 @@ class IIRSpaceTime():
 
             if c == self.citers - 1 or c % (self.citers/4) == 0:
             #if True:
-                if self.visualizer:
-                    self.draw(c, a, recon, VI)
                 print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
                     (c, self.get_snr(VI, error), np.sum(np.abs(error)), self.get_activity(a))
+                if self.visualizer and c == self.citers - 1:
+                #if self.visualizer:
+                    self.draw(c, a, recon, VI)
 
         return error, recon, a
 
