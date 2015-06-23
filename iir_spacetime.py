@@ -38,6 +38,7 @@ class IIRSpaceTime():
     cells     = patch_dim * 2
 
     load_phi = None
+    log_and_save = False
     batch_size = 20
     time_batch_size = 64
     #batch_size = 10
@@ -71,6 +72,8 @@ class IIRSpaceTime():
     graphics_initialized = False # Always leave as False
 
     def log(self, Phi, B, M, write_params=False):
+        if not self.log_and_save:
+            return
         name = 'IIR_LOG_%d' % self.log_idx
 
         if write_params:
@@ -290,17 +293,9 @@ class IIRSpaceTime():
         return result
 
     def grad_a(self, error, Phi, M, B, debug=False):
-
         np.einsum('pbt,pl,lJ->JBT', error, Phi, M, B)
 
-
-    def grad_a(self, error, Phi, M, B, debug=False):
-        I = np.eye(self.neurons)
-        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
-        iplusm[:,:,0] = I
-        for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
-
+    def grad_a(self, error, iplusm, Phi, M, B, debug=False):
         start = dt.now()
         result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         steps = self.coeff_backprop_steps
@@ -354,9 +349,15 @@ class IIRSpaceTime():
         start_snr = self.get_snr(VI, error)
         last_snr = None
 
+        I = np.eye(self.neurons)
+        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
+        iplusm[:,:,0] = I
+        for t in range(1, self.time_batch_size):
+            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
+
         for c in range(self.citers):
             #da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
-            da = self.grad_a(error, Phi, M, B, debug) - \
+            da = self.grad_a(error, iplusm, Phi, M, B, debug) - \
                         self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
             #if self.check_activity(a):

@@ -28,26 +28,28 @@ class SpaceTime():
 
     # Parameters
     patch_dim = 64
-    neurons   = 96
-    timepoints = 10
+    neurons   = 95
+    timepoints = 12
     #patch_dim = 144
     #neurons   = 200
     #timepoints = 10
 
     load_phi   = True
     save_phi   = True
+    save_often = 5
     batch_size = 10
-    time_batch_size = 100
+    time_batch_size = 128
     num_trials = 1000
 
-    eta_init = 0.3
-    eta_inc  = 4
+    eta_init = 0.15
+    eta_inc  = 32
 
     citers    = 20
-    coeff_eta = 0.25
-    lambdav   = 0.30
+    coeff_eta = 0.40
+    norm_Phi  = 0.10
+    lambdav   = 0.20
 
-    data_name = 'IMAGES_DUCK_SHORT'
+    data_name = 'IMAGES_DUCK'
     profile = False
     visualizer = False
     show = True
@@ -91,8 +93,10 @@ class SpaceTime():
         return VI
 
     def normalize_Phi(self, Phi):
+        start = dt.now()
         for i in range(self.neurons):
-            Phi[:,i,:] *= 0.1/np.linalg.norm(Phi[:,i,:])
+            Phi[:,i,:] *= self.norm_Phi/np.linalg.norm(Phi[:,i,:])
+        self.profile_print('normPhi', start)
         return Phi
 
     def get_eta(self, trial):
@@ -226,9 +230,11 @@ class SpaceTime():
             print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
             Phi = self.normalize_Phi(Phi)
 
-            self.showbfs(Phi)
-            if self.save_phi:
-                np.save('spacetime_phi', Phi)
+            if trial % self.save_often == 0 and self.save_phi:
+                self.showbfs(Phi)
+                if self.save_phi:
+                    np.save('spacetime_phi', Phi)
+                print 'Saved Phi'
 
     def reconstruct(self):
         Phi = np.load('spacetime_phi.npy')
@@ -297,7 +303,7 @@ class SpaceTime():
             plt.imshow(arr, cmap = cm.binary, interpolation='none')
             plt.title('Phi @ t=%d' % t)
             plt.draw()
-            plt.savefig('Phi_%d.png' % t)
+            plt.savefig('Phi_%.2d.png' % t)
             plt.show()
 
 
