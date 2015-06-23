@@ -27,26 +27,27 @@ from numpy import tensordot as tdot
 dtype = theano.config.floatX
 class IIRSpaceTime():
 
+    LOG_NAME = 'iir_log.txt'
+
     # Parameters
     #patch_dim = 16
     #neurons   = patch_dim * 2
     #cells     = patch_dim
     patch_dim = 64
     neurons   = patch_dim * 4
-    cells     = patch_dim
+    cells     = patch_dim * 2
 
-    #load_phi   = None
-    load_phi   = 'iir_spacetime'
-    save_phi   = None
-    #save_phi   = 'iir_spacetime'
+    load_phi = None
     batch_size = 20
     time_batch_size = 64
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 10000
 
+    M_backprop_steps = 20
+
     Phi_eta_init = 1.2  / time_batch_size
-    M_eta_init   = 0.02 / time_batch_size # Depend on the dim on input?
+    M_eta_init   = (0.02 / (M_backprop_steps)) / time_batch_size # Depend on the dim on input?
     B_eta_init   = 0.02 / time_batch_size # Depend on the dim on input?
 
     eta_inc  = 500
@@ -55,19 +56,78 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 40
+    citers    = 46
     coeff_eta = 5e-3
     lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
     coeff_backprop_steps = 10
 
     data_name = 'IMAGES_DUCK_SHORT'
     profile = False
-    visualizer = True
+    visualizer = False
     show = True
 
     # Inferred parameters
     sz = int(np.sqrt(patch_dim))
     graphics_initialized = False # Always leave as False
+
+    def log(self, Phi, B, M, write_params=False):
+        name = 'IIR_LOG_%d' % self.log_idx
+
+        if write_params:
+            f = open(self.LOG_NAME, 'a') # append to the log
+
+            f.write('\n*** %s ***\n' % name)
+            f.write('Time=%s\n' % dt.now())
+            f.write('Host=%s\n' % socket.gethostname())
+
+            f.write("patch_dim =%d\n" % self.patch_dim)
+            f.write("neurons   =%d\n" % self.neurons)
+            f.write("cells     =%d\n" % self.cells)
+
+            f.write("batch_size =%d\n" % self.batch_size)
+            f.write("time_batch_size =%d\n" % self.time_batch_size)
+
+            f.write("Phi_eta_init =%f\n" % self.Phi_eta_init)
+            f.write("M_eta_init   =%f\n" % self.M_eta_init  )
+            f.write("B_eta_init   =%f\n" % self.B_eta_init  )
+
+            f.write("eta_inc  =%d\n" % self.eta_inc )
+
+            f.write("Phi_norm =%f\n" % self.Phi_norm)
+            f.write("M_norm   =%f\n" % self.M_norm  )
+            f.write("B_norm   =%f\n" % self.B_norm  )
+
+            f.write("citers    =%d\n" % self.citers   )
+            f.write("coeff_eta =%f\n" % self.coeff_eta)
+            f.write("lambdav   =%f\n" % self.lambdav  )
+            f.write("coeff_backprop_steps =%d\n" % self.coeff_backprop_steps)
+
+            f.write("data_name =%s\n" % self.data_name)
+            f.write("visualizer =%s\n" % self.visualizer)
+            f.write('%d\n' % (self.log_idx))
+
+            f.close()
+
+            path = 'iir_dict/%s' % name
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            logfile = '%s/%s_log.txt' % (path, name)
+            print 'Assigning stdout to %s' % logfile
+            sys.stdout = open(logfile, 'w') # Rewire stdout to write the log
+
+        np.savez('iir_dict/%s' % name, Phi=Phi, B=B, M=M)
+
+    def get_log_idx(self):
+        f = open(self.LOG_NAME, 'r')
+        rr = 0
+        while True:
+            r = f.readline()
+            if r == '':
+                break
+            rr = r
+        f.close()
+        return int(rr) + 1
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
@@ -75,6 +135,7 @@ class IIRSpaceTime():
         (self.imsize, imsize, self.num_images) = np.shape(self.images)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
         plt.ion()
+        self.log_idx = self.get_log_idx()
 
     def load_videos(self):
         imsize, sz, tbs = self.imsize, self.sz, self.time_batch_size
@@ -147,7 +208,50 @@ class IIRSpaceTime():
             time.sleep(0.02)
         plt.close()
 
-    def grad_M(self, Phi, error, u):
+    def grad_M(self, VI, Phi, M, B, error, u, a):
+        start = dt.now()
+
+        I = np.eye(self.neurons)
+        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
+        iplusm[:,:,0] = I
+        for t in range(1, self.time_batch_size):
+            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
+
+        check_num_grad = False
+
+        steps = self.M_backprop_steps
+        result = np.zeros((self.neurons,self.neurons))
+        tmp = np.zeros((self.neurons,self.neurons))
+        for t in range(1, self.time_batch_size):
+            # pb, pl, nb -> ln (before)
+
+            # pb, pl -> bl
+            x = tdot(error[:,:,t], Phi, [[0], [0]])
+
+            for j in range(t-1, max(-1, t-1-steps), -1):
+                # nn, nb -> nb OR ln, nb -> lb?
+                y = tdot(iplusm[:,:,t-j-1], u[:,:,j], [[1], [0]])
+                result += tdot(x, y, [[0], [1]])
+
+            if check_num_grad and t == 1:
+                E = 0.5 * np.linalg.norm(error[:,:,t]) ** 2
+                e = 0.0001 # epsilon
+                M_e = np.copy(M)
+                M_e[0,0] += e
+                u_e, recon_e = self.get_reconstruction(VI, Phi, M_e, B, a)
+                error_e = VI - recon_e
+                E_e = 0.5 * np.linalg.norm(error_e[:,:,t]) ** 2
+
+                num_grad = - (E_e - E)/e
+
+                print 'grad:     ', result[0,0]
+                print 'num_grad: ', num_grad
+
+
+        self.profile_print("dM Calc", start)
+        return result
+
+    def grad_M_foo(self, Phi, M, error, u):
         start = dt.now()
         x = tdot(error[:,:,1:], Phi, [[0], [0]])
         result = tdot(x, u[:,:,:-1], [[0,1], [1,2]])
@@ -186,6 +290,11 @@ class IIRSpaceTime():
         return result
 
     def grad_a(self, error, Phi, M, B, debug=False):
+
+        np.einsum('pbt,pl,lJ->JBT', error, Phi, M, B)
+
+
+    def grad_a(self, error, Phi, M, B, debug=False):
         I = np.eye(self.neurons)
         iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
         iplusm[:,:,0] = I
@@ -198,11 +307,9 @@ class IIRSpaceTime():
         for TT in range(self.time_batch_size - 1):
             end1 = min(steps, self.time_batch_size-TT-1)
             tmp = iplusm[:,:,:end1]
-            #tmp = iplusm[:,:,:self.time_batch_size-TT-1]
 
             end2 = min(self.time_batch_size, TT+1+steps)
             result[:,:,TT] = grad_a_TT(error[:,:,TT+1:end2], Phi, tmp, B)
-            #result[:,:,TT] = grad_a_TT(error[:,:,TT+1], Phi, tmp, B)
         self.profile_print("dA Calc", start)
 
         if debug:
@@ -223,6 +330,17 @@ class IIRSpaceTime():
         self.profile_print("get_reconstruction Calc", start)
         return u, r
 
+    def check_activity(self, a):
+        if np.sum(np.abs(a)) > (self.cells * self.time_batch_size * self.batch_size * 0.50): # Coeff explosion check
+            print 'Activity Explosion!!!'
+            print 'Data:'
+            #print 'a (sum, min, max)',np.sum(np.abs(a)), np.min(a), np.max(a)
+            print 'a (min, max)', np.min(a), np.max(a)
+            print 'a index', np.where(a==np.min(a)), np.where(a==np.max(a))
+            return True
+        return False
+
+
     def sparsify(self, VI, Phi, M, B, debug=False):
         #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
@@ -230,25 +348,35 @@ class IIRSpaceTime():
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
-        print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
-            (-1, self.get_snr(VI, error), np.sum(np.abs(error)), self.get_activity(a))
+        print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
+            (-1, self.get_snr(VI, error), np.sum(np.abs(error)),
+             self.get_activity(a), self.get_activity(u))
+        start_snr = self.get_snr(VI, error)
+        last_snr = None
 
         for c in range(self.citers):
             #da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
             da = self.grad_a(error, Phi, M, B, debug) - \
                         self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
+            #if self.check_activity(a):
+                #pdb.set_trace()
 
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
 
             if c == self.citers - 1 or c % (self.citers/4) == 0:
             #if True:
-                print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
-                    (c, self.get_snr(VI, error), np.sum(np.abs(error)), self.get_activity(a))
+                print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
+                    (c, self.get_snr(VI, error), np.sum(np.abs(error)),
+                     self.get_activity(a), self.get_activity(u))
+                last_snr = self.get_snr(VI, error)
                 if self.visualizer and c == self.citers - 1:
                 #if self.visualizer:
                     self.draw(c, a, recon, VI)
+        if last_snr < start_snr:
+            print 'SNR FAIL'
+            pdb.set_trace()
 
         return error, recon, a
 
@@ -271,12 +399,14 @@ class IIRSpaceTime():
 
             B = 0.1 * np.random.randn(self.neurons, self.cells)
             B = self.norm_B(B)
+            #B = np.eye(self.cells)
             M = 0.1 * np.random.randn(self.neurons, self.neurons)
             M = self.norm_M(M)
 
         if self.visualizer:
             self.batch_size = 1
 
+        start = dt.now()
         for trial in range(self.num_trials):
             VI = self.load_videos()
             #error, recon, a = self.sparsify(VI, Phi, M, B, debug=(trial > 0))
@@ -285,48 +415,31 @@ class IIRSpaceTime():
             print '%d) 1-SPARSIFY-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
 
-            grad_M = self.grad_M(Phi, error, u)
+            grad_M = self.grad_M(VI, Phi, M, B, error, u, a)
+            grad_B = self.grad_B(error, Phi, a)
+            grad_Phi = self.grad_Phi(error, u)
+
             M += self.get_eta(self.M_eta_init, trial) * grad_M
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
-
             print '%d) 2-GRAD_M-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
-            #M = self.norm_M(M)
-            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-            print '%d) 3-NORM_M-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
 
-            grad_B = self.grad_B(error, Phi, a)
             B += self.get_eta(self.B_eta_init, trial) * grad_B
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
-            print '%d) 4-GRAD_B-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
-            B = self.norm_B(B)
-            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-            print '%d) 5-NORM_B-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
+            print '%d) 3-GRAD_B-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
 
-            grad_Phi = self.grad_Phi(error, u)
             Phi += self.get_eta(self.Phi_eta_init, trial) * grad_Phi
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
-            print '%d) 5-GRAD_Phi-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
+            print '%d) 4-GRAD_Phi-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
+
+            B = self.norm_B(B)
             Phi = self.norm_Phi(Phi)
-            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-            print '%d) 6-NORM_Phi-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
 
-
-            #dPhi = self.grad_phi(error, Phi, M, B)
-            #Phi += self.get_eta(trial) * dPhi
-
-            #u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-            #e = VI - recon
-            #print '%d) 3-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
-            #Phi = self.normalize_Phi(Phi, a)
-            #if trial > 3:
-                #pdb.set_trace()
-
-            #self.showbfs(Phi)
-            if self.save_phi is not None:
-                np.savez(self.save_phi, Phi=Phi, B=B, M=M)
+            print "Elapsed=%d seconds" % (dt.now()-start).seconds
+            self.log(Phi, B, M, trial==0)
+            sys.stdout.flush()
 
     def showbfs(self, Phi):
         if not self.show:
