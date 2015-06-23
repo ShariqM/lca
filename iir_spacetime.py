@@ -37,7 +37,7 @@ class IIRSpaceTime():
     neurons   = patch_dim * 4
     cells     = patch_dim * 2
 
-    load_phi = None
+    load_phi = 5
     log_and_save = False
     batch_size = 20
     time_batch_size = 64
@@ -392,7 +392,7 @@ class IIRSpaceTime():
 
     def train(self):
         if self.load_phi is not None:
-            d = np.load(self.load_phi + '.npz')
+            d = np.load('iir_dict/IIR_LOG_%d.npz' % self.load_phi)
             Phi, B, M = d['Phi'], d['B'], d['M']
         else:
             Phi = np.random.randn(self.patch_dim, self.neurons)
