@@ -26,7 +26,10 @@ o3 = T.tensordot(Cv, Dv, [[1], [0]])
 treconstruct = theano.function([Cv, Dv], o3, allow_input_downcast=True)
 
 
-Ev = T.fmatrix('E')
+Ev = T.tensor3('E')
 Fv = T.tensor3('F')
-o3 = T.tensordot(Cv, Dv, [[1], [0]])
-treconstruct = theano.function([Cv, Dv], o3, allow_input_downcast=True)
+#o3 = T.batched_dot(Ev.dimshuffle(2, 1, 0), Fv.dimshuffle(2, 1, 0))
+#o3 = T.batched_dot(Ev, Fv.dimshuffle(2, 0, 1)).dimshuffle(1,2,0)
+#o3 = T.batched_dot(Ev, Fv)
+o3 = T.batched_dot(Ev, Fv)
+t_bdot = theano.function([Ev, Fv], o3, allow_input_downcast=True)

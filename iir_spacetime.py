@@ -40,7 +40,7 @@ class IIRSpaceTime():
     load_phi = None
     log_and_save = False
     batch_size = 20
-    time_batch_size = 64
+    time_batch_size = 70
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 10000
@@ -142,7 +142,7 @@ class IIRSpaceTime():
 
     def load_videos(self):
         imsize, sz, tbs = self.imsize, self.sz, self.time_batch_size
-        VI = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        VI = np.zeros((self.patch_dim, self.time_batch_size, self.batch_size))
         for x in range(self.batch_size):
             # Choose a random image less than time_batch_size images
             # away from the end
@@ -150,7 +150,7 @@ class IIRSpaceTime():
             r = (imsize-sz) * random.uniform(0, 1)
             c = (imsize-sz) * random.uniform(0, 1)
             img =  self.images[r:r+sz, c:c+sz, imi:imi+tbs]
-            VI[:,x,:] = np.reshape(img, (self.patch_dim, tbs), 1)
+            VI[:,:,x] = np.reshape(img, (self.patch_dim, tbs), 1)
         return VI
 
     def normalize_Phi(self, Phi, a):
@@ -229,11 +229,11 @@ class IIRSpaceTime():
             # pb, pl, nb -> ln (before)
 
             # pb, pl -> bl
-            x = tdot(error[:,:,t], Phi, [[0], [0]])
+            x = tdot(error[:,t,:], Phi, [[0], [0]])
 
             for j in range(t-1, max(-1, t-1-steps), -1):
                 # nn, nb -> nb OR ln, nb -> lb?
-                y = tdot(iplusm[:,:,t-j-1], u[:,:,j], [[1], [0]])
+                y = tdot(iplusm[:,:,t-j-1], u[j,:,:], [[1], [0]])
                 result += tdot(x, y, [[0], [1]])
 
             if check_num_grad and t == 1:
@@ -263,64 +263,23 @@ class IIRSpaceTime():
 
     def grad_Phi(self, error, u):
         start = dt.now()
-        result = tdot(error, u, [[1,2], [1,2]])
+        result = tdot(error, u, [[1,2], [0,2]]) # ptb * tnb
         self.profile_print("dPhi Calc", start)
         return result
 
     def grad_B(self, error, Phi, a):
         start = dt.now()
-        x = tdot(error[:,:,1:], Phi, [[0], [0]])
-        result = tdot(x, a[:,:,:-1], [[0,1], [1,2]])
-        return result
-
-    def debug_a(self, error, Phi, M, B, iplusm):
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        start = dt.now()
-        for TT in range(self.time_batch_size):
-            for JJ in range(self.cells):
-                for BB in range(self.batch_size):
-                    for t in range(TT+1, self.time_batch_size):
-                        tmp_t = 0
-                        for k in range(self.patch_dim):
-                            tmp_k = 0
-                            for i in range(self.neurons):
-                                tmp_i = 0
-                                for l in range(self.neurons):
-                                    tmp_i += iplusm[i, l, t-1-TT] * B[l, JJ]
-                                tmp_k += Phi[k, i] * tmp_i
-                            tmp_t += error[k, BB, t] * tmp_k
-                        result[JJ, BB, TT] += tmp_t
-        return result
-
-    def grad_a(self, error, Phi, M, B, debug=False):
-        np.einsum('pbt,pl,lJ->JBT', error, Phi, M, B)
-
-    def grad_a(self, error, iplusm, Phi, M, B, debug=False):
-        start = dt.now()
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        steps = self.coeff_backprop_steps
-        for TT in range(self.time_batch_size - 1):
-            end1 = min(steps, self.time_batch_size-TT-1)
-            tmp = iplusm[:,:,:end1]
-
-            end2 = min(self.time_batch_size, TT+1+steps)
-            result[:,:,TT] = grad_a_TT(error[:,:,TT+1:end2], Phi, tmp, B)
-        self.profile_print("dA Calc", start)
-
-        if debug:
-            r2 = self.debug_a(error, Phi, M, B, iplusm)
-            print np.max(result - r2)
-            assert np.allclose(result, r2)
-
+        x = tdot(error[:,1:,:], Phi, [[0], [0]]) # ptb * pn -> tbn
+        result = tdot(x, a[:-1,:,:], [[0,1], [0,2]]) # tbn * tjb -> nj
         return result
 
     def get_u(self, M, B, a):
         start = dt.now()
-        u = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
+        u = np.zeros((self.time_batch_size, self.neurons, self.batch_size))
         I = np.eye(self.neurons)
-        u[:,:,0] = t2dot(B, a[:,:,0])
+        u[0,:,:] = t2dot(B, a[0,:,:])
         for t in range(1, self.time_batch_size):
-            u[:,:,t] = np.dot((I+M), u[:,:,t-1]) + np.dot(B, a[:,:,t])
+            u[t,:,:] = np.dot((I+M), u[t-1,:,:]) + np.dot(B, a[t,:,:])
             #u[:,:,t] = t2dot((I+M), u[:,:,t-1]) + t2dot(B, a[:,:,t])
         self.profile_print("get_u Calc", start)
         return u
@@ -328,8 +287,7 @@ class IIRSpaceTime():
     def get_reconstruction(self, VI, Phi, M, B, a):
         start = dt.now()
         u = self.get_u(M, B, a)
-        #r = np.tensordot(Phi, u, [[1], [0]])
-        r = treconstruct(Phi, u)
+        r = np.tensordot(Phi, u, [[1], [1]])
         self.profile_print("get_reconstruction Calc", start)
         return u, r
 
@@ -344,53 +302,7 @@ class IIRSpaceTime():
         return False
 
     def sparsify(self, VI, Phi, M, B, debug=False):
-        #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
-        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-        error = VI - recon
-
-        print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
-            (-1, self.get_snr(VI, error), np.sum(np.abs(error)),
-             self.get_activity(a), self.get_activity(u))
-        start_snr = self.get_snr(VI, error)
-        last_snr = None
-
-        I = np.eye(self.neurons)
-        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
-        iplusm[:,:,0] = I
-        for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = t2dot(iplusm[:,:,t-1], I+M)
-
-        for c in range(self.citers):
-            #da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
-            da = self.grad_a(error, iplusm, Phi, M, B, debug) - \
-                        self.lambdav * self.sparse_cost(a)
-            a += self.coeff_eta * da
-            #if self.check_activity(a):
-                #pdb.set_trace()
-
-            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-            error = VI - recon
-
-            if c == self.citers - 1 or c % (self.citers/4) == 0:
-            #if True:
-                print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
-                    (c, self.get_snr(VI, error), np.sum(np.abs(error)),
-                     self.get_activity(a), self.get_activity(u))
-                last_snr = self.get_snr(VI, error)
-                if self.visualizer and c == self.citers - 1:
-                #if self.visualizer:
-                    self.draw(c, a, recon, VI)
-        if last_snr < start_snr:
-            print 'SNR FAIL'
-            pdb.set_trace()
-
-        return error, recon, a
-
-    def sparsify_2(self, VI, Phi, M, B, debug=False):
-        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
+        a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
@@ -411,25 +323,18 @@ class IIRSpaceTime():
         self.profile_print("phi hat Calc", start)
 
         start = dt.now()
-        b = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        G = np.zeros((self.cells, self.neurons, self.time_batch_size))
+        b = np.zeros((self.time_batch_size, self.cells, self.batch_size))
+        G = np.zeros((self.time_batch_size, self.cells, self.neurons))
         for t in range(self.time_batch_size):
             for T in range(t+1, self.time_batch_size):
-                b[:,:,t] += np.dot(phi_hat[:,:,T-(t+1)].T, VI[:,:,T]) # JP * PB = JB
-                G[:,:,t] += np.dot(phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
+                b[t,:,:] += np.dot(phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
+                G[t,:,:] += np.dot(phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
         self.profile_print("b and G Calc", start)
 
         start = dt.now()
         for c in range(self.citers):
-            da = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-
             istart = dt.now()
-            # jbt = jbt - (jnt * nbt)
-            for t in range(self.time_batch_size):
-                da[:,:,t] = b[:,:,t] - t2dot(G[:,:,t], u[:,:,t])
-            #pdb.set_trace()
-            #da2 = b - np.tensordot(G, u, [[1,2], [0,2]])
-            #print np.allclose(da2, da)
+            da = b - t_bdot(G,u)
             self.profile_print("iter Calc", istart)
 
             da -= self.lambdav * self.sparse_cost(a)
@@ -447,7 +352,6 @@ class IIRSpaceTime():
                 if self.visualizer and c == self.citers - 1:
                     self.draw(c, a, recon, VI)
         self.profile_print("iters Calc", start)
-
 
         return error, recon, a
 
@@ -480,10 +384,7 @@ class IIRSpaceTime():
         start = dt.now()
         for trial in range(self.num_trials):
             VI = self.load_videos()
-            #error, recon, a = self.sparsify(VI, Phi, M, B, debug=(trial > 0))
-            error, recon, a = self.sparsify_2(VI, Phi, M, B)
-            #print 'Round 2'
-            #error, recon, a = self.sparsify(VI, Phi, M, B)
+            error, recon, a = self.sparsify(VI, Phi, M, B)
 
             print '%d) 1-SPARSIFY-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
