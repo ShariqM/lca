@@ -37,7 +37,7 @@ class IIRSpaceTime():
     neurons   = patch_dim * 4
     cells     = patch_dim * 2
 
-    load_phi = 5
+    load_phi = None
     log_and_save = False
     batch_size = 20
     time_batch_size = 64
@@ -60,7 +60,7 @@ class IIRSpaceTime():
     citers    = 46
     coeff_eta = 5e-3
     lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
-    coeff_backprop_steps = 10
+    coeff_backprop_steps = 100
 
     data_name = 'IMAGES_DUCK_SHORT'
     profile = False
@@ -218,7 +218,7 @@ class IIRSpaceTime():
         iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
         iplusm[:,:,0] = I
         for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
+            iplusm[:,:,t] = t2dot(iplusm[:,:,t-1], I+M)
 
         check_num_grad = False
 
@@ -314,14 +314,22 @@ class IIRSpaceTime():
 
         return result
 
-    def get_reconstruction(self, VI, Phi, M, B, a):
+    def get_u(self, M, B, a):
         start = dt.now()
         u = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
         I = np.eye(self.neurons)
-        u[:,:,0] = np.dot(B, a[:,:,0])
+        u[:,:,0] = t2dot(B, a[:,:,0])
         for t in range(1, self.time_batch_size):
             u[:,:,t] = np.dot((I+M), u[:,:,t-1]) + np.dot(B, a[:,:,t])
-        r = np.tensordot(Phi, u, [[1], [0]])
+            #u[:,:,t] = t2dot((I+M), u[:,:,t-1]) + t2dot(B, a[:,:,t])
+        self.profile_print("get_u Calc", start)
+        return u
+
+    def get_reconstruction(self, VI, Phi, M, B, a):
+        start = dt.now()
+        u = self.get_u(M, B, a)
+        #r = np.tensordot(Phi, u, [[1], [0]])
+        r = treconstruct(Phi, u)
         self.profile_print("get_reconstruction Calc", start)
         return u, r
 
@@ -335,11 +343,10 @@ class IIRSpaceTime():
             return True
         return False
 
-
     def sparsify(self, VI, Phi, M, B, debug=False):
         #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
+        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
@@ -353,7 +360,7 @@ class IIRSpaceTime():
         iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
         iplusm[:,:,0] = I
         for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
+            iplusm[:,:,t] = t2dot(iplusm[:,:,t-1], I+M)
 
         for c in range(self.citers):
             #da = self.a_cot(Phi, e) - self.lambdav * self.sparse_cost(a)
@@ -378,6 +385,69 @@ class IIRSpaceTime():
         if last_snr < start_snr:
             print 'SNR FAIL'
             pdb.set_trace()
+
+        return error, recon, a
+
+    def sparsify_2(self, VI, Phi, M, B, debug=False):
+        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
+        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
+        error = VI - recon
+
+        print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
+            (-1, self.get_snr(VI, error), np.sum(np.abs(error)),
+             self.get_activity(a), self.get_activity(u))
+        start_snr = self.get_snr(VI, error)
+        last_snr = None
+
+        start = dt.now()
+        I        = np.eye(self.neurons)
+        phi_hat  = np.zeros((self.patch_dim, self.cells, self.time_batch_size))
+        iplusm_t = I
+        phi_hat[:,:,0] = t2dot(Phi, t2dot(iplusm_t, B)) # pn * nn * nc
+        for t in range(1, self.time_batch_size):
+            iplusm_t = t2dot(iplusm_t, I+M)
+            phi_hat[:,:,t] = t2dot(Phi, t2dot(iplusm_t, B)) # Optimize?
+        self.profile_print("phi hat Calc", start)
+
+        start = dt.now()
+        b = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        G = np.zeros((self.cells, self.neurons, self.time_batch_size))
+        for t in range(self.time_batch_size):
+            for T in range(t+1, self.time_batch_size):
+                b[:,:,t] += np.dot(phi_hat[:,:,T-(t+1)].T, VI[:,:,T]) # JP * PB = JB
+                G[:,:,t] += np.dot(phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
+        self.profile_print("b and G Calc", start)
+
+        start = dt.now()
+        for c in range(self.citers):
+            da = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+
+            istart = dt.now()
+            # jbt = jbt - (jnt * nbt)
+            for t in range(self.time_batch_size):
+                da[:,:,t] = b[:,:,t] - t2dot(G[:,:,t], u[:,:,t])
+            #pdb.set_trace()
+            #da2 = b - np.tensordot(G, u, [[1,2], [0,2]])
+            #print np.allclose(da2, da)
+            self.profile_print("iter Calc", istart)
+
+            da -= self.lambdav * self.sparse_cost(a)
+
+            a += self.coeff_eta * da
+
+            u, recon = self.get_reconstruction(VI, Phi, M, B, a)
+            error = VI - recon
+
+            if c == self.citers - 1 or c % (self.citers/4) == 0:
+                print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
+                    (c, self.get_snr(VI, error), np.sum(np.abs(error)),
+                     self.get_activity(a), self.get_activity(u))
+                last_snr = self.get_snr(VI, error)
+                if self.visualizer and c == self.citers - 1:
+                    self.draw(c, a, recon, VI)
+        self.profile_print("iters Calc", start)
+
 
         return error, recon, a
 
@@ -411,7 +481,9 @@ class IIRSpaceTime():
         for trial in range(self.num_trials):
             VI = self.load_videos()
             #error, recon, a = self.sparsify(VI, Phi, M, B, debug=(trial > 0))
-            error, recon, a = self.sparsify(VI, Phi, M, B)
+            error, recon, a = self.sparsify_2(VI, Phi, M, B)
+            #print 'Round 2'
+            #error, recon, a = self.sparsify(VI, Phi, M, B)
 
             print '%d) 1-SPARSIFY-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
@@ -438,7 +510,7 @@ class IIRSpaceTime():
             B = self.norm_B(B)
             Phi = self.norm_Phi(Phi)
 
-            print "Elapsed=%d seconds" % (dt.now()-start).seconds
+            print "t=%d, Elapsed=%d seconds" % (trial, (dt.now()-start).seconds)
             self.log(Phi, B, M, trial==0)
             sys.stdout.flush()
 
