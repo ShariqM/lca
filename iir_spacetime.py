@@ -57,7 +57,7 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 46
+    citers    = 11
     coeff_eta = 5e-3
     lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
     coeff_backprop_steps = 100
@@ -265,16 +265,15 @@ class IIRSpaceTime():
         start = dt.now()
         x = tdot(error[:,1:,:], Phi, [[0], [0]]) # ptb * pn -> tbn
         result = tdot(x, a[:-1,:,:], [[0,1], [0,2]]) # tbn * tjb -> nj
+        self.profile_print("dB Calc", start)
         return result
 
     def get_u(self, M, B, a):
-        start = dt.now()
         u = np.zeros((self.time_batch_size, self.neurons, self.batch_size))
-        I = np.eye(self.neurons)
-        u[0,:,:] = t2dot(B, a[0,:,:])
+        iplusm = np.eye(self.neurons) + M
+        u[0,:,:] = np.dot(B, a[0,:,:])
         for t in range(1, self.time_batch_size):
-            u[t,:,:] = np.dot((I+M), u[t-1,:,:]) + np.dot(B, a[t,:,:])
-        self.profile_print("get_u Calc", start)
+            u[t,:,:] = np.dot(iplusm, u[t-1,:,:]) + np.dot(B, a[t,:,:])
         return u
 
     def get_reconstruction(self, VI, Phi, M, B, a):
@@ -300,22 +299,24 @@ class IIRSpaceTime():
         I        = np.eye(self.neurons)
         Phi_hat  = np.zeros((self.patch_dim, self.cells, self.time_batch_size))
         iplusm_t = I
-        Phi_hat[:,:,0] = t2dot(Phi, t2dot(iplusm_t, B)) # pn * nn * nc
+        Phi_hat[:,:,0] = t3dot(Phi, iplusm_t, B) # pn * nn * nc
         for t in range(1, self.time_batch_size):
             iplusm_t = t2dot(iplusm_t, I+M)
-            Phi_hat[:,:,t] = t2dot(Phi, t2dot(iplusm_t, B)) # Optimize?
+            Phi_hat[:,:,t] = t3dot(Phi, iplusm_t, B)
 
         self.profile_print("phi hat Calc", start)
         return Phi_hat
 
     def get_b_and_G(self, VI, Phi, Phi_hat):
         start = dt.now()
+        tbs = self.time_batch_size
         b = np.zeros((self.time_batch_size, self.cells, self.batch_size))
         G = np.zeros((self.time_batch_size, self.cells, self.neurons))
-        for t in range(self.time_batch_size):
+        for t in range(self.time_batch_size-2, -1, -1):
             for T in range(t+1, self.time_batch_size):
                 b[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
-                G[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
+            G[t,:,:] = G[t+1,:,:] + np.dot(Phi_hat[:,:,tbs-t-2].T, Phi)
+
         self.profile_print("b and G Calc", start)
         return b, G
 
