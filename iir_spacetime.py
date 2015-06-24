@@ -254,19 +254,13 @@ class IIRSpaceTime():
         self.profile_print("dM Calc", start)
         return result
 
-    def grad_M_foo(self, Phi, M, error, u):
-        start = dt.now()
-        x = tdot(error[:,:,1:], Phi, [[0], [0]])
-        result = tdot(x, u[:,:,:-1], [[0,1], [1,2]])
-        self.profile_print("dM Calc", start)
-        return result
-
     def grad_Phi(self, error, u):
         start = dt.now()
         result = tdot(error, u, [[1,2], [0,2]]) # ptb * tnb
         self.profile_print("dPhi Calc", start)
         return result
 
+    # Implement backprop?
     def grad_B(self, error, Phi, a):
         start = dt.now()
         x = tdot(error[:,1:,:], Phi, [[0], [0]]) # ptb * pn -> tbn
@@ -280,7 +274,6 @@ class IIRSpaceTime():
         u[0,:,:] = t2dot(B, a[0,:,:])
         for t in range(1, self.time_batch_size):
             u[t,:,:] = np.dot((I+M), u[t-1,:,:]) + np.dot(B, a[t,:,:])
-            #u[:,:,t] = t2dot((I+M), u[:,:,t-1]) + t2dot(B, a[:,:,t])
         self.profile_print("get_u Calc", start)
         return u
 
@@ -301,53 +294,58 @@ class IIRSpaceTime():
             return True
         return False
 
-    def sparsify(self, VI, Phi, M, B, debug=False):
-        a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-        error = VI - recon
-
-        print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
-            (-1, self.get_snr(VI, error), np.sum(np.abs(error)),
-             self.get_activity(a), self.get_activity(u))
-        start_snr = self.get_snr(VI, error)
-        last_snr = None
-
+    def get_Phi_hat(self, Phi, M, B):
         start = dt.now()
+
         I        = np.eye(self.neurons)
-        phi_hat  = np.zeros((self.patch_dim, self.cells, self.time_batch_size))
+        Phi_hat  = np.zeros((self.patch_dim, self.cells, self.time_batch_size))
         iplusm_t = I
-        phi_hat[:,:,0] = t2dot(Phi, t2dot(iplusm_t, B)) # pn * nn * nc
+        Phi_hat[:,:,0] = t2dot(Phi, t2dot(iplusm_t, B)) # pn * nn * nc
         for t in range(1, self.time_batch_size):
             iplusm_t = t2dot(iplusm_t, I+M)
-            phi_hat[:,:,t] = t2dot(Phi, t2dot(iplusm_t, B)) # Optimize?
-        self.profile_print("phi hat Calc", start)
+            Phi_hat[:,:,t] = t2dot(Phi, t2dot(iplusm_t, B)) # Optimize?
 
+        self.profile_print("phi hat Calc", start)
+        return Phi_hat
+
+    def get_b_and_G(self, VI, Phi, Phi_hat):
         start = dt.now()
         b = np.zeros((self.time_batch_size, self.cells, self.batch_size))
         G = np.zeros((self.time_batch_size, self.cells, self.neurons))
         for t in range(self.time_batch_size):
             for T in range(t+1, self.time_batch_size):
-                b[t,:,:] += np.dot(phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
-                G[t,:,:] += np.dot(phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
+                b[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
+                G[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, Phi) # JP * PN = JN
         self.profile_print("b and G Calc", start)
+        return b, G
+
+    def print_status(self, c, VI, error, a, u):
+        print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
+            (c, self.get_snr(VI, error), np.sum(np.abs(error)),
+             self.get_activity(a), self.get_activity(u))
+
+    def sparsify(self, VI, Phi, M, B, debug=False):
+        a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
+        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
+        error = VI - recon
+
+        self.print_status(-1, VI, error, a, u)
+        start_snr = self.get_snr(VI, error)
+        last_snr = None
+
+        Phi_hat = self.get_Phi_hat(Phi, M, B)
+        b,G = self.get_b_and_G(VI, Phi, Phi_hat)
 
         start = dt.now()
         for c in range(self.citers):
-            istart = dt.now()
-            da = b - t_bdot(G,u)
-            self.profile_print("iter Calc", istart)
-
-            da -= self.lambdav * self.sparse_cost(a)
-
+            da = b - t_bdot(G,u) - self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
 
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
 
             if c == self.citers - 1 or c % (self.citers/4) == 0:
-                print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
-                    (c, self.get_snr(VI, error), np.sum(np.abs(error)),
-                     self.get_activity(a), self.get_activity(u))
+                self.print_status(c, VI, error, a, u)
                 last_snr = self.get_snr(VI, error)
                 if self.visualizer and c == self.citers - 1:
                     self.draw(c, a, recon, VI)
