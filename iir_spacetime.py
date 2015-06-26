@@ -37,8 +37,8 @@ class IIRSpaceTime():
     neurons   = patch_dim * 4
     cells     = patch_dim * 1
 
-    load_phi = 3
-    #load_phi = None
+    #load_phi = 3
+    load_phi = None
     log_and_save = False
     batch_size = 20
     time_batch_size = 70
@@ -351,100 +351,6 @@ class IIRSpaceTime():
         self.profile_print("iters Calc", start, True)
 
         return error, recon, a
-
-    def get_u_2(self, M, B, a):
-        u = np.zeros((self.neurons, self.batch_size,self.time_batch_size))
-        iplusm = np.eye(self.neurons) + M
-        u[:,:,0] = np.dot(B, a[:,:,0])
-        for t in range(1, self.time_batch_size):
-            u[:,:,t] = np.dot(iplusm, u[:, :, t-1]) + np.dot(B, a[:,:,t])
-        return u
-
-    def get_reconstruction_2(self, VI, Phi, M, B, a):
-        start = dt.now()
-        u = self.get_u_2(M, B, a)
-        r = np.tensordot(Phi, u, [[1], [0]])
-        self.profile_print("get_reconstruction Calc", start)
-        return u, r
-
-    def debug_a(self, error, Phi, M, B, iplusm):
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        start = dt.now()
-        for TT in range(self.time_batch_size):
-            for JJ in range(self.cells):
-                for BB in range(self.batch_size):
-                    for t in range(TT+1, self.time_batch_size):
-                        tmp_t = 0
-                        for k in range(self.patch_dim):
-                            tmp_k = 0
-                            for i in range(self.neurons):
-                                tmp_i = 0
-                                for l in range(self.neurons):
-                                    tmp_i += iplusm[i, l, t-1-TT] * B[l, JJ]
-                                tmp_k += Phi[k, i] * tmp_i
-                            tmp_t += error[k, BB, t] * tmp_k
-                        result[JJ, BB, TT] += tmp_t
-        return result
-
-    def grad_a(self, VI, error, Phi, M, B, debug=True):
-        I = np.eye(self.neurons)
-        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
-        iplusm[:,:,0] = I
-        for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = np.dot(iplusm[:,:,t-1], I+M)
-
-        start = dt.now()
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        r2     = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        steps = 1000
-        for TT in range(self.time_batch_size - 1):
-            end1 = min(steps, self.time_batch_size-TT-1)
-            tmp = iplusm[:,:,:end1]
-
-            end2 = min(self.time_batch_size, TT+1+steps)
-            result[:,:,TT] = grad_a_TT(error[:,:,TT+1:end2], Phi, tmp, B)
-
-            #y = np.tensordot(tmp, B, [[1], [0]]) # lnt nj -> ltj
-            #z = np.tensordot(Phi, y, [[1], [0]]) # pl ltj -> ptj
-            #r2[:,:,TT] = np.tensordot(z, error[:,:,TT+1:end2], [[0,1], [0,2]]) # ptj pbt -> jb
-
-        self.profile_print("dA Calc", start)
-
-        if debug:
-            r2 = self.debug_a(error, Phi, M, B, iplusm)
-            print np.max(result - r2)
-            assert np.allclose(result, r2)
-
-        return result
-
-    def sparsifya(self, VI, Phi, M, B, debug=False):
-        VI = np.swapaxes(VI, 1, 2)
-        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        u, recon = self.get_reconstruction_2(VI, Phi, M, B, a)
-        error = VI - recon
-
-        print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
-            (-1, self.get_snr(VI, error), np.sum(np.abs(error)),
-             self.get_activity(a))
-
-        for c in range(self.citers):
-            da = self.grad_a(VI, error, Phi, M, B, debug) - \
-                        self.lambdav * self.sparse_cost(a)
-            a += self.coeff_eta * da
-
-            u, recon = self.get_reconstruction_2(VI, Phi, M, B, a)
-            error = VI - recon
-
-            if c == self.citers - 1 or c % (self.citers/4) == 0:
-                print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
-                    (c, self.get_snr(VI, error), np.sum(np.abs(error)),
-                     self.get_activity(a))
-                if self.visualizer and c == self.citers - 1:
-                #if self.visualizer:
-                    self.draw(c, a, recon, VI)
-
-        return error, recon, a
-
 
     def norm_Phi(self, Phi):
         return np.dot(Phi, np.diag(self.Phi_norm/np.sqrt(np.sum(Phi**2, axis = 0))))
