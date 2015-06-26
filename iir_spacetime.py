@@ -38,6 +38,7 @@ class IIRSpaceTime():
     cells     = patch_dim * 1
 
     load_phi = 3
+    #load_phi = None
     log_and_save = False
     batch_size = 20
     time_batch_size = 70
@@ -57,7 +58,7 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 6
+    citers    = 16
     coeff_eta = 5e-4
     lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
 
@@ -170,8 +171,8 @@ class IIRSpaceTime():
             eta /= 2.0
         return eta/self.batch_size
 
-    def profile_print(self, msg, start):
-        if not self.profile:
+    def profile_print(self, msg, start, override=False):
+        if not self.profile and not override:
             return
         diff = dt.now() - start
         print '%20s | E=%s' % (msg, diff)
@@ -306,23 +307,14 @@ class IIRSpaceTime():
         self.profile_print("phi hat Calc", start)
         return Phi_hat
 
-    def get_b_and_G(self, VI, Phi, Phi_hat):
+    def get_b(self, VI, Phi, Phi_hat):
         start = dt.now()
-        tbs = self.time_batch_size
         b = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        G = np.zeros((self.time_batch_size, self.cells, self.neurons))
         for t in range(self.time_batch_size):
             for T in range(t+1, self.time_batch_size):
                 b[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
-                #G[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, Phi)
-            G[t,:,:] = np.dot(Phi_hat[:,:,t].T, Phi)
-        #for t in range(self.time_batch_size-2, -1, -1):
-            #for T in range(t+1, self.time_batch_size):
-                #b[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
-            #G[t,:,:] = G[t+1,:,:] + np.dot(Phi_hat[:,:,tbs-t-2].T, Phi)
-
-        self.profile_print("b and G Calc", start)
-        return b, G
+        self.profile_print("b", start)
+        return b
 
     def print_status(self, c, VI, error, a, u):
         print '\t%d) SNR=%.2fdB, E=%.3f A_Activity=%.2f%% U_Activity=%.2f%%' % \
@@ -331,63 +323,32 @@ class IIRSpaceTime():
 
     def sparsify(self, VI, Phi, M, B, debug=False):
         a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        #a = 0.1 * np.random.randn(self.time_batch_size, self.cells, self.batch_size)
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
         self.print_status(-1, VI, error, a, u)
-        start_snr = self.get_snr(VI, error)
-        last_snr = None
 
         Phi_hat = self.get_Phi_hat(Phi, M, B)
-        b,G = self.get_b_and_G(VI, Phi, Phi_hat)
-
-        I = np.eye(self.neurons)
-        iplusm = np.zeros((self.neurons, self.neurons, self.time_batch_size))
-        iplusm[:,:,0] = I
-        for t in range(1, self.time_batch_size):
-            iplusm[:,:,t] = t2dot(iplusm[:,:,t-1], I+M)
+        b = self.get_b(VI, Phi, Phi_hat)
 
         start = dt.now()
         for c in range(self.citers):
-            #print 'U average', np.average(np.abs(u))
-            da = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-            gg = b
-            da += b
-            print 'Diff', np.max(da - gg)
-            pdb.set_trace()
-            for t in range(self.time_batch_size):
-                for T in range(t+1, self.time_batch_size):
-                    #da[t,:,:] -= np.dot(Phi_hat[:,:,T-t-1].T, np.dot(Phi, u[T,:,:]))
-                    r = np.dot(Phi, u[T,:,:])
-                    rp = np.dot(r.T, Phi)
-                    rpi = np.dot(rp, iplusm[:,:,T-t-1])
-                    rpib = np.dot(rpi, B)
-                    da[t,:,:] -= rpib.T
-                if c == 2 and t == self.time_batch_size - 2:
-                    T = t+1
-                    #  pb * pn -> bn * nj -> bj .T -> jb
-                    x = np.dot(tdot(error[:,T,:], Phi, [[0], [0]]), B).T
+            Gu = np.zeros((self.time_batch_size, self.cells, self.batch_size))
+            for t in range(self.time_batch_size - 1):
+                t_phi_hat = Phi_hat[:,:,:self.time_batch_size-t-1]
+                Gu[t,:,:] += comp_Gu(t_phi_hat, recon[:, t+1:, :])
 
-            #da += b
-            da -= self.lambdav * self.sparse_cost(a)
-            print 'DA average', np.average(np.abs(da[self.time_batch_size-2,:,:]))
-            #da = b - t_bdot(G,u) - self.lambdav * self.sparse_cost(a)
+            da = b - Gu - self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
-            #print 'A average', np.average(np.abs(a))
-
 
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
-            #print 'error average', np.average(np.abs(error))
 
-            #if c == self.citers - 1 or c % (self.citers/4) == 0:
-            if c < 5:
+            if c == self.citers - 1 or c % (self.citers/4) == 0:
                 self.print_status(c, VI, error, a, u)
-                last_snr = self.get_snr(VI, error)
                 if self.visualizer and c == self.citers - 1:
                     self.draw(c, a, recon, VI)
-        self.profile_print("iters Calc", start)
+        self.profile_print("iters Calc", start, True)
 
         return error, recon, a
 
@@ -458,9 +419,7 @@ class IIRSpaceTime():
 
     def sparsifya(self, VI, Phi, M, B, debug=False):
         VI = np.swapaxes(VI, 1, 2)
-        #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
         u, recon = self.get_reconstruction_2(VI, Phi, M, B, a)
         error = VI - recon
 
@@ -469,18 +428,13 @@ class IIRSpaceTime():
              self.get_activity(a))
 
         for c in range(self.citers):
-            #print 'U average', np.average(np.abs(u))
             da = self.grad_a(VI, error, Phi, M, B, debug) - \
                         self.lambdav * self.sparse_cost(a)
-            print 'DA average', np.average(np.abs(da[:,:,self.time_batch_size-2]))
             a += self.coeff_eta * da
-            #print 'A average', np.average(np.abs(a))
 
             u, recon = self.get_reconstruction_2(VI, Phi, M, B, a)
             error = VI - recon
 
-            #print 'error average', np.average(np.abs(error))
-            #if c < 5:
             if c == self.citers - 1 or c % (self.citers/4) == 0:
                 print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
                     (c, self.get_snr(VI, error), np.sum(np.abs(error)),

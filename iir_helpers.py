@@ -35,11 +35,7 @@ y = ttdot(Yv, Zv, [[1], [0]])
 ozz = ttdot(x, y, [[1,2], [1,0]]).T
 grad_a_TT = theano.function([Wv, Xv, Yv, Zv], ozz, allow_input_downcast=True)
 
-Hv = T.fmatrix('H')
-Iv = T.fmatrix('I')
-Jv = T.fmatrix('J')
-Kv = T.fmatrix('K')
-x = theano.dot(Hv, Iv)
-y = theano.dot(Jv, Kv)
-ohi = theano.dot(x, y).T
-grad_a_2 = theano.function([Hv, Iv, Jv, Kv], ohi, allow_input_downcast=True)
+Kv = T.tensor3('K')
+Lv = T.tensor3('L')
+okl = ttdot(Kv, Lv, [[0,2], [0,1]])
+comp_Gu = theano.function([Kv, Lv], okl, allow_input_downcast=True)
