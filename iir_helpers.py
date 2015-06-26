@@ -20,11 +20,26 @@ Fv = T.fmatrix('F')
 o4 = T.tensordot(Ev, Fv, [[1], [0]])
 t_tdot = theano.function([Ev, Fv], o4, allow_input_downcast=True)
 
-
 Ev = T.fmatrix('E')
 Fv = T.fmatrix('F')
 Gv = T.fmatrix('G')
 o5 = T.dot(Ev, T.dot(Fv, Gv))
 t3dot = theano.function([Ev, Fv, Gv], o5, allow_input_downcast=True)
 
+Wv = T.tensor3('W')
+Xv = T.fmatrix('X')
+Yv = T.tensor3('Y')
+Zv = T.fmatrix('Z')
+x = ttdot(Wv, Xv, [[0], [0]])
+y = ttdot(Yv, Zv, [[1], [0]])
+ozz = ttdot(x, y, [[1,2], [1,0]]).T
+grad_a_TT = theano.function([Wv, Xv, Yv, Zv], ozz, allow_input_downcast=True)
 
+Hv = T.fmatrix('H')
+Iv = T.fmatrix('I')
+Jv = T.fmatrix('J')
+Kv = T.fmatrix('K')
+x = theano.dot(Hv, Iv)
+y = theano.dot(Jv, Kv)
+ohi = theano.dot(x, y).T
+grad_a_2 = theano.function([Hv, Iv, Jv, Kv], ohi, allow_input_downcast=True)
