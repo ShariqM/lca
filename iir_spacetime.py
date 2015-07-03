@@ -34,19 +34,19 @@ class IIRSpaceTime():
     #neurons   = patch_dim * 2
     #cells     = patch_dim
     patch_dim = 64
-    neurons   = patch_dim * 4
-    cells     = patch_dim * 1
+    neurons   = patch_dim * 8
+    cells     = patch_dim * 8
 
     #load_phi = 3
     load_phi = None
-    log_and_save = False
+    log_and_save = True
     batch_size = 20
     time_batch_size = 70
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 10000
 
-    M_backprop_steps = 20
+    M_backprop_steps = 1
 
     Phi_eta_init = 1.2  / time_batch_size
     M_eta_init   = (0.02 / (M_backprop_steps)) / time_batch_size # Depend on the dim on input?
@@ -58,9 +58,9 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 16
+    citers    = 201
     coeff_eta = 5e-4
-    lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
+    lambdav   = 0.15 * time_batch_size # (have to account for sum over time)
 
     data_name = 'IMAGES_DUCK_SHORT'
     profile = False
@@ -262,6 +262,7 @@ class IIRSpaceTime():
 
     # Implement backprop?
     def grad_B(self, error, Phi, a):
+        return np.zeros((self.cells, self.neurons))
         start = dt.now()
         x = tdot(error[:,1:,:], Phi, [[0], [0]]) # ptb * pn -> tbn
         result = tdot(x, a[:-1,:,:], [[0,1], [0,2]]) # tbn * tjb -> nj
@@ -271,14 +272,16 @@ class IIRSpaceTime():
     def get_u(self, M, B, a):
         u = np.zeros((self.time_batch_size, self.neurons, self.batch_size))
         iplusm = np.eye(self.neurons) + M
-        u[0,:,:] = np.dot(B, a[0,:,:])
+        dot = t2dot
+        u[0,:,:] = dot(B, a[0,:,:])
         for t in range(1, self.time_batch_size):
-            u[t,:,:] = np.dot(iplusm, u[t-1,:,:]) + np.dot(B, a[t,:,:])
+            u[t,:,:] = dot(iplusm, u[t-1,:,:]) + dot(B, a[t,:,:])
         return u
 
     def get_reconstruction(self, VI, Phi, M, B, a):
         start = dt.now()
         u = self.get_u(M, B, a)
+        #self.profile_print("get_u Calc", start)
         r = np.tensordot(Phi, u, [[1], [1]])
         self.profile_print("get_reconstruction Calc", start)
         return u, r
@@ -312,7 +315,7 @@ class IIRSpaceTime():
         b = np.zeros((self.time_batch_size, self.cells, self.batch_size))
         for t in range(self.time_batch_size):
             for T in range(t+1, self.time_batch_size):
-                b[t,:,:] += np.dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
+                b[t,:,:] += t2dot(Phi_hat[:,:,T-(t+1)].T, VI[:,T,:]) # JP * PB = JB
         self.profile_print("b", start)
         return b
 
@@ -334,9 +337,17 @@ class IIRSpaceTime():
         start = dt.now()
         for c in range(self.citers):
             Gu = np.zeros((self.time_batch_size, self.cells, self.batch_size))
+
+            xstart = dt.now()
+            steps = 30
             for t in range(self.time_batch_size - 1):
-                t_phi_hat = Phi_hat[:,:,:self.time_batch_size-t-1]
-                Gu[t,:,:] += comp_Gu(t_phi_hat, recon[:, t+1:, :])
+                end1 = min(steps, self.time_batch_size-t-1)
+                #t_phi_hat = Phi_hat[:,:,:self.time_batch_size-t-1]
+                t_phi_hat = Phi_hat[:,:,:end1]
+                end2 = min(t+1+steps, self.time_batch_size)
+                #Gu[t,:,:] += comp_Gu(t_phi_hat, recon[:, t+1, :])
+                Gu[t,:,:] += comp_Gu(t_phi_hat, recon[:, t+1:end2, :])
+            self.profile_print("\titer Calc", xstart)
 
             da = b - Gu - self.lambdav * self.sparse_cost(a)
             a += self.coeff_eta * da
@@ -348,18 +359,18 @@ class IIRSpaceTime():
                 self.print_status(c, VI, error, a, u)
                 if self.visualizer and c == self.citers - 1:
                     self.draw(c, a, recon, VI)
-        self.profile_print("iters Calc", start, True)
+        self.profile_print("iters Calc", start)
 
         return error, recon, a
 
     def norm_Phi(self, Phi):
-        return np.dot(Phi, np.diag(self.Phi_norm/np.sqrt(np.sum(Phi**2, axis = 0))))
+        return t2dot(Phi, np.diag(self.Phi_norm/np.sqrt(np.sum(Phi**2, axis = 0))))
 
     def norm_B(self, B):
-        return np.dot(B, np.diag(self.B_norm/np.sqrt(np.sum(B**2, axis = 0))))
+        return t2dot(B, np.diag(self.B_norm/np.sqrt(np.sum(B**2, axis = 0))))
 
     def norm_M(self, M):
-        return np.dot(M, np.diag(self.M_norm/np.sqrt(np.sum(M**2, axis = 0))))
+        return t2dot(M, np.diag(self.M_norm/np.sqrt(np.sum(M**2, axis = 0))))
 
     def train(self):
         if self.load_phi is not None:
@@ -371,7 +382,7 @@ class IIRSpaceTime():
 
             B = 0.1 * np.random.randn(self.neurons, self.cells)
             B = self.norm_B(B)
-            #B = np.eye(self.cells)
+            B = 0.1 * np.eye(self.cells)
             M = 0.1 * np.random.randn(self.neurons, self.neurons)
             M = self.norm_M(M)
 
@@ -381,10 +392,7 @@ class IIRSpaceTime():
         start = dt.now()
         for trial in range(self.num_trials):
             VI = self.load_videos()
-            print 'New'
             error, recon, a = self.sparsify(VI, Phi, M, B)
-            print 'Orig'
-            error, recon, a = self.sparsifya(VI, Phi, M, B)
 
             print '%d) 1-SPARSIFY-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
@@ -408,7 +416,7 @@ class IIRSpaceTime():
             error = VI - recon
             print '%d) 4-GRAD_Phi-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
 
-            B = self.norm_B(B)
+            #B = self.norm_B(B)
             Phi = self.norm_Phi(Phi)
 
             print "t=%d, Elapsed=%d seconds" % (trial, (dt.now()-start).seconds)
