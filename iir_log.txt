@@ -1,0 +1,365 @@
+0
+
+*** IIR_LOG_1 ***
+Time=2015-06-22 17:14:56.066449
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =1
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000016
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+1
+
+*** IIR_LOG_2 ***
+Time=2015-06-22 17:23:54.832136
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =1
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000016
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+2
+
+*** IIR_LOG_3 ***
+Time=2015-06-23 10:16:18.823197
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =20
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000016
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+3
+
+*** IIR_LOG_4 ***
+Time=2015-06-23 12:38:52.812609
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =20
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000313
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+4
+
+*** IIR_LOG_5 ***
+Time=2015-06-23 14:50:29.708501
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =128
+batch_size =20
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000016
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+5
+
+*** IIR_LOG_6 ***
+Time=2015-06-23 15:22:36.026526
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =128
+batch_size =20
+time_batch_size =64
+Phi_eta_init =0.018750
+M_eta_init   =0.000016
+B_eta_init   =0.000313
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =12.800000
+coeff_backprop_steps =10
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+6
+
+*** IIR_LOG_7 ***
+Time=2015-06-24 14:54:18.252067
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =20
+time_batch_size =70
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.005000
+lambdav   =14.000000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+7
+
+*** IIR_LOG_8 ***
+Time=2015-06-25 22:17:52.995219
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =20
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =14.000000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+8
+
+*** IIR_LOG_9 ***
+Time=2015-06-26 01:02:46.790942
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =30
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =14.000000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+9
+
+*** IIR_LOG_10 ***
+Time=2015-06-26 09:58:47.220059
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =64
+batch_size =30
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =14.000000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+10
+
+*** IIR_LOG_11 ***
+Time=2015-06-26 16:08:35.202932
+Host=eweiss-desktop
+patch_dim =64
+neurons   =512
+cells     =64
+batch_size =30
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =14.000000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+11
+
+*** IIR_LOG_12 ***
+Time=2015-06-26 16:22:25.113157
+Host=eweiss-desktop
+patch_dim =64
+neurons   =256
+cells     =128
+batch_size =20
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =10.500000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+12
+
+*** IIR_LOG_13 ***
+Time=2015-06-26 16:35:49.407852
+Host=eweiss-desktop
+patch_dim =64
+neurons   =512
+cells     =256
+batch_size =20
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =10.500000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+13
+
+*** IIR_LOG_14 ***
+Time=2015-06-26 16:40:48.824402
+Host=eweiss-desktop
+patch_dim =64
+neurons   =512
+cells     =256
+batch_size =20
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =10.500000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+14
+
+*** IIR_LOG_15 ***
+Time=2015-06-30 12:28:57.576875
+Host=eweiss-desktop
+patch_dim =64
+neurons   =512
+cells     =512
+batch_size =20
+time_batch_size =70
+M_backprop   =20.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000014
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =46
+coeff_eta =0.000500
+lambdav   =10.500000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+15
+
+*** IIR_LOG_16 ***
+Time=2015-06-30 14:55:42.725374
+Host=eweiss-desktop
+patch_dim =64
+neurons   =512
+cells     =512
+batch_size =20
+time_batch_size =70
+M_backprop   =1.000000
+Phi_eta_init =0.017143
+M_eta_init   =0.000286
+B_eta_init   =0.000286
+eta_inc  =500
+Phi_norm =1.000000
+M_norm   =0.010000
+B_norm   =0.100000
+citers    =201
+coeff_eta =0.000500
+lambdav   =10.500000
+data_name =IMAGES_DUCK_SHORT
+visualizer =False
+16
