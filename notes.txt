@@ -65,3 +65,10 @@ Spiral Out of Control:
         20) SNR=-76.69dB, E=3647119.117 Activity=24.73%
         30) SNR=-89.78dB, E=16419867.346 Activity=24.77%
         39) SNR=-100.84dB, E=58612144.948 Activity=24.64% <---- explosion
+
+
+B Model
+- With M unconstrained and No backprop on A or M we get stuck at around 0.01dB
+254) 6-NORM_Phi-SNR=0.98dB
+- Backprop A helps get to 2.5-3.0dB
+- Backprop M helps get to 3.5-4.0dB
