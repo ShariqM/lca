@@ -33,11 +33,12 @@ class IIRSpaceTime():
     #patch_dim = 16
     #neurons   = patch_dim * 2
     #cells     = patch_dim
-    patch_dim = 64
-    neurons   = patch_dim * 4
-    cells     = patch_dim * 1
+    #patch_dim = 64
+    patch_dim = 144
+    neurons   = 4
+    cells     = 4
 
-    load_phi   = 'iir_dict/IIR_LOG_3'
+    load_phi   = None
     save_phi   = None
     log_and_save = False
 
@@ -46,6 +47,8 @@ class IIRSpaceTime():
     #batch_size = 10
     #time_batch_size = 64
     num_trials = 10000
+
+    coeff_test = True # Learn easy dynamics (IMAGES_PHI_INTERP)
 
     M_backprop_steps = 20
 
@@ -63,7 +66,7 @@ class IIRSpaceTime():
     coeff_eta = 5e-4
     lambdav   = 0.20 * time_batch_size # (have to account for sum over time)
 
-    data_name = 'IMAGES_DUCK_SHORT'
+    data_name = 'IMAGES_PHI_INTERP'
     profile = False
     visualizer = False
     show = True
@@ -363,18 +366,42 @@ class IIRSpaceTime():
         return np.dot(M, np.diag(self.M_norm/np.sqrt(np.sum(M**2, axis = 0))))
 
     def train(self):
-        if self.load_phi is not None:
-            d = np.load('iir_dict/IIR_LOG_%d.npz' % self.load_phi)
-            Phi, B, M = d['Phi'], d['B'], d['M']
-        else:
-            Phi = np.random.randn(self.patch_dim, self.neurons)
-            Phi = self.norm_Phi(Phi)
+        if self.coeff_test:
+            name = 'Phi_399_0.4.mat'
+            Phi_orig = scipy.io.loadmat('dict/%s' % name)['Phi']
 
-            B = 0.1 * np.random.randn(self.neurons, self.cells)
-            B = self.norm_B(B)
-            #B = np.eye(self.cells)
-            M = 0.1 * np.random.randn(self.neurons, self.neurons)
-            M = self.norm_M(M)
+            idx_0 = 53
+            idx_1 = 55
+            Phi = np.zeros((Phi_orig.shape[0], 4))
+            # Forward
+            Phi[:,0] = Phi_orig[:,idx_0]
+            Phi[:,2] = Phi_orig[:,idx_0]
+            # Backward
+            Phi[:,1] = Phi_orig[:,idx_1]
+            Phi[:,3] = Phi_orig[:,idx_1]
+
+            M = np.zeros((self.cells))
+            # Forward
+            M[0][1] = -0.1
+            M[1][0] = 0.1
+            # Backward
+            M[2][3] = 0.1
+            M[3][2] = -0.1
+
+            B = self.eye(self.cells)
+        else:
+            if self.load_phi is not None:
+                d = np.load('iir_dict/IIR_LOG_%d.npz' % self.load_phi)
+                Phi, B, M = d['Phi'], d['B'], d['M']
+            else:
+                Phi = np.random.randn(self.patch_dim, self.neurons)
+                Phi = self.norm_Phi(Phi)
+
+                B = 0.1 * np.random.randn(self.neurons, self.cells)
+                B = self.norm_B(B)
+                #B = np.eye(self.cells)
+                M = 0.1 * np.random.randn(self.neurons, self.neurons)
+                M = self.norm_M(M)
 
         if self.visualizer:
             self.batch_size = 1
