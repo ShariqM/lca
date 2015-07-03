@@ -36,7 +36,7 @@ class IIRSpaceTime():
     cells     = patch_dim
 
     #load_phi   = None
-    load_phi   = 'iir_spacetime'
+    load_phi   = 'iir_dict/IIR_LOG_3'
     save_phi   = None
     #save_phi   = 'iir_spacetime'
     batch_size = 20
@@ -225,8 +225,8 @@ class IIRSpaceTime():
 
     def sparsify(self, VI, Phi, M, B, debug=False):
         #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
+        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        #a = 1.0 * np.random.randn(self.cells, self.batch_size, self.time_batch_size)
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
 
