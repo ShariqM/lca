@@ -9,6 +9,7 @@ from math import floor, ceil, sqrt
 import pprint
 import h5py
 import argparse
+import pdb
 
 orig_show = True
 smooth_show = False
@@ -20,9 +21,12 @@ smooth_show = False
 #sname = 'IMAGES_DUCK_LONG_FAKE_SMOOTH_0.7'
 
 #oname = 'IMAGES_PATCH_DUCK'
-oname = 'IMAGES_DUCK_SHORT'
+#oname = 'IMAGES_DUCK_SHORT'
 #oname = 'IMAGES_EDGE_RIGHT_DUCK'
-#oname = 'IMAGES_EDGE_DUCK'
+oname = 'IMAGES_EDGE_DUCK'
+
+oname = 'IMAGES_PHI_INTERP'
+
 #oname = 'IMAGES_EDGE_DUCK_2'
 #oname = 'IMAGES_DUCK'
 #oname = 'IMAGES_MOVE_RIGHT'
@@ -61,9 +65,11 @@ for i in range(start, stop, interval):
         #plt.subplot(211)
         r = 144
         c = 144
+        #pdb.set_trace()
         #plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+        plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-0.25,0.25,True), cmap = cm.binary, interpolation='none')
         #plt.imshow(OIMAGES[24:36,24:36,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
-        plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+        #plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
         plt.title('Original %d Var=%.4f' % (i, OIMAGES[:,:,i].var().mean()))
         time.sleep(0.2)
 

@@ -40,6 +40,7 @@ class IIRSpaceTime():
     #load_phi = 3
     load_phi = None
     log_and_save = True
+
     batch_size = 20
     time_batch_size = 70
     #batch_size = 10

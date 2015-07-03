@@ -1,5 +1,6 @@
 import matplotlib
 import scipy.io
+import pdb
 import scipy.stats as stats
 import time
 import numpy as np
@@ -9,10 +10,10 @@ import matplotlib.cm as cm
 from math import floor, ceil, sqrt
 import pprint
 import argparse
+from showbfs import showbfs
 
 
 class MovieGen():
-
 
     def __init__(self, gen_type=1):
         self.imsz = 192
@@ -27,6 +28,72 @@ class MovieGen():
 
     def save(self, name):
         scipy.io.savemat('mat/%s.mat' % name, {name: self.data})
+
+    def get_AS_matrix(self, size):
+        M = np.zeros((size,size))
+        M[0][1] = -0.1
+        M[1][0] = 0.1
+        return M
+
+    def init_coeffs(self, size):
+        coeffs = np.zeros(size)
+        coeffs[0] = 1
+        return coeffs
+
+    def phi_interp(self):
+        name = 'Phi_399_0.4.mat'
+        Phi_orig = scipy.io.loadmat('dict/%s' % name)['Phi']
+
+        num_basis = 2
+        #idx_0 = 54
+        #idx_1 = 55
+        idx_0 = 53
+        idx_1 = 55
+        Phi = np.zeros((Phi_orig.shape[0], num_basis))
+        Phi[:,0] = Phi_orig[:,idx_0]
+        Phi[:,1] = Phi_orig[:,idx_1]
+
+
+        showbfs(Phi)
+        plt.show()
+
+        coeffs = self.init_coeffs(num_basis)
+
+        M = self.get_AS_matrix(num_basis)
+        I = np.eye(num_basis)
+
+        rots = 15
+        occs = 6
+        self.frames = occs * ((rots - 1) * 2)
+        self.data = np.zeros((self.imsz, self.imsz, self.frames))
+
+        t = 0
+        for i in range(occs):
+            for j in range(rots):
+                img = np.reshape(np.dot(Phi, coeffs), (self.sz, self.sz)).T
+                for r in range(self.imsz/self.sz):
+                    for c in range(self.imsz/self.sz):
+                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = img
+                t = t + 1
+                coeffs = np.dot(M + I, coeffs)
+
+                print coeffs
+
+                if self.show_images:
+                    plt.imshow(img, cmap = cm.binary, interpolation='none')
+                    plt.show()
+
+            # Reverse
+            for k in range(rots-2):
+                for r in range(self.imsz/self.sz):
+                    for c in range(self.imsz/self.sz):
+                        self.data[:,:,t] = self.data[:,:,rots-k-2]
+                t = t + 1
+
+            coeffs = self.init_coeffs(num_basis)
+
+        self.save('IMAGES_PHI_INTERP')
+
 
     def movie_right(self):
         t = 0
@@ -226,10 +293,12 @@ class MovieGen():
             self.duck_edge()
         elif self.gen_type == 6:
             self.duck_edge_right()
+        elif self.gen_type == 7:
+            self.phi_interp()
         else:
             self.duck_patch()
 
-mg = MovieGen(5)
+mg = MovieGen(7)
 mg.run()
 
 #plt.imshow(data[:,:,13] ,norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
