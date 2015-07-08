@@ -1040,7 +1040,7 @@ class LcaNetwork():
     def thresh(self, u, theta):
         'LCA threshold function'
         if self.thresh_type=='hard': # L0 Approximation
-            a = u;
+            a = np.copy(u) # Bug if don't copy
             a[np.abs(a) < theta] = 0
         elif self.thresh_type=='soft': # L1 Approximation
             a = abs(u) - theta;

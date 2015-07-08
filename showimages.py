@@ -26,6 +26,7 @@ smooth_show = False
 oname = 'IMAGES_EDGE_DUCK'
 
 oname = 'IMAGES_PHI_INTERP'
+oname = 'IMAGES_PHI_463_INTERP'
 
 #oname = 'IMAGES_EDGE_DUCK_2'
 #oname = 'IMAGES_DUCK'

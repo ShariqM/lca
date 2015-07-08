@@ -41,18 +41,20 @@ class MovieGen():
         return coeffs
 
     def phi_interp(self):
-        name = 'Phi_399_0.4.mat'
+        #name = 'Phi_399_0.4.mat'
+        name = 'Phi_463/Phi_463_0.3.mat'
         Phi_orig = scipy.io.loadmat('dict/%s' % name)['Phi']
 
         num_basis = 2
         #idx_0 = 54
         #idx_1 = 55
-        idx_0 = 53
-        idx_1 = 55
+        #idx_0 = 53
+        #idx_1 = 55
+        idx_0 = 167
+        idx_1 = 122
         Phi = np.zeros((Phi_orig.shape[0], num_basis))
         Phi[:,0] = Phi_orig[:,idx_0]
         Phi[:,1] = Phi_orig[:,idx_1]
-
 
         showbfs(Phi)
         plt.show()
@@ -92,7 +94,7 @@ class MovieGen():
 
             coeffs = self.init_coeffs(num_basis)
 
-        self.save('IMAGES_PHI_INTERP')
+        self.save('IMAGES_PHI_463_INTERP')
 
 
     def movie_right(self):
