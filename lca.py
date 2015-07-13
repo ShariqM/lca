@@ -55,7 +55,7 @@ class LcaNetwork():
     patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = 144 # Number of basis functions
     #neurons      = 1024 # Number of basis functions
-    neurons      = 18 ** 2
+    neurons      = 200
     #neurons      = patch_dim * 4 # Number of basis functions
     sz           = int(np.sqrt(patch_dim))
     #Gam_size     = neurons
@@ -75,7 +75,8 @@ class LcaNetwork():
     #init_phi_name = 'Phi_497_0.3' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
+    #init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
+    init_phi_name = 'Phi_169_45.0'
     #init_phi_name = 'Phi_193_37.0' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_602/Phi_602_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_604/Phi_604_0.5'
@@ -99,7 +100,7 @@ class LcaNetwork():
     move_to_lsm  = 6
     #lambda_beta  = group_sparse # For LSM
 
-    iters_per_frame = 10  # Only for vLearning
+    iters_per_frame = 30  # Only for vLearning
     time_batch_size = 100
     load_sequentially = False # Unsupported ATM. Don't grab random space-time boxes
     save_activity = True # Only supported for vReconstruct
@@ -114,7 +115,7 @@ class LcaNetwork():
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
     iter_idx        = 0
-    num_frames      = 100 # Number of frames to visualize
+    num_frames      = 900 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
     lb4predict      = 80/iters_per_frame # Number of frames to let the dynamics settle before predicting
     num_coeff_upd   = lb4predict * iters_per_frame + num_frames - lb4predict #  Special case for vPredict
@@ -129,7 +130,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[1]
+        self.image_data_name = self.datasets[2]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -762,7 +763,7 @@ class LcaNetwork():
 
         max_active = float(self.neurons * self.batch_size)
 
-        run_p = [RunP(True, 10, self.lambdav)]
+        run_p = [RunP(True, 30, self.lambdav)]
         labels = get_labels(run_p)
 
         runs = len(labels)
@@ -911,7 +912,6 @@ class LcaNetwork():
         b = t2dot(Phi.T, I)
         G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
         u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
-        pdb.set_trace()
 
         if self.lambda_type == LambdaType.Fixed:
             l = np.ones(self.batch_size)

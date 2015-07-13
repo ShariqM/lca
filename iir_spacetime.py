@@ -42,12 +42,17 @@ class IIRSpaceTime():
     log_and_save = False
 
     batch_size = 20
-    time_batch_size = 15
+    time_batch_size = 300
     #batch_size = 10
     #time_batch_size = 64
     thresh_type  = 'soft'
     num_trials = 10000
 
+    coeff_steps = 2
+    sparsify_type = 'sparsify_iter'
+    start_ideal = True   # cheat start on sparisfy()
+    stay_ideal  = start_ideal
+    #stay_ideal  = True
     coeff_test = True # Learn easy dynamics (IMAGES_PHI_INTERP)
     M_backprop_steps = 1
 
@@ -61,12 +66,16 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 446
-    coeff_eta = 5e-2
+    citers    = 1
+    #coeff_eta = 1e-3
+    #coeff_eta = 1e-2
     #coeff_eta = 1e-1
-    lambdav   = 0.394
+    coeff_eta = 1e-3
+    #lambdav   = 0.78
+    lambdav   = 0.14
+    #lambdav   = 0.00
 
-    data_name = 'IMAGES_PHI_463_INTERP'
+    data_name = 'IMAGES_DUCK_SHORT'
     profile = False
     visualizer = True
     show = True
@@ -184,7 +193,13 @@ class IIRSpaceTime():
         print '%20s | E=%s' % (msg, diff)
 
     def sparse_cost(self, a):
-        return (2 * a) / (1 + a ** 2)
+        #return (2 * a) / (1 + a ** 2)
+        sigma = 0.10
+        return (2 * (a/sigma)) / (1 + (a/sigma) ** 2)
+
+        #a[a>0] = 1
+        #a[a<0] = -1
+        #return -a # Fix
 
     def get_activity(self, a):
         max_active = self.batch_size * self.time_batch_size * self.neurons
@@ -238,7 +253,7 @@ class IIRSpaceTime():
         for coeff, i in zip(self.coeffs, range(self.cells)):
             coeff.set_height(abs(v[i]))  # Update the potentials
 
-        time.sleep(0.1)
+        time.sleep(0.3)
 
         '''
         #self.ax[1,0].imshow(np.reshape(I[:,0], (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
@@ -264,7 +279,7 @@ class IIRSpaceTime():
         plt.show()
 
     def draw(self, c, u, a, recon, VI):
-        fg, ax = plt.subplots(4)
+        fg, ax = plt.subplots(4, figsize=(12,8))
 
         ax[2].set_title('A Activity')
         ax[3].set_title('U Activity')
@@ -272,6 +287,11 @@ class IIRSpaceTime():
         u_height = np.max(np.abs(u))
         ax[2].axis([0, self.time_batch_size, -a_height, a_height])
         ax[3].axis([0, self.time_batch_size, -u_height, u_height])
+        ax[2].plot(range(self.time_batch_size),
+                   [0] * self.time_batch_size, color='k')
+        ax[3].plot(range(self.time_batch_size),
+                   [0] * self.time_batch_size, color='k')
+
         for i in range(self.cells):
             ax[2].plot(range(self.time_batch_size), a[:,i,0], label='Coeff=%d' % i)
             ax[3].plot(range(self.time_batch_size), u[:,i,0], label='Coeff=%d' % i)
@@ -285,8 +305,9 @@ class IIRSpaceTime():
             ax[1].set_title('Image iter=%d, t=%d' % (c, t))
 
             plt.draw()
+            plt.show()
             time.sleep(0.2)
-        time.sleep(9999)
+        plt.show(block=True)
         plt.close()
 
     def grad_M(self, VI, Phi, M, B, error, u, a):
@@ -402,9 +423,19 @@ class IIRSpaceTime():
             (c, self.get_snr(VI, error), np.sum(np.abs(error)),
              self.get_activity(a), self.get_activity(u))
 
+    def make_ideal(self, a):
+        a[:,0,:] = .05
+        if 0 and self.time_batch_size > 16:
+            ##[-0.0258801  1.0825474]
+            a[16,1,:] = -1.0825
+            a[16,3,:] = 1.0825
+            a[16,2,:] = -0.02588
+        return a
+
     def sparsify(self, VI, Phi, M, B, debug=False):
         a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        #a[0,0,:] = 1
+        if self.start_ideal:
+            a = self.make_ideal(a)
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
         self.print_status(-1, VI, error, a, u)
@@ -417,7 +448,7 @@ class IIRSpaceTime():
             Gu = np.zeros((self.time_batch_size, self.cells, self.batch_size))
 
             xstart = dt.now()
-            steps = 30
+            steps = self.coeff_steps
             for t in range(self.time_batch_size - 1):
                 end1 = min(steps, self.time_batch_size-t-1)
                 t_phi_hat = Phi_hat[:,:,:end1]
@@ -425,8 +456,9 @@ class IIRSpaceTime():
                 Gu[t,:,:] += comp_Gu(t_phi_hat, recon[:, t+1:end2, :])
             self.profile_print("\titer Calc", xstart)
 
-            da = b - Gu - self.lambdav * self.sparse_cost(a)
-            a += self.coeff_eta * da
+            da = b - Gu - self.lambdav * steps * self.sparse_cost(a)
+            if not self.stay_ideal:
+                a += self.coeff_eta * da
 
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)
             error = VI - recon
@@ -439,16 +471,20 @@ class IIRSpaceTime():
 
         return error, recon, a
 
-    def sparsify(self, VI, Phi, M, B, debug=False):
+    def sparsify_iter(self, VI, Phi, M, B, debug=False):
         a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        #a[0,0,:] = 1.0
+        if self.start_ideal:
+            a = self.make_ideal(a)
+
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
         self.print_status(-1, VI, error, a, u)
 
         Phi_hat = self.get_Phi_hat(Phi, M, B)
-        steps = 4
+        steps = self.coeff_steps
         b = self.get_b(VI, Phi, Phi_hat, steps)
+
+        pdb.set_trace()
 
         start = dt.now()
         for t in range(self.time_batch_size):
@@ -459,8 +495,9 @@ class IIRSpaceTime():
                 end2 = min(t+steps, self.time_batch_size)
                 Gu = comp_Gu(t_phi_hat, recon[:, t:end2, :])
 
-                da = b[t,:,:] - Gu - self.lambdav * steps * self.sparse_cost(a[t,:,:])
-                a[t,:,:] += self.coeff_eta * da
+                da = b[t,:,:] - Gu - steps * self.lambdav * self.sparse_cost(a[t,:,:])
+                if not self.stay_ideal:
+                    a[t,:,:] += self.coeff_eta * da
 
                 u, recon = self.get_reconstruction(VI, Phi, M, B, a)
                 error = VI - recon
@@ -468,41 +505,8 @@ class IIRSpaceTime():
 
                 if c == self.citers - 1 or c % (self.citers/4) == 0:
                     if self.visualizer and c == self.citers - 1 and t == self.time_batch_size - 1:
-                        self.draw(c, u, a, recon, VI)
-        self.profile_print("iters Calc", start)
-
-        return error, recon, a
-
-    def sparsify(self, VI, Phi, M, B, debug=False):
-        a = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        #a[0,0,:] = 1.0
-        u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-        error = VI - recon
-        self.print_status(-1, VI, error, a, u)
-
-        Phi_hat = self.get_Phi_hat(Phi, M, B)
-        steps = 4
-        b = self.get_b(VI, Phi, Phi_hat, steps)
-
-        start = dt.now()
-        for t in range(self.time_batch_size):
-            print t
-            for c in range(self.citers):
-                end1 = min(steps, self.time_batch_size-t)
-                t_phi_hat = Phi_hat[:,:,:end1]
-                end2 = min(t+steps, self.time_batch_size)
-                Gu = comp_Gu(t_phi_hat, recon[:, t:end2, :])
-
-                da = b[t,:,:] - Gu - self.lambdav * steps * self.sparse_cost(a[t,:,:])
-                a[t,:,:] += self.coeff_eta * da
-
-                u, recon = self.get_reconstruction(VI, Phi, M, B, a)
-                error = VI - recon
-                self.print_status(c, VI, error, a, u)
-
-                if c == self.citers - 1 or c % (self.citers/4) == 0:
-                    #if self.visualizer and c == self.citers - 1 and t == self.time_batch_size - 1:
-                    if self.visualizer and c == self.citers - 1:
+                    #if self.visualizer and c == self.citers - 1:
+                        print a[t,:,:]
                         self.draw(c, u, a, recon, VI)
         self.profile_print("iters Calc", start)
 
@@ -519,18 +523,28 @@ class IIRSpaceTime():
             a = np.sign(v) * a
         return a
 
-    def sparsify(self, VI, Phi, M, B, debug=False):
+    def sparsify_thresh(self, VI, Phi, M, B, debug=False):
         v = np.zeros((self.time_batch_size, self.cells, self.batch_size))
-        #v[0,0,:] = 1.0 + self.lambdav
+        if self.start_ideal:
+            v = self.make_ideal(v + self.lambdav) # FIXME
         a = self.thresh(v, self.lambdav)
 
         u, recon = self.get_reconstruction(VI, Phi, M, B, a)
         error = VI - recon
         self.print_status(-1, VI, error, a, u)
+        self.draw_potential(-1, v[0,:,:], recon, VI)
 
         Phi_hat = self.get_Phi_hat(Phi, M, B)
-        steps = 15
+        steps = self.coeff_steps
         b = self.get_b(VI, Phi, Phi_hat, steps)
+
+        self_inhib_factor = 0
+        if self.coeff_test:
+            m = 0 # Fixme for bigger dict
+        for p in range(self.patch_dim):
+            for l in range(self.neurons):
+                self_inhib_factor += Phi[p,m] * Phi[p,l]
+        print 'self inhibi', self_inhib_factor
 
         start = dt.now()
         for t in range(self.time_batch_size):
@@ -541,21 +555,25 @@ class IIRSpaceTime():
                 end2 = min(t+steps, self.time_batch_size)
                 Gu = comp_Gu(t_phi_hat, recon[:, t:end2, :])
 
-                #print 'b', b[t,:,:]
-                #print 'Gu', Gu
-                #print 'v', v[t,:,:]
-                #print 'a', a[t,:,:]
-                #pdb.set_trace()
+                if c == 1:
+                    pdb.set_trace()
+                Gu += self_inhib_factor * a[t,:,:]
 
-                v[t,:,:] = self.coeff_eta * (b[t,:,:] - Gu) + (1 - self.coeff_eta) * v[t,:,:]
-                #print np.max(v[t,:,:])
-                a[t,:,:] = self.thresh(v[t,:,:], self.lambdav)
+
+                print 'b', b[t,:,:]
+                print 'Gu', Gu
+                print 'u', u[t,:,:]
+                print 'v', v[t,:,:]
+                print 'a', a[t,:,:]
+                if not self.stay_ideal:
+                    v[t,:,:] = self.coeff_eta * (b[t,:,:] - Gu) + (1 - self.coeff_eta) * v[t,:,:]
+                    a[t,:,:] = self.thresh(v[t,:,:], self.lambdav)
 
                 u, recon = self.get_reconstruction(VI, Phi, M, B, a)
                 error = VI - recon
                 self.print_status(c, VI, error, a, u)
 
-                #self.draw_potential(c, v[t,:,:], recon, VI)
+                self.draw_potential(c, v[t,:,:], recon, VI)
 
                 if c == self.citers - 1 or c % (self.citers/4) == 0:
                     #if self.visualizer and c == self.citers - 1 and t == self.time_batch_size - 1:
@@ -621,7 +639,14 @@ class IIRSpaceTime():
         start = dt.now()
         for trial in range(self.num_trials):
             VI = self.load_videos()
-            error, recon, a = self.sparsify(VI, Phi, M, B)
+            if self.sparsify_type == 'sparsify':
+                error, recon, a = self.sparsify(VI, Phi, M, B)
+            elif self.sparsify_type == 'sparsify_iter':
+                error, recon, a = self.sparsify_iter(VI, Phi, M, B)
+            elif self.sparsify_type == 'sparsify_thresh':
+                error, recon, a = self.sparsify_thresh(VI, Phi, M, B)
+            else:
+                raise Exception("Unknown sparsify: %s" % self.sparisfy_type)
 
             print '%d) 1-SPARSIFY-SNR=%.2fdB' % (trial, self.get_snr(VI, error))
             u, recon = self.get_reconstruction(VI, Phi, M, B, a)

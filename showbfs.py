@@ -44,9 +44,12 @@ def showbfs(Phi, idx=-1):
 
 if __name__ == "__main__":
     i = args.dict_idx
-    name = 'Phi_197_1.9.mat'
-    name = 'Phi_399_0.4.mat'
+    #name = 'Phi_197_1.9.mat'
+    #name = 'Phi_399_0.4.mat'
     name = 'Phi_463/Phi_463_0.3.mat'
+    #name = 'Phi_520/Phi_520_0.6.mat'
+    #name = 'Phi_169_45.0.mat'
+
     #name = 'Phi_600/Phi_600_1.3.mat'
     #name = 'Phi_601/Phi_601_0.3.mat'
     #name = 'Phi_602/Phi_602_0.2.mat'

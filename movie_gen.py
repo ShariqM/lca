@@ -59,40 +59,35 @@ class MovieGen():
         showbfs(Phi)
         plt.show()
 
-        coeffs = self.init_coeffs(num_basis)
-
         M = self.get_AS_matrix(num_basis)
+        rM = -M
         I = np.eye(num_basis)
 
-        rots = 15
-        occs = 6
-        self.frames = occs * ((rots - 1) * 2)
+        rots = 16
+        occs = 1
+        self.frames = occs * (rots * 2)
         self.data = np.zeros((self.imsz, self.imsz, self.frames))
 
         t = 0
         for i in range(occs):
-            for j in range(rots):
-                img = np.reshape(np.dot(Phi, coeffs), (self.sz, self.sz)).T
-                for r in range(self.imsz/self.sz):
-                    for c in range(self.imsz/self.sz):
-                        self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = img
-                t = t + 1
-                coeffs = np.dot(M + I, coeffs)
+            coeffs = self.init_coeffs(num_basis)
+            for M in (M, rM):
+                print 'New'
+                for j in range(rots):
+                    img = np.reshape(np.dot(Phi, coeffs), (self.sz, self.sz)).T
+                    for r in range(self.imsz/self.sz):
+                        for c in range(self.imsz/self.sz):
+                            self.data[r*self.sz:(r+1)*self.sz,c*self.sz:(c+1)*self.sz:,t] = img
+                    print '\t %d)' % j , coeffs
+                    t = t + 1
+                    coeffs = np.dot(M + I, coeffs)
 
-                print coeffs
+
+                i += 1
 
                 if self.show_images:
                     plt.imshow(img, cmap = cm.binary, interpolation='none')
                     plt.show()
-
-            # Reverse
-            for k in range(rots-2):
-                for r in range(self.imsz/self.sz):
-                    for c in range(self.imsz/self.sz):
-                        self.data[:,:,t] = self.data[:,:,rots-k-2]
-                t = t + 1
-
-            coeffs = self.init_coeffs(num_basis)
 
         self.save('IMAGES_PHI_463_INTERP')
 

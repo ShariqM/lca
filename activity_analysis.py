@@ -92,6 +92,7 @@ class Analysis():
             self.patch_per_dim = int(np.floor(imsize / self.sz))
 
             self.log = np.load('activity/%s_%s_%s.npy' % (aname, self.phi_name, ds[0]))
+            pdb.set_trace()
             #self.log = self.log[:, self.start_patch:self.start_patch+self.patches, ds[1]:ds[2]]
 
         self.timepoints = min(self.log.shape[2], self.image.shape[2]) # num_frames
