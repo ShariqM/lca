@@ -49,7 +49,7 @@ class IIRSpaceTime():
     num_trials = 10000
 
     coeff_steps = 2
-    sparsify_type = 'sparsify_iter'
+    sparsify_type = 'sparsify'
     start_ideal = True   # cheat start on sparisfy()
     stay_ideal  = start_ideal
     #stay_ideal  = True
@@ -66,7 +66,7 @@ class IIRSpaceTime():
     M_norm   = 0.01 # Not running except for on init
     B_norm   = 0.1
 
-    citers    = 1
+    citers    = 30
     #coeff_eta = 1e-3
     #coeff_eta = 1e-2
     #coeff_eta = 1e-1
@@ -76,7 +76,7 @@ class IIRSpaceTime():
     #lambdav   = 0.00
 
     data_name = 'IMAGES_DUCK_SHORT'
-    profile = False
+    profile = True
     visualizer = True
     show = True
 

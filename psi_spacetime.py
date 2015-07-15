@@ -22,31 +22,33 @@ import pdb
 from st_helpers import *
 import sys
 import random
+from scipy import ndimage
 
 dtype = theano.config.floatX
 class PsiSpaceTime():
 
     # Parameters
     cells = 200
-    timepoints = 12
+    timepoints = 7
 
     load_psi   = False
-    save_psi   = False
-    save_often = 5
+    save_psi   = True
+    show_often = 5
     time_batch_size = 128
+    batch_size = 10
     num_trials = 1000
 
     eta_init = 0.15
     eta_inc  = 32
 
     citers    = 20
-    coeff_eta = 0.40
-    norm_Psi  = 0.10
+    coeff_eta = 1.00
+    #norm_Psi  = 0.43 # 3 * sqrt(var(data))
     lambdav   = 0.20
 
     data_name = 'Phi_169_45.0_IMAGES_DUCK'
     profile = False
-    visualizer = False
+    visualizer = True
     show = True
 
     # Inferred parameters
@@ -54,7 +56,13 @@ class PsiSpaceTime():
 
     def __init__(self):
         self.data = np.load('activity/activity_%s.npy' % self.data_name)
-        self.neurons, self.batch_size, self.num_frames = np.shape(self.data)
+        self.neurons, self.patches, self.num_frames = np.shape(self.data)
+        variances = np.zeros(self.num_frames - self.timepoints)
+        for t in range(self.num_frames - self.timepoints):
+            variances[t] = self.data[:,:,t:t+self.timepoints].var()
+        self.norm_Psi = 3 * np.sqrt(variances.mean())
+        self.norm_Psi /= 20
+        #self.norm_Psi = 0.002
         plt.ion()
 
     def load_neurons(self):
@@ -63,14 +71,22 @@ class PsiSpaceTime():
         VN = np.zeros((self.neurons, self.batch_size, tbs))
         for b in range(self.batch_size):
             imi = np.floor((self.num_frames - tbs) * random.uniform(0, 1))
-            bi = np.floor(self.batch_size * random.uniform(0,1))
-            VN[:,b,:] = self.data[:,bi,imi:imi+tbs]
+            pi = np.floor(self.patches * random.uniform(0,1))
+            VN[:,b,:] = self.data[:,pi,imi:imi+tbs]
         return VN
 
-    def normalize_Psi(self, Psi):
+    def normalize_Psi(self, Psi, a):
         start = dt.now()
-        for i in range(self.neurons):
+        for i in range(self.cells):
+            if a is not None:
+                a_i = np.mean(a[i,:,:] ** 2)
+                print '\t %d mean: %.4f' % (i, np.mean(a[i,:,:] ** 2))
+                pdb.set_trace()
+            else:
+                a_i = self.norm_Psi
+                #print '\t %d mean: %.4f' % (i,  np.mean(a[i,:,:] ** 2))
             Psi[:,i,:] *= self.norm_Psi/np.linalg.norm(Psi[:,i,:])
+            #Psi[:,i,:] *= a_i/np.linalg.norm(Psi[:,i,:])
         self.profile_print('normPsi', start)
         return Psi
 
@@ -83,8 +99,8 @@ class PsiSpaceTime():
         return eta/self.batch_size
 
     def get_reconstruction(self, VN, Psi, a):
-        start = dt.now()
         r = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
+        start = dt.now()
         for t in range(self.time_batch_size):
             size = min(self.timepoints - 1, t)
             r[:,:,t] = tendot(Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
@@ -95,30 +111,27 @@ class PsiSpaceTime():
     def a_cot(self, Psi, e):
         'Correlation over time'
         start = dt.now()
-        result = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
+        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         for t in range(self.time_batch_size):
             size = min(self.timepoints, self.time_batch_size - t)
             result[:,:,t] = ten2dot(Psi[:,:,0:size], e[:,:,t:t+size])
-        self.profile_print("dA2 Calc", start)
+        self.profile_print("dA Calc", start)
 
-        #start = dt.now()
-        #result = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
-        #for t in range(self.time_batch_size):
-            #size = min(self.timepoints, self.time_batch_size - t)
-            #result[:,:,t] = np.einsum('pnt,pbt->nb', Psi[:,:,0:size], e[:,:,t:t+size])
-        #self.profile_print("dA Calc", start)
         return result
 
-    def phi_cot(self, a, e):
+    def psi_cot(self, a, e):
         'Correlation over time'
         start = dt.now()
-        result = np.zeros((self.patch_dim, self.neurons, self.timepoints))
+        result = np.zeros((self.neurons, self.cells, self.timepoints))
         for tau in range(self.timepoints):
             for t in range(self.time_batch_size):
                 if t+tau >= self.time_batch_size:
                     break
-                result[:,:,tau] += np.einsum('nb,pb->pn', a[:,:,t], e[:,:,t+tau])
+                result[:,:,tau] += np.tensordot(a[:,:,t], e[:,:,t+tau], [[1], [1]]).T
         self.profile_print("dPsi Calc", start)
+
+        #assert np.allclose(result, result2)
+        #print np.allclose(result, result2)
 
         return result / self.time_batch_size
 
@@ -129,7 +142,16 @@ class PsiSpaceTime():
         print '%20s | E=%s' % (msg, diff)
 
     def sparse_cost(self, a):
-        return (2 * a) / (1 + a ** 2)
+        #sigma = 0.0001
+        return 0
+        if False:
+            sigma = 1
+            return (2 * (a/sigma)) / (1 + (a/sigma) ** 2)
+        else:
+            da = np.copy(a)
+            da[da>0] = 1
+            da[da<0] = -1
+            return da * -1
 
     def get_activity(self, a):
         max_active = self.batch_size * self.time_batch_size * self.neurons
@@ -140,30 +162,28 @@ class PsiSpaceTime():
         ac[np.abs(ac) <= cutoff] = 0
         return 100 * np.sum(ac)/max_active
 
-    #def get_activity(self, a):
-        #max_active = self.batch_size * self.time_batch_size * self.neurons
-        #return np.sum(np.abs(a))/max_active
-
     def get_snr(self, VN, e):
-        #recon = np.random.randn(self.patch_dim, self.batch_size, self.time_batch_size)
-        var = VN.var().mean()
+        var = VN.var()
         mse = (e ** 2).mean()
         return 10 * log(var/mse, 10)
 
     def draw(self, c, a, recon, VN):
         fg, ax = plt.subplots(3)
         ax[2].set_title('Activity')
-        for i in range(self.neurons):
+        axis_height = np.max(np.abs(a))
+        ax[2].axis([0, self.cells, -axis_height, axis_height])
+        for i in range(self.cells):
             ax[2].plot(range(self.time_batch_size), a[i,0,:])
 
-        for t in range(self.time_batch_size):
-            ax[0].imshow(np.reshape(recon[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
-            ax[0].set_title('Recon iter=%d, t=%d' % (c, t))
-            ax[1].imshow(np.reshape(VN[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
-            ax[1].set_title('Image iter=%d, t=%d' % (c, t))
+        #for t in range(self.time_batch_size):
+            #ax[0].imshow(np.reshape(recon[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+            #ax[0].set_title('Recon iter=%d, t=%d' % (c, t))
+            #ax[1].imshow(np.reshape(VN[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
+            #ax[1].set_title('Image iter=%d, t=%d' % (c, t))
 
             plt.draw()
             #time.sleep(0.01)
+        plt.show(block=True)
         plt.close()
 
     def sparsify(self, VN, Psi):
@@ -177,8 +197,8 @@ class PsiSpaceTime():
             recon = self.get_reconstruction(VN, Psi, a)
             e = VN - recon
 
-            if c == self.citers or c % (self.citers/4) == 0:
-                if self.visualizer:
+            if c == self.citers - 1 or c % (self.citers/4) == 0:
+                if self.visualizer and c == self.citers - 1:
                     self.draw(c, a, recon, VN)
                 print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
                     (c, self.get_snr(VN, e), np.sum(np.abs(e)), self.get_activity(a))
@@ -186,27 +206,29 @@ class PsiSpaceTime():
         return e, recon, a
 
     def train(self):
-        Psi = np.random.randn(self.neurons, self.cells, self.timepoints)
-        Psi = self.normalize_Psi(Psi)
+        if self.load_psi:
+            Psi = np.load('psi_spacetime.npy')
+        else:
+            Psi = np.random.randn(self.neurons, self.cells, self.timepoints)
+            Psi = self.normalize_Psi(Psi, None)
 
         for trial in range(self.num_trials):
             VN = self.load_neurons()
             e, recon, a = self.sparsify(VN, Psi)
 
             print '%d) 1-SNR=%.2fdB' % (trial, self.get_snr(VN, e))
-            dPsi = self.phi_cot(a, e)
+            dPsi = self.psi_cot(a, e)
             Psi += self.get_eta(trial) * dPsi
 
             recon = self.get_reconstruction(VN, Psi, a)
             e = VN - recon
-            print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VN, e))
-            Psi = self.normalize_Psi(Psi)
+            Psi = self.normalize_Psi(Psi, a)
 
-            #if trial % self.save_often == 0 and self.save_phi:
+            if trial % self.show_often == 0:
                 #self.showbfs(Psi)
-                #if self.save_phi:
-                    #np.save('psi_spacetime_phi', Psi)
-                #print 'Saved Psi'
+                if self.save_psi:
+                    np.save('psi_spacetime', Psi)
+                    print 'Saved Psi'
 
     '''
     def reconstruct(self):
