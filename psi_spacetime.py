@@ -47,8 +47,8 @@ class PsiSpaceTime():
     lambdav   = 0.20
 
     data_name = 'Phi_169_45.0_IMAGES_DUCK'
-    profile = False
-    visualizer = True
+    profile = True
+    visualizer = False
     show = True
 
     # Inferred parameters
