@@ -30,7 +30,7 @@ class SpaceTime():
     patch_dim  = 144
     neurons    = 200
     cells      = 200
-    timepoints = 2
+    timepoints = 1
 
     load_phi   = True
     save_phi   = True
@@ -45,7 +45,8 @@ class SpaceTime():
     citers    = 70
     coeff_eta = 0.1
     norm_Phi  = 0.10
-    lambdav   = 1.00
+    lambdav   = 0.20
+    sparse_cutoff = 0.05
 
     data_name = 'IMAGES_DUCK_SHORT'
     phi_name = 'Phi_169_45.0'
@@ -142,7 +143,7 @@ class SpaceTime():
 
     def sparse_cost(self, a):
         if True:
-            sigma = 1.00
+            sigma = 0.1
             return (2 * (a/sigma)) / (1 + (a/sigma) ** 2)
         else:
             na = np.copy(a)
@@ -153,16 +154,21 @@ class SpaceTime():
     def get_activity(self, a):
         max_active = self.batch_size * self.time_batch_size * self.neurons
         ac = np.copy(a)
-        #cutoff = self.lambdav
-        cutoff = 0.01
-        ac[np.abs(ac) > cutoff] = 1
-        ac[np.abs(ac) <= cutoff] = 0
+        ac[np.abs(ac) > self.sparse_cutoff] = 1
+        ac[np.abs(ac) <= self.sparse_cutoff] = 0
         return 100 * np.sum(ac)/max_active
 
     def get_snr(self, VI, e):
         var = VI.var().mean()
         mse = (e ** 2).mean()
         return 10 * log(var/mse, 10)
+
+    def get_snr_t(self, VI, Psi, Phi, a):
+        ta = np.copy(a)
+        ta[np.abs(ta) < self.sparse_cutoff] = 0
+        recon = self.get_reconstruction(Psi, Phi, ta)
+        e = VI - recon
+        return self.get_snr(VI, e)
 
     def draw(self, c, a, recon, VI):
         fg, ax = plt.subplots(3)
@@ -197,8 +203,9 @@ class SpaceTime():
             if True or  c == self.citers or c % (self.citers/4) == 0:
                 if self.visualizer:
                     self.draw(c, a, recon, VI)
-                print '\t%d) SNR=%.2fdB, E=%.3f Activity=%.2f%%' % \
-                    (c, self.get_snr(VI, e), np.sum(np.abs(e)), self.get_activity(a))
+                print '\t%d) SNR=%.2fdB, SNR_T=%.2fdB, E=%.3f Activity=%.2f%%' % \
+                    (c, self.get_snr(VI, e), self.get_snr_t(VI, Psi, Phi, a), \
+                     np.sum(np.abs(e)), self.get_activity(a))
 
         return e, recon, a
 
