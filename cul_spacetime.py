@@ -181,7 +181,7 @@ class SpaceTime():
         plt.close()
 
     def sparsify(self, VI, Psi, Phi):
-        a = np.zeros((self.neurons, self.batch_size, self.time_batch_size))
+        a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         recon = self.get_reconstruction(Psi, Phi, a)
         e = VI - recon # error
 
@@ -202,6 +202,25 @@ class SpaceTime():
 
         return e, recon, a
 
+    def normalize_Psi(self, Psi):
+        start = dt.now()
+        for i in range(self.neurons):
+            Psi[:,i,:] *= self.norm_Psi/np.linalg.norm(Psi[:,i,:])
+        self.profile_print('normPsi', start)
+
+    def psi_cot(a, Phi, e):
+        'Correlation over time'
+        start = dt.now()
+        result = np.zeros((self.cells, self.neurons, self.timepoints))
+        for tau in range(self.timepoints):
+            for t in range(self.time_batch_size):
+                if t+tau >= self.time_batch_size:
+                    break
+                result[:,:,tau] += np.einsum('cb,pn,pb->cn', a[:,:,t], Phi, e[:,:,t+tau])
+        self.profile_print("dPsi Calc", start)
+
+        return result / self.time_batch_size
+
     def train(self):
         if True:
             Psi = np.zeros((self.neurons, self.cells, self.timepoints))
@@ -215,6 +234,13 @@ class SpaceTime():
             e, recon, a = self.sparsify(VI, Psi, Phi)
 
             print '%d) 1-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
+            dPsi = self.psi_cot(a, Phi, e)
+            Psi += self.get_eta(trial) * dPsi
+
+            recon = self.get_reconstruction(Psi, Phi, a)
+            e = VI - recon
+            print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
+            Psi = self.normalize_Psi(Psi)
 
 st = SpaceTime()
 st.train()
