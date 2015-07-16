@@ -27,3 +27,8 @@ Jv = T.tensor3('J')
 o4 = ttdot(Hv, ttdot(Iv, Jv, [[1,2], [0,2]]), [[1], [0]])
 ten3dot2 = theano.function([Hv, Iv, Jv], o4, allow_input_downcast=True)
 
+Hv = T.fmatrix()
+Iv = T.fmatrix()
+Jv = T.fmatrix()
+o4 = ttdot(Hv, ttdot(Iv, Jv, [[0], [0]]), [[1], [1]])
+ten_2_2_2 = theano.function([Hv, Iv, Jv], o4, allow_input_downcast=True)

@@ -30,10 +30,10 @@ class SpaceTime():
     patch_dim  = 144
     neurons    = 200
     cells      = 200
-    timepoints = 1
+    timepoints = 7
 
-    load_phi   = True
-    save_phi   = True
+    load_psi   = False
+    save_psi   = True
     save_often = 5
     batch_size = 10
     time_batch_size = 128
@@ -42,10 +42,11 @@ class SpaceTime():
     eta_init = 0.15
     eta_inc  = 32
 
-    citers    = 70
+    citers    = 40
     coeff_eta = 0.1
     norm_Phi  = 0.10
     lambdav   = 0.20
+    alpha     = 0.1
     sparse_cutoff = 0.05
 
     data_name = 'IMAGES_DUCK_SHORT'
@@ -54,9 +55,10 @@ class SpaceTime():
     visualizer = False
     show = True
 
-    # Inferred parameters
+    # Other
     sz = int(np.sqrt(patch_dim))
     graphics_initialized = False # Don't change
+    psi_name = 'dict/cul_spacetime.npy'
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
@@ -107,8 +109,11 @@ class SpaceTime():
 
         r2 = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
         for t in range(self.time_batch_size):
-            size = min(self.timepoints - 1, t)
-            r2[:,:,t] = ten3dot2(Phi, Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
+            try:
+                size = min(self.timepoints - 1, t)
+                r2[:,:,t] = ten3dot2(Phi, Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
+            except Exception as e:
+                pdb.set_trace()
         self.profile_print("get_reconstruction 2 Calc", start)
 
         #assert np.allclose(r, r2)
@@ -198,9 +203,7 @@ class SpaceTime():
             recon = self.get_reconstruction(Psi, Phi, a)
             e = VI - recon
 
-            #if c > 30:
-                #pdb.set_trace()
-            if True or  c == self.citers or c % (self.citers/4) == 0:
+            if c == self.citers - 1 or c % (self.citers/4) == 0:
                 if self.visualizer:
                     self.draw(c, a, recon, VI)
                 print '\t%d) SNR=%.2fdB, SNR_T=%.2fdB, E=%.3f Activity=%.2f%%' % \
@@ -209,13 +212,20 @@ class SpaceTime():
 
         return e, recon, a
 
-    def normalize_Psi(self, Psi):
+    def normalize_Psi(self, Psi, a):
         start = dt.now()
-        for i in range(self.neurons):
-            Psi[:,i,:] *= self.norm_Psi/np.linalg.norm(Psi[:,i,:])
+        for i in range(self.cells):
+            if a is not None:
+                a_i = (np.mean(a[i,:,:] ** 2))
+                #print '\t %d mean: %.4f' % (i, np.mean(a[i,:,:] ** 2))
+                a_i = a_i ** self.alpha
+            else:
+                a_i = self.norm_Psi
+            Psi[:,i,:] *= a_i/np.linalg.norm(Psi[:,i,:])
         self.profile_print('normPsi', start)
+        return Psi
 
-    def psi_cot(a, Phi, e):
+    def psi_cot(self, a, Phi, e):
         'Correlation over time'
         start = dt.now()
         result = np.zeros((self.cells, self.neurons, self.timepoints))
@@ -223,17 +233,22 @@ class SpaceTime():
             for t in range(self.time_batch_size):
                 if t+tau >= self.time_batch_size:
                     break
-                result[:,:,tau] += np.einsum('cb,pn,pb->cn', a[:,:,t], Phi, e[:,:,t+tau])
+                result[:,:,tau] += ten_2_2_2(a[:,:,t], Phi, e[:,:,t+tau])
+
         self.profile_print("dPsi Calc", start)
 
         return result / self.time_batch_size
 
     def train(self):
-        if True:
+        if self.load_psi:
+            Psi = np.load(self.psi_name)
+            if Psi.shape != (self.cells, self.neurons, self.timepoints):
+                raise Exception("Incompatible Psi loaded")
+            Phi = self.Phi
+        else:
             Psi = np.zeros((self.neurons, self.cells, self.timepoints))
             assert self.neurons == self.cells
             Psi[:,:,0] = np.eye(self.neurons)
-
             Phi = self.Phi
 
         for trial in range(self.num_trials):
@@ -247,7 +262,11 @@ class SpaceTime():
             recon = self.get_reconstruction(Psi, Phi, a)
             e = VI - recon
             print '%d) 2-SNR=%.2fdB' % (trial, self.get_snr(VI, e))
-            Psi = self.normalize_Psi(Psi)
+            Psi = self.normalize_Psi(Psi, a)
+
+            if trial % self.save_often == 0:
+                if self.save_psi:
+                    np.save(self.psi_name, Psi)
 
 st = SpaceTime()
 st.train()

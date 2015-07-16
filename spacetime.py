@@ -48,6 +48,7 @@ class SpaceTime():
     coeff_eta = 0.40
     norm_Phi  = 0.10
     lambdav   = 0.20
+    alpha     = 0.1
 
     data_name = 'IMAGES_DUCK'
     profile = False
