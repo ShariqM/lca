@@ -29,23 +29,23 @@ class SpaceTime():
     # Parameters
     patch_dim  = 144
     neurons    = 200
-    cells      = 200
+    cells      = 400
     timepoints = 7
 
     load_psi   = False
-    save_psi   = False
-    psi_identity = True
+    save_psi   = True
+    psi_identity = False
     save_often = 5
     batch_size = 10
     time_batch_size = 128
     num_trials = 1000
 
-    eta_init = 0.05
+    eta_init = 0.10
     eta_inc  = 32
 
     sigma = 0.1
-    citers    = 61
-    coeff_eta = 0.10
+    citers    = 561
+    coeff_eta = 0.01
     #coeff_eta = 1e-3
     lambdav   = 0.20
     alpha     = 0.1
@@ -54,20 +54,24 @@ class SpaceTime():
     data_name = 'IMAGES_DUCK_SHORT'
     phi_name = 'Phi_169_45.0'
     #phi_name = 'Phi_463/Phi_463_0.3'
-    profile = False
+    profile = True
     visualizer = False
     show = True
 
     # Other
     sz = int(np.sqrt(patch_dim))
     graphics_initialized = False # Don't change
-    psi_name = 'dict/cul/169/cul_spacetime_169_6'
+    psi_name = 'dict/cul/169/cul_spacetime_169_7'
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
         self.images = self.images[self.data_name]
         (self.imsize, imsize, self.num_images) = np.shape(self.images)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
+
+        if self.psi_identity:
+            self.coeff_eta = 0.1
+            self.citers = 61
 
         if self.phi_name != '':
             Phi = scipy.io.loadmat('dict/%s' % self.phi_name)
@@ -95,22 +99,30 @@ class SpaceTime():
             eta /= 2.0
         return eta/self.batch_size
 
-    def get_reconstruction(self, Psi, Phi, a):
+    def get_reconstruction(self, Psi, Phi, a, Ups=None):
         start = dt.now()
-        Ups = np.tensordot(Phi, Psi, [[1], [0]])
-        Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
+        if Ups is None:
+            Ups = np.tensordot(Phi, Psi, [[1], [0]])
+            Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
+            self.profile_print("get_reconstruction ups Calc", start)
 
         ac = np.copy(a)
         ac = np.swapaxes(ac, 0, 1)
         ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
                          self.time_batch_size))
+        self.profile_print("get_reconstruction ac Calc", start)
         for t in range(self.time_batch_size):
             act = np.zeros((self.batch_size, self.cells, self.timepoints))
+            self.profile_print("get_reconstruction loop0 Calc", start)
             size = min(self.timepoints - 1, t)
+            self.profile_print("get_reconstruction loop1 Calc", start)
             act[:,:,0:size+1] = ac[:,:,t::-1][:,:,0:size+1]
+            self.profile_print("get_reconstruction loop2 Calc", start)
             ahat[:,:,t] = np.reshape(act, (self.batch_size,
                                            self.cells * self.timepoints))
+            self.profile_print("get_reconstruction loop3 Calc", start)
 
+        self.profile_print("get_reconstruction loop Calc", start)
         #r = np.tensordot(Ups, ahat, [[1], [1]])
         r = tconv(Ups, ahat)
         self.profile_print("get_reconstruction Calc", start)
@@ -152,6 +164,9 @@ class SpaceTime():
             na[a<0] = -1
             return na
 
+    def get_avg(self, a):
+        return np.mean(np.abs(a))
+
     def get_activity(self, a):
         max_active = self.batch_size * self.time_batch_size * self.cells
         ac = np.copy(a)
@@ -191,10 +206,13 @@ class SpaceTime():
         a[np.abs(a) < self.sparse_cutoff] = 0
         return a
 
-    def compute_Ups(self, Psi, Phi):
+    def compute_Ups(self, Psi, Phi, ctype=1):
         Ups = np.tensordot(Phi, Psi, [[1], [0]]) # Precompute Upsilon
-        Ups = np.swapaxes(Ups, 0, 1)
-        Ups = np.reshape(Ups, (self.cells, self.patch_dim * self.timepoints))
+        if ctype == 1:
+            Ups = np.swapaxes(Ups, 0, 1)
+            Ups = np.reshape(Ups, (self.cells, self.patch_dim * self.timepoints))
+        else:
+            Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
         return Ups
 
     def sparsify(self, VI, Psi, Phi):
@@ -202,21 +220,22 @@ class SpaceTime():
         recon = self.get_reconstruction(Psi, Phi, a)
         e = VI - recon # error
         Ups = self.compute_Ups(Psi, Phi)
+        Ups_2 = self.compute_Ups(Psi, Phi, ctype=2)
 
         for c in range(self.citers):
             start = dt.now()
             da = self.a_cot(Ups, e) - self.lambdav * self.sparse_cost(a)
             #da = self.a_cot(Psi, Phi, e)
             a += self.coeff_eta * da
-            recon = self.get_reconstruction(Psi, Phi, a)
+            recon = self.get_reconstruction(Psi, Phi, a, Ups_2)
             e = VI - recon
 
             if c == self.citers - 1 or c % (self.citers/10) == 0:
                 if self.visualizer:
                     self.draw(c, a, recon, VI)
-                print '\t%d) SNR=%.2fdB, SNR_T=%.2fdB, E=%.3f Activity=%.2f%%' % \
+                print '\t%d) SNR=%.2fdB, SNR_T=%.2fdB, E=%.3f Activity=%.2f%% Avg=%.2f' % \
                     (c, self.get_snr(VI, e), self.get_snr_t(VI, Psi, Phi, a), \
-                     np.sum(np.abs(e)), self.get_activity(a))
+                     np.sum(np.abs(e)), self.get_activity(a), self.get_avg(a))
             self.profile_print("Sparse iter", start)
 
         return e, recon, a

@@ -80,4 +80,5 @@ Cul Model
 169_3 - Learning with triangle init
 169_4 - random init
 169_5 - fix sigma
+169_6 - Fast conv, delta in middle
 
