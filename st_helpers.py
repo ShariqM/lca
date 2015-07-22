@@ -32,3 +32,9 @@ Iv = T.fmatrix()
 Jv = T.fmatrix()
 o4 = ttdot(Hv, ttdot(Iv, Jv, [[0], [0]]), [[1], [1]]).T
 ten_2_2_2 = theano.function([Hv, Iv, Jv], o4, allow_input_downcast=True)
+
+
+Av = T.fmatrix()
+Bv = T.tensor3()
+o = T.tensordot(Av, Bv, [[1], [1]])
+tconv = theano.function([Av, Bv], o, allow_input_downcast=True)

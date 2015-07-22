@@ -97,66 +97,48 @@ class SpaceTime():
 
     def get_reconstruction(self, Psi, Phi, a):
         start = dt.now()
-        r = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
-        #for t in range(self.time_batch_size):
-            #size = min(self.timepoints - 1, t)
-            #r[:,:,t] = np.einsum('pn,nct,cbt->pb', Phi, Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
-        #self.profile_print("get_reconstruction Calc", start)
+        Ups = np.tensordot(Phi, Psi, [[1], [0]])
+        Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
 
-        r2 = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        ac = np.copy(a)
+        ac = np.swapaxes(ac, 0, 1)
+        ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
+                         self.time_batch_size))
         for t in range(self.time_batch_size):
-            try:
-                size = min(self.timepoints - 1, t)
-                r2[:,:,t] = ten3dot2(Phi, Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
-            except Exception as e:
-                pdb.set_trace()
-        self.profile_print("get_reconstruction 2 Calc", start)
+            act = np.zeros((self.batch_size, self.cells, self.timepoints))
+            size = min(self.timepoints - 1, t)
+            act[:,:,0:size+1] = ac[:,:,t::-1][:,:,0:size+1]
+            ahat[:,:,t] = np.reshape(act, (self.batch_size,
+                                           self.cells * self.timepoints))
 
-        #assert np.allclose(r, r2)
+        #r = np.tensordot(Ups, ahat, [[1], [1]])
+        r = tconv(Ups, ahat)
+        self.profile_print("get_reconstruction Calc", start)
 
-        return r2
+        return r
 
-    def a_cot(self, Psi, Phi, e):
+    def a_cot(self, Ups, e):
         'Correlation over time'
-        #start = dt.now()
-        #result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        #for t in range(self.time_batch_size):
-            #size = min(self.timepoints, self.time_batch_size - t)
-            #result[:,:,t] = np.einsum('pbt,nct,pn->cb', e[:,:,t:t+size], Psi[:,:,t:t+size], Phi)
-        #self.profile_print("dA Calc", start)
 
-        start = dt.now()
         result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-
         # Phi_pn Psi_nct
-        ups = np.tensordot(Phi, Psi, [[1], [0]]) # pct
-        ups = np.swapaxes(ups, 0, 1)
-        ups = np.reshape(ups, (self.cells, self.patch_dim * self.timepoints))
+        start = dt.now()
         ec = np.copy(e)
         ec = np.swapaxes(ec, 0,1)
-        error2 = np.zeros((self.batch_size, self.patch_dim * self.timepoints, self.time_batch_size))
+        error = np.zeros((self.batch_size, self.patch_dim * self.timepoints, self.time_batch_size))
+        start = dt.now()
         for t in range(self.time_batch_size):
             ect = np.zeros((self.batch_size, self.patch_dim, self.timepoints))
             size = min(self.timepoints, self.time_batch_size - t)
             ect[:,:,0:size] = ec[:,:,t:t+size]
-            #error2[:,:,t] = np.reshape(ec[:,:,t:t+size], (self.batch_size, self.patch_dim * self.timepoints))
-            error2[:,:,t] = np.reshape(ect, (self.batch_size, self.patch_dim * self.timepoints))
+            error[:,:,t] = np.reshape(ect, (self.batch_size, self.patch_dim * self.timepoints))
+        self.profile_print("dA loop", start)
 
-        result = np.tensordot(ups, error2, [[1], [1]])
+        #result = np.tensordot(Ups, error, [[1], [1]])
+        r = tconv(Ups, error)
         self.profile_print("dA Calc", start)
 
-
-        start = dt.now()
-        result2 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
-        for t in range(self.time_batch_size):
-            size = min(self.timepoints, self.time_batch_size - t)
-            result2[:,:,t] = ten3dot(e[:,:,t:t+size], Psi[:,:,0:size], Phi)
-        self.profile_print("dA2 Calc", start)
-        pdb.set_trace()
-
-        #assert np.allclose(result, result2)
-
-        return result2
+        return result
 
     def profile_print(self, msg, start):
         if not self.profile:
@@ -212,24 +194,33 @@ class SpaceTime():
         a[np.abs(a) < self.sparse_cutoff] = 0
         return a
 
+    def compute_Ups(self, Psi, Phi):
+        Ups = np.tensordot(Phi, Psi, [[1], [0]]) # Precompute Upsilon
+        Ups = np.swapaxes(Ups, 0, 1)
+        Ups = np.reshape(Ups, (self.cells, self.patch_dim * self.timepoints))
+        return Ups
+
     def sparsify(self, VI, Psi, Phi):
         a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         recon = self.get_reconstruction(Psi, Phi, a)
         e = VI - recon # error
+        Ups = self.compute_Ups(Psi, Phi)
 
         for c in range(self.citers):
-            da = self.a_cot(Psi, Phi, e) - self.lambdav * self.sparse_cost(a)
+            start = dt.now()
+            da = self.a_cot(Ups, e) - self.lambdav * self.sparse_cost(a)
             #da = self.a_cot(Psi, Phi, e)
             a += self.coeff_eta * da
             recon = self.get_reconstruction(Psi, Phi, a)
             e = VI - recon
 
-            if c == self.citers - 1 or c % (self.citers/4) == 0:
+            if c == self.citers - 1 or c % (self.citers/10) == 0:
                 if self.visualizer:
                     self.draw(c, a, recon, VI)
                 print '\t%d) SNR=%.2fdB, SNR_T=%.2fdB, E=%.3f Activity=%.2f%%' % \
                     (c, self.get_snr(VI, e), self.get_snr_t(VI, Psi, Phi, a), \
                      np.sum(np.abs(e)), self.get_activity(a))
+            self.profile_print("Sparse iter", start)
 
         return e, recon, a
 
