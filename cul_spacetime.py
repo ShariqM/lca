@@ -54,7 +54,7 @@ class SpaceTime():
     data_name = 'IMAGES_DUCK_SHORT'
     phi_name = 'Phi_169_45.0'
     #phi_name = 'Phi_463/Phi_463_0.3'
-    profile = True
+    profile = False
     visualizer = False
     show = True
 
