@@ -54,7 +54,7 @@ class SpaceTime():
     data_name = 'IMAGES_DUCK_SHORT'
     phi_name = 'Phi_169_45.0'
     #phi_name = 'Phi_463/Phi_463_0.3'
-    profile = False
+    profile = True
     visualizer = False
     show = True
 
@@ -114,6 +114,15 @@ class SpaceTime():
         #r = np.tensordot(Ups, ahat, [[1], [1]])
         r = tconv(Ups, ahat)
         self.profile_print("get_reconstruction Calc", start)
+
+        start = dt.now()
+        r2 = np.zeros((self.patch_dim, self.batch_size, self.time_batch_size))
+        for t in range(self.time_batch_size):
+            size = min(self.timepoints - 1, t)
+            r2[:,:,t] = ten3dot2(Phi, Psi[:,:,0:size+1], a[:,:,t::-1][:,:,0:size+1])
+        self.profile_print("get_reconstruction 2 Calc", start)
+
+        pdb.set_trace()
 
         return r
 
