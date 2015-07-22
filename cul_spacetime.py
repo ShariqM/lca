@@ -44,9 +44,9 @@ class SpaceTime():
     eta_inc  = 32
 
     sigma = 0.1
-    citers    = 500
-    coeff_eta = 0.01
-    coeff_eta = 1e-3
+    citers    = 61
+    coeff_eta = 0.10
+    #coeff_eta = 1e-3
     lambdav   = 0.20
     alpha     = 0.1
     sparse_cutoff = 0.05
@@ -258,17 +258,17 @@ class SpaceTime():
                 raise Exception("Incompatible Psi loaded")
             Phi = self.Phi
         else:
-            if True:
+            if not self.psi_identity:
                 Psi = 0.1 * np.random.randn(self.neurons, self.cells, self.timepoints)
                 for t in range(self.timepoints):
                     Psi[:,:,t] = np.dot(Psi[:,:,t], np.diag(1/np.sqrt(np.sum(Psi[:,:,t]**2, axis=0))))
-            elif not self.psi_identity:
-                Psi = np.zeros((self.neurons, self.cells, self.timepoints))
-                for j in range(self.cells):
-                    i = random.randint(0, self.neurons - 1)
-                    act = [0, 0.2, 0.4, 0.6, 0.4, 0.2, 0]
-                    for t in range(self.timepoints):
-                        Psi[i,j,t] = act[t]
+            #elif not self.psi_identity:
+                #Psi = np.zeros((self.neurons, self.cells, self.timepoints))
+                #for j in range(self.cells):
+                    #i = random.randint(0, self.neurons - 1)
+                    #act = [0, 0.2, 0.4, 0.6, 0.4, 0.2, 0]
+                    #for t in range(self.timepoints):
+                        #Psi[i,j,t] = act[t]
             else:
                 Psi = np.zeros((self.neurons, self.cells, self.timepoints))
                 assert self.neurons == self.cells
