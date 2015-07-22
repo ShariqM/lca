@@ -72,3 +72,12 @@ B Model
 254) 6-NORM_Phi-SNR=0.98dB
 - Backprop A helps get to 2.5-3.0dB
 - Backprop M helps get to 3.5-4.0dB
+
+
+
+Cul Model
+169_2 - delta init
+169_3 - Learning with triangle init
+169_4 - random init
+169_5 - fix sigma
+

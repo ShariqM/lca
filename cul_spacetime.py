@@ -33,32 +33,35 @@ class SpaceTime():
     timepoints = 7
 
     load_psi   = False
-    save_psi   = True
+    save_psi   = False
+    psi_identity = True
     save_often = 5
     batch_size = 10
     time_batch_size = 128
     num_trials = 1000
 
-    eta_init = 0.15
+    eta_init = 0.05
     eta_inc  = 32
 
-    citers    = 40
-    coeff_eta = 0.1
-    norm_Phi  = 0.10
+    sigma = 0.1
+    citers    = 500
+    coeff_eta = 0.01
+    coeff_eta = 1e-3
     lambdav   = 0.20
     alpha     = 0.1
     sparse_cutoff = 0.05
 
     data_name = 'IMAGES_DUCK_SHORT'
     phi_name = 'Phi_169_45.0'
-    profile = False
+    #phi_name = 'Phi_463/Phi_463_0.3'
+    profile = True
     visualizer = False
     show = True
 
     # Other
     sz = int(np.sqrt(patch_dim))
     graphics_initialized = False # Don't change
-    psi_name = 'dict/cul_spacetime.npy'
+    psi_name = 'dict/cul/169/cul_spacetime_169_6'
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
@@ -83,13 +86,6 @@ class SpaceTime():
             img =  self.images[r:r+sz, c:c+sz, imi:imi+tbs]
             VI[:,x,:] = np.reshape(img, (self.patch_dim, tbs), 1)
         return VI
-
-    def normalize_Phi(self, Phi):
-        start = dt.now()
-        for i in range(self.neurons):
-            Phi[:,i,:] *= self.norm_Phi/np.linalg.norm(Phi[:,i,:])
-        self.profile_print('normPhi', start)
-        return Phi
 
     def get_eta(self, trial):
         eta = self.eta_init
@@ -122,12 +118,33 @@ class SpaceTime():
 
     def a_cot(self, Psi, Phi, e):
         'Correlation over time'
-        start = dt.now()
-        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+        #start = dt.now()
+        #result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
         #for t in range(self.time_batch_size):
             #size = min(self.timepoints, self.time_batch_size - t)
             #result[:,:,t] = np.einsum('pbt,nct,pn->cb', e[:,:,t:t+size], Psi[:,:,t:t+size], Phi)
         #self.profile_print("dA Calc", start)
+
+        start = dt.now()
+        result = np.zeros((self.cells, self.batch_size, self.time_batch_size))
+
+        # Phi_pn Psi_nct
+        ups = np.tensordot(Phi, Psi, [[1], [0]]) # pct
+        ups = np.swapaxes(ups, 0, 1)
+        ups = np.reshape(ups, (self.cells, self.patch_dim * self.timepoints))
+        ec = np.copy(e)
+        ec = np.swapaxes(ec, 0,1)
+        error2 = np.zeros((self.batch_size, self.patch_dim * self.timepoints, self.time_batch_size))
+        for t in range(self.time_batch_size):
+            ect = np.zeros((self.batch_size, self.patch_dim, self.timepoints))
+            size = min(self.timepoints, self.time_batch_size - t)
+            ect[:,:,0:size] = ec[:,:,t:t+size]
+            #error2[:,:,t] = np.reshape(ec[:,:,t:t+size], (self.batch_size, self.patch_dim * self.timepoints))
+            error2[:,:,t] = np.reshape(ect, (self.batch_size, self.patch_dim * self.timepoints))
+
+        result = np.tensordot(ups, error2, [[1], [1]])
+        self.profile_print("dA Calc", start)
+
 
         start = dt.now()
         result2 = np.zeros((self.cells, self.batch_size, self.time_batch_size))
@@ -135,6 +152,7 @@ class SpaceTime():
             size = min(self.timepoints, self.time_batch_size - t)
             result2[:,:,t] = ten3dot(e[:,:,t:t+size], Psi[:,:,0:size], Phi)
         self.profile_print("dA2 Calc", start)
+        pdb.set_trace()
 
         #assert np.allclose(result, result2)
 
@@ -148,8 +166,7 @@ class SpaceTime():
 
     def sparse_cost(self, a):
         if True:
-            sigma = 0.1
-            return (2 * (a/sigma)) / (1 + (a/sigma) ** 2)
+            return (2 * (a/self.sigma)) / (1 + (a/self.sigma) ** 2)
         else:
             na = np.copy(a)
             na[a>0] = 1
@@ -157,7 +174,7 @@ class SpaceTime():
             return na
 
     def get_activity(self, a):
-        max_active = self.batch_size * self.time_batch_size * self.neurons
+        max_active = self.batch_size * self.time_batch_size * self.cells
         ac = np.copy(a)
         ac[np.abs(ac) > self.sparse_cutoff] = 1
         ac[np.abs(ac) <= self.sparse_cutoff] = 0
@@ -178,7 +195,7 @@ class SpaceTime():
     def draw(self, c, a, recon, VI):
         fg, ax = plt.subplots(3)
         ax[2].set_title('Activity')
-        for i in range(self.neurons):
+        for i in range(self.cells):
             ax[2].plot(range(self.time_batch_size), a[i,0,:])
 
         for t in range(self.time_batch_size):
@@ -190,6 +207,10 @@ class SpaceTime():
             plt.draw()
             #time.sleep(0.01)
         plt.close()
+
+    def thresh(self, a):
+        a[np.abs(a) < self.sparse_cutoff] = 0
+        return a
 
     def sparsify(self, VI, Psi, Phi):
         a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
@@ -216,7 +237,7 @@ class SpaceTime():
         start = dt.now()
         for i in range(self.cells):
             if a is not None:
-                a_i = (np.mean(a[i,:,:] ** 2))
+                a_i = (np.mean(a[i,:,:] ** 2)) / (self.sigma ** 2)
                 #print '\t %d mean: %.4f' % (i, np.mean(a[i,:,:] ** 2))
                 a_i = a_i ** self.alpha
             else:
@@ -228,7 +249,10 @@ class SpaceTime():
     def psi_cot(self, a, Phi, e):
         'Correlation over time'
         start = dt.now()
-        result = np.zeros((self.cells, self.neurons, self.timepoints))
+        result = np.zeros((self.neurons, self.cells, self.timepoints))
+
+        #a = np.copy(a)
+        #a = self.thresh(a)
         for tau in range(self.timepoints):
             for t in range(self.time_batch_size):
                 if t+tau >= self.time_batch_size:
@@ -242,13 +266,26 @@ class SpaceTime():
     def train(self):
         if self.load_psi:
             Psi = np.load(self.psi_name)
-            if Psi.shape != (self.cells, self.neurons, self.timepoints):
+            if Psi.shape != (self.nuerons, self.cells, self.timepoints):
                 raise Exception("Incompatible Psi loaded")
             Phi = self.Phi
         else:
-            Psi = np.zeros((self.neurons, self.cells, self.timepoints))
-            assert self.neurons == self.cells
-            Psi[:,:,0] = np.eye(self.neurons)
+            if True:
+                Psi = 0.1 * np.random.randn(self.neurons, self.cells, self.timepoints)
+                for t in range(self.timepoints):
+                    Psi[:,:,t] = np.dot(Psi[:,:,t], np.diag(1/np.sqrt(np.sum(Psi[:,:,t]**2, axis=0))))
+            elif not self.psi_identity:
+                Psi = np.zeros((self.neurons, self.cells, self.timepoints))
+                for j in range(self.cells):
+                    i = random.randint(0, self.neurons - 1)
+                    act = [0, 0.2, 0.4, 0.6, 0.4, 0.2, 0]
+                    for t in range(self.timepoints):
+                        Psi[i,j,t] = act[t]
+            else:
+                Psi = np.zeros((self.neurons, self.cells, self.timepoints))
+                assert self.neurons == self.cells
+                Psi[:,:,self.timepoints/2] = np.eye(self.neurons)
+
             Phi = self.Phi
 
         for trial in range(self.num_trials):
@@ -266,7 +303,8 @@ class SpaceTime():
 
             if trial % self.save_often == 0:
                 if self.save_psi:
-                    np.save(self.psi_name, Psi)
+                    np.save(self.psi_name + ("_%.3f.npy" % (float(trial)/self.num_trials)), Psi)
+                    print 'Saved Psi'
 
 st = SpaceTime()
 st.train()
