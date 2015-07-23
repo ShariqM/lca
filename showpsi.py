@@ -5,10 +5,11 @@ import numpy as np
 from showbfs import showbfs
 import pdb
 
-Psi = np.load('dict/cul_spacetime.npy')
+#Psi = np.load('dict/cul_spacetime_169_3.npy')
+#Psi = np.load('dict/cul_spacetime_169_4_0.015.npy')
+Psi = np.load('dict/cul_spacetime_169_6_0.045.npy')
 
 cells, neurons, timepoints = Psi.shape
-pdb.set_trace()
 
 for c in range(cells):
 
