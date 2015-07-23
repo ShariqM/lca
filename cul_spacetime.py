@@ -29,7 +29,7 @@ class SpaceTime():
     # Parameters
     patch_dim  = 144
     neurons    = 200
-    cells      = 3
+    cells      = 400
     timepoints = 7
 
     load_psi   = False
@@ -109,31 +109,39 @@ class SpaceTime():
         if Ups is None:
             Ups = np.tensordot(Phi, Psi, [[1], [0]])
             Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
-            self.profile_print("get_reconstruction ups Calc", start)
 
         for i in range(3):
             ac = np.copy(a)
             ac = np.swapaxes(ac, 0, 1)
-            self.profile_print("get_reconstruction ac Calc", start)
 
             if i == 0:
                 start = dt.now()
                 ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
                                  self.time_batch_size))
-                bac = np.copy(ac)
                 ac = ac[:,:,-1::-1] # Reverse
-                dac = np.zeros((self.batch_size, self.cells * self.time_batch_size))
-                x = 0
-                for r in range(self.cells):
-                    for q in range(self.time_batch_size):
-                        dac[:,x] = ac[:,r,q]
-                        x += 1
                 ac = np.reshape(ac, (self.batch_size, self.cells * self.time_batch_size))
-                ac = np.copy(dac)
-
+                #dac = np.zeros((self.batch_size, self.cells * self.time_batch_size))
+                #x = 0
+                #for r in range(self.cells):
+                    #for q in range(self.time_batch_size):
+                        #dac[:,x] = ac[:,r,q]
+                        #x += 1
+                #ac = np.copy(dac)
+                x = 0
                 for t in range(self.time_batch_size):
+                    x = x + 1
+                print x
+                self.profile_print("get_reconstruction iter1 Calc", start)
+
+                for t in range(self.timepoints):
                     act = np.zeros((self.batch_size, self.cells * self.timepoints))
-                    size = min(self.timepoints - 1, t)
+                    idx = self.time_batch_size-t-1
+                    act[:,0:self.cells*(t+1)] = ac[:,self.cells * idx : self.cells * (idx+t+1)]
+                    ahat[:,:,t] = act
+
+                for t in range(self.timepoints, self.time_batch_size):
+                    act = np.zeros((self.batch_size, self.cells * self.timepoints))
+                    size = self.timepoints - 1
 
                     idx = self.time_batch_size-t-1
                     act[:,0:self.cells*(size+1)] = ac[:,self.cells * idx : self.cells * (idx+size+1)]
@@ -153,8 +161,8 @@ class SpaceTime():
                     act[:,:,0:size+1] = ac[:,:,idx:idx+size+1]
                     ahat2[:,:,t] = np.reshape(act, (self.batch_size,
                                                    self.cells * self.timepoints))
-                    if t == 0:
-                        pdb.set_trace()
+                    #if t == 0:
+                        #pdb.set_trace()
                 self.profile_print("get_reconstruction loop3 2 Calc", start)
             else:
                 start = dt.now()
@@ -171,6 +179,7 @@ class SpaceTime():
 
                 print '1,2', np.allclose(ahat, ahat2, atol=1e-4)
                 print '2,3', np.allclose(ahat2, ahat3, atol=1e-4)
+                pdb.set_trace()
 
         self.profile_print("get_reconstruction loop Calc", start)
         #r = np.tensordot(Ups, ahat, [[1], [1]])
