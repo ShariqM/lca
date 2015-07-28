@@ -27,24 +27,24 @@ dtype = theano.config.floatX
 class SpaceTime():
 
     # Parameters
-    patch_dim  = 144
-    neurons    = 200
-    cells      = 400
+    patch_dim  = 64
+    neurons    = 64
+    cells      = 128
     timepoints = 7
 
     load_psi   = False
-    save_psi   = True
+    save_psi   = False
     psi_identity = False
     save_often = 5
-    batch_size = 10
+    batch_size = 1
     time_batch_size = 128
     num_trials = 1000
 
     eta_init = 0.10
-    eta_inc  = 32
+    eta_inc  = 64
 
     sigma = 0.1
-    citers    = 561
+    citers    = 21
     coeff_eta = 0.01
     #coeff_eta = 1e-3
     lambdav   = 0.20
@@ -52,16 +52,19 @@ class SpaceTime():
     sparse_cutoff = 0.05
 
     data_name = 'IMAGES_DUCK_SHORT'
-    phi_name = 'Phi_169_45.0'
+    #phi_name = 'Phi_169_45.0'
+    phi_name = 'Phi_606_1.0'
     #phi_name = 'Phi_463/Phi_463_0.3'
-    profile = True
+    profile = False
     visualizer = False
     show = True
 
     # Other
     sz = int(np.sqrt(patch_dim))
     graphics_initialized = False # Don't change
-    psi_name = 'dict/cul/169/cul_spacetime_169_7'
+    psi_name = 'dict/cul/169/cul_spacetime_169_8'
+    load_psi_name = 'dict/cul/169/cul_spacetime_169_8_0.270.npy'
+
 
     def __init__(self):
         self.images = scipy.io.loadmat('mat/%s.mat' % self.data_name)
@@ -110,79 +113,22 @@ class SpaceTime():
             Ups = np.tensordot(Phi, Psi, [[1], [0]])
             Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
 
-        for i in range(3):
-            ac = np.copy(a)
-            ac = np.swapaxes(ac, 0, 1)
+        ac = np.copy(a)
+        ac = np.swapaxes(ac, 0, 1)
 
-            if i == 0:
-                start = dt.now()
-                ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
-                                 self.time_batch_size))
-                ac = ac[:,:,-1::-1] # Reverse
-                ac = np.reshape(ac, (self.batch_size, self.cells * self.time_batch_size))
-                #dac = np.zeros((self.batch_size, self.cells * self.time_batch_size))
-                #x = 0
-                #for r in range(self.cells):
-                    #for q in range(self.time_batch_size):
-                        #dac[:,x] = ac[:,r,q]
-                        #x += 1
-                #ac = np.copy(dac)
-                x = 0
-                for t in range(self.time_batch_size):
-                    x = x + 1
-                print x
-                self.profile_print("get_reconstruction iter1 Calc", start)
-
-                for t in range(self.timepoints):
-                    act = np.zeros((self.batch_size, self.cells * self.timepoints))
-                    idx = self.time_batch_size-t-1
-                    act[:,0:self.cells*(t+1)] = ac[:,self.cells * idx : self.cells * (idx+t+1)]
-                    ahat[:,:,t] = act
-
-                for t in range(self.timepoints, self.time_batch_size):
-                    act = np.zeros((self.batch_size, self.cells * self.timepoints))
-                    size = self.timepoints - 1
-
-                    idx = self.time_batch_size-t-1
-                    act[:,0:self.cells*(size+1)] = ac[:,self.cells * idx : self.cells * (idx+size+1)]
-                    ahat[:,:,t] = act
-                    #if t == 0:
-                        #pdb.set_trace()
-                self.profile_print("get_reconstruction loop3 1 Calc", start)
-            elif i == 1:
-                start = dt.now()
-                ahat2 = np.zeros((self.batch_size, self.cells * self.timepoints,
-                                 self.time_batch_size))
-                ac = ac[:,:,-1::-1] # Reverse
-                for t in range(self.time_batch_size):
-                    act = np.zeros((self.batch_size, self.cells, self.timepoints))
-                    size = min(self.timepoints - 1, t)
-                    idx = self.time_batch_size-t-1
-                    act[:,:,0:size+1] = ac[:,:,idx:idx+size+1]
-                    ahat2[:,:,t] = np.reshape(act, (self.batch_size,
-                                                   self.cells * self.timepoints))
-                    #if t == 0:
-                        #pdb.set_trace()
-                self.profile_print("get_reconstruction loop3 2 Calc", start)
-            else:
-                start = dt.now()
-                ahat3 = np.zeros((self.batch_size, self.cells * self.timepoints,
-                                 self.time_batch_size))
-
-                for t in range(self.time_batch_size):
-                    act = np.zeros((self.batch_size, self.cells, self.timepoints))
-                    size = min(self.timepoints - 1, t)
-                    act[:,:,0:size+1] = ac[:,:,t::-1][:,:,0:size+1]
-                    ahat3[:,:,t] = np.reshape(act, (self.batch_size,
-                                                   self.cells * self.timepoints))
-                self.profile_print("get_reconstruction loop3 3 Calc", start)
-
-                print '1,2', np.allclose(ahat, ahat2, atol=1e-4)
-                print '2,3', np.allclose(ahat2, ahat3, atol=1e-4)
-                pdb.set_trace()
+        start = dt.now()
+        ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
+                         self.time_batch_size))
+        ac = ac[:,:,-1::-1] # Reverse
+        for t in range(self.time_batch_size):
+            act = np.zeros((self.batch_size, self.cells, self.timepoints))
+            size = min(self.timepoints - 1, t)
+            idx = self.time_batch_size-t-1
+            act[:,:,0:size+1] = ac[:,:,idx:idx+size+1]
+            ahat[:,:,t] = np.reshape(act, (self.batch_size,
+                                           self.cells * self.timepoints))
 
         self.profile_print("get_reconstruction loop Calc", start)
-        #r = np.tensordot(Ups, ahat, [[1], [1]])
         r = tconv(Ups, ahat)
         self.profile_print("get_reconstruction Calc", start)
 
@@ -224,7 +170,7 @@ class SpaceTime():
             return na
 
     def get_avg(self, a):
-        return np.mean(np.abs(a))
+        return np.mean(np.abs(a[np.where(np.abs(a) > self.sparse_cutoff)]))
 
     def get_activity(self, a):
         max_active = self.batch_size * self.time_batch_size * self.cells
@@ -245,11 +191,11 @@ class SpaceTime():
         e = VI - recon
         return self.get_snr(VI, e)
 
-    def draw(self, c, a, recon, VI):
+    def draw(self, c, x, recon, VI):
         fg, ax = plt.subplots(3)
         ax[2].set_title('Activity')
-        for i in range(self.cells):
-            ax[2].plot(range(self.time_batch_size), a[i,0,:])
+        for i in range(x.shape[0]):
+            ax[2].plot(range(self.time_batch_size), x[i,0,:])
 
         for t in range(self.time_batch_size):
             ax[0].imshow(np.reshape(recon[:,0,t], (self.sz, self.sz)), cmap = cm.binary, interpolation='nearest')
@@ -259,6 +205,7 @@ class SpaceTime():
 
             plt.draw()
             #time.sleep(0.01)
+        plt.show(block=True)
         plt.close()
 
     def thresh(self, a):
@@ -273,6 +220,32 @@ class SpaceTime():
         else:
             Ups = np.reshape(Ups, (self.patch_dim, self.cells * self.timepoints))
         return Ups
+
+    def get_u(self, Psi, a):
+        start = dt.now()
+
+        Psi_hat = np.copy(Psi).reshape(self.neurons, self.cells * self.timepoints)
+        ac = np.copy(a)
+        ac = np.swapaxes(ac, 0, 1)
+
+        start = dt.now()
+        ahat = np.zeros((self.batch_size, self.cells * self.timepoints,
+                         self.time_batch_size))
+        ac = ac[:,:,-1::-1] # Reverse
+        for t in range(self.time_batch_size):
+            act = np.zeros((self.batch_size, self.cells, self.timepoints))
+            size = min(self.timepoints - 1, t)
+            idx = self.time_batch_size-t-1
+            act[:,:,0:size+1] = ac[:,:,idx:idx+size+1]
+            ahat[:,:,t] = np.reshape(act, (self.batch_size,
+                                           self.cells * self.timepoints))
+
+        self.profile_print("get_u loop Calc", start)
+        u = tconv(Psi_hat, ahat)
+        pdb.set_trace()
+        self.profile_print("get_u Calc", start)
+
+        return u
 
     def sparsify(self, VI, Psi, Phi):
         a = np.zeros((self.cells, self.batch_size, self.time_batch_size))
@@ -296,6 +269,10 @@ class SpaceTime():
                     (c, self.get_snr(VI, e), self.get_snr_t(VI, Psi, Phi, a), \
                      np.sum(np.abs(e)), self.get_activity(a), self.get_avg(a))
             self.profile_print("Sparse iter", start)
+
+        u = self.get_u(Psi, a)
+        self.draw(c, u, recon, VI)
+        print 'u activity: ', self.get_activity(u)
 
         return e, recon, a
 
@@ -331,8 +308,8 @@ class SpaceTime():
 
     def train(self):
         if self.load_psi:
-            Psi = np.load(self.psi_name)
-            if Psi.shape != (self.nuerons, self.cells, self.timepoints):
+            Psi = np.load(self.load_psi_name)
+            if Psi.shape != (self.neurons, self.cells, self.timepoints):
                 raise Exception("Incompatible Psi loaded")
             Phi = self.Phi
         else:

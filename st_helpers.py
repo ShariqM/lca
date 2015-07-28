@@ -38,3 +38,8 @@ Av = T.fmatrix()
 Bv = T.tensor3()
 o = T.tensordot(Av, Bv, [[1], [1]])
 tconv = theano.function([Av, Bv], o, allow_input_downcast=True)
+
+Av = T.fmatrix()
+Bv = T.tensor3()
+o = T.tensordot(Av, Bv, [[1], [0]])
+tconv_u = theano.function([Av, Bv], o, allow_input_downcast=True)

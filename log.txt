@@ -13846,3 +13846,29 @@ Alpha left=4.000000
 Beta=0.010000
 Lambda_Scale=18.000000
 605
+
+*** Phi_606 ***
+Time=2015-07-23 14:35:24.607592
+RunType=vLearning
+IMAGES=IMAGES_DUCK_SHORT
+patch_dim=64
+neurons=64
+lambdav=0.150
+Lambda Decay=0.95
+num_trials=20000
+batch_size=100
+time_batch_size=100
+NUM_IMAGES=450
+iter_per_frame=30
+thresh_type=soft
+coeff_eta=0.050
+lambda_type=[Fixed]
+InitPhi=
+Load Sequentially=False
+Skip initial frames=80
+Group Sparse=1
+Topographic=False
+Alpha left=1.000000
+Beta=0.010000
+Lambda_Scale=8.000000
+606

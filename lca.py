@@ -52,10 +52,10 @@ class LcaNetwork():
 
     # Sparse Coding Parameters
     #patch_dim    = 36 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
-    patch_dim    = 144 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
+    patch_dim    = 64 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = 144 # Number of basis functions
     #neurons      = 1024 # Number of basis functions
-    neurons      = 200
+    neurons      = 64
     #neurons      = patch_dim * 4 # Number of basis functions
     sz           = int(np.sqrt(patch_dim))
     #Gam_size     = neurons
@@ -63,7 +63,7 @@ class LcaNetwork():
     Gam_size     = 10
 
     # Typical lambda is 0.07 for reconstruct, 0.15 for learning
-    lambdav      = 0.20   # Minimum Threshold
+    lambdav      = 0.15   # Minimum Threshold
     batch_size   = 100
     border       = 4
     num_trials   = 20000
@@ -76,10 +76,11 @@ class LcaNetwork():
     #init_phi_name = 'Phi_509/Phi_509_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_172/Phi_172_86.6' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_463/Phi_463_0.3' # Blank if you want to start from scratch
-    init_phi_name = 'Phi_169_45.0'
+    #init_phi_name = 'Phi_169_45.0'
     #init_phi_name = 'Phi_193_37.0' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_602/Phi_602_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_604/Phi_604_0.5'
+    init_phi_name = 'Phi_606/Phi_606_1.0'
     #init_phi_name = 'Phi_590/Phi_590_0.4'
     update_equation = 'Not Set'
 
@@ -90,7 +91,7 @@ class LcaNetwork():
     thresh_type  = 'soft'
     coeff_eta    = 0.05   # Normal
 
-    group_sparse = 4      # Group Sparse Coding (1 is normal sparse coding)
+    group_sparse = 1      # Group Sparse Coding (1 is normal sparse coding)
     topographic = False
 
     alpha_left = group_sparse
@@ -110,7 +111,7 @@ class LcaNetwork():
     #runtype            = RunType.vDynamics # See runtype.py for options
     runtype            = RunType.vReconstruct # See runtype.py for options
     #runtype            = RunType.vmLearning # See runtype.py for options
-    log_and_save = False # Log parameters save dictionaries
+    log_and_save = True # Log parameters save dictionaries
 
     # Visualizer parameters
     coeff_visualizer = False # Visualize potentials of neurons on a single patch
@@ -130,7 +131,7 @@ class LcaNetwork():
     exploded = False
 
     def __init__(self):
-        self.image_data_name = self.datasets[2]
+        self.image_data_name = self.datasets[1]
         self.IMAGES = self.get_images(self.image_data_name)
         (self.imsize, imsize, self.num_images) = np.shape(self.IMAGES)
         self.patch_per_dim = int(np.floor(imsize / self.sz))
@@ -815,6 +816,7 @@ class LcaNetwork():
 
                 print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
                         % (t, labels[run], self.lambdav, SNR[t], 100.0 * AC[t] / max_active)
+                pdb.set_trace()
             elapsed = (datetime.now() - start).seconds
 
             if self.save_activity:
