@@ -28,32 +28,33 @@ class SpaceTime():
 
     # Parameters
     patch_dim  = 64
-    neurons    = 64
+    neurons    = 128
     cells      = 128
     timepoints = 7
 
     load_psi   = False
     save_psi   = False
-    psi_identity = False
+    psi_identity = True
     save_often = 5
     batch_size = 1
-    time_batch_size = 128
+    time_batch_size = 64
     num_trials = 1000
 
     eta_init = 0.10
     eta_inc  = 64
 
     sigma = 0.1
-    citers    = 21
-    coeff_eta = 0.01
-    #coeff_eta = 1e-3
+    citers    = 221
+    #coeff_eta = 0.01
+    coeff_eta = 1e-3
     lambdav   = 0.20
     alpha     = 0.1
     sparse_cutoff = 0.05
 
     data_name = 'IMAGES_DUCK_SHORT'
     #phi_name = 'Phi_169_45.0'
-    phi_name = 'Phi_606_1.0'
+    #phi_name = 'Phi_606_1.0'
+    phi_name = 'Phi_607_0.3'
     #phi_name = 'Phi_463/Phi_463_0.3'
     profile = False
     visualizer = False
@@ -73,8 +74,8 @@ class SpaceTime():
         self.patch_per_dim = int(np.floor(imsize / self.sz))
 
         if self.psi_identity:
-            self.coeff_eta = 0.1
-            self.citers = 61
+            self.coeff_eta = 0.05
+            self.citers = 161
 
         if self.phi_name != '':
             Phi = scipy.io.loadmat('dict/%s' % self.phi_name)
@@ -242,8 +243,8 @@ class SpaceTime():
 
         self.profile_print("get_u loop Calc", start)
         u = tconv(Psi_hat, ahat)
-        pdb.set_trace()
         self.profile_print("get_u Calc", start)
+        pdb.set_trace()
 
         return u
 
