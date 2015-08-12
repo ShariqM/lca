@@ -80,9 +80,9 @@ class LcaNetwork():
     #init_phi_name = 'Phi_193_37.0' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_602/Phi_602_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_604/Phi_604_0.5'
-    init_phi_name = 'Phi_606/Phi_606_1.0'
     #init_phi_name = 'Phi_590/Phi_590_0.4'
-    update_equation = 'Not Set'
+    init_phi_name = 'Phi_606/Phi_606_1.0'
+    update_equation = 'Not Set Yet'
 
     # LCA Parameters
     skip_frames  = 80 # When running vLearning don't use the gradient for the first 80 iterations of LCA
@@ -109,6 +109,7 @@ class LcaNetwork():
     # General Parameters
     #runtype            = RunType.vgLearning # See runtype.py for options
     #runtype            = RunType.vDynamics # See runtype.py for options
+    #runtype            = RunType.vLearning # See runtype.py for options
     runtype            = RunType.vReconstruct # See runtype.py for options
     #runtype            = RunType.vmLearning # See runtype.py for options
     log_and_save = True # Log parameters save dictionaries
@@ -816,7 +817,6 @@ class LcaNetwork():
 
                 print '%.3d) %s || lambdav=%.3f || snr=%.2fdB || AC=%.2f%%' \
                         % (t, labels[run], self.lambdav, SNR[t], 100.0 * AC[t] / max_active)
-                pdb.set_trace()
             elapsed = (datetime.now() - start).seconds
 
             if self.save_activity:
