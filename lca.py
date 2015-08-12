@@ -55,7 +55,7 @@ class LcaNetwork():
     patch_dim    = 64 # patch_dim=(sz)^2 where the basis and patches are SZxSZ
     #neurons      = 144 # Number of basis functions
     #neurons      = 1024 # Number of basis functions
-    neurons      = 64
+    neurons      = 128
     #neurons      = patch_dim * 4 # Number of basis functions
     sz           = int(np.sqrt(patch_dim))
     #Gam_size     = neurons
@@ -81,7 +81,8 @@ class LcaNetwork():
     #init_phi_name = 'Phi_602/Phi_602_0.5' # Blank if you want to start from scratch
     #init_phi_name = 'Phi_604/Phi_604_0.5'
     #init_phi_name = 'Phi_590/Phi_590_0.4'
-    init_phi_name = 'Phi_606/Phi_606_1.0'
+    #init_phi_name = 'Phi_606/Phi_606_1.0'
+    init_phi_name = 'Phi_607/Phi_607_0.3'
     update_equation = 'Not Set Yet'
 
     # LCA Parameters
@@ -115,7 +116,7 @@ class LcaNetwork():
     log_and_save = True # Log parameters save dictionaries
 
     # Visualizer parameters
-    coeff_visualizer = False # Visualize potentials of neurons on a single patch
+    coeff_visualizer = True # Visualize potentials of neurons on a single patch
     iter_idx        = 0
     num_frames      = 900 # Number of frames to visualize
     #num_coeff_upd   = num_frames * iters_per_frame # This is correct when vPredict is off
@@ -787,12 +788,14 @@ class LcaNetwork():
             ahat_prev_c = np.zeros((self.neurons, self.batch_size))
 
             start = datetime.now()
-            for t in range(self.num_frames):
+            for t in range(self.num_frames - 1):
                 #I = self.load_all_image(I, t)
                 I = self.load_image(I, t)
+                I2 = self.load_image(I, t+1)
 
                 if run_p[run].initP == True:
-                    u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=run_p[run].iters)
+                    #u, ahat = self.sparsify(I, Phi, u_pred=u_pred, num_iterations=run_p[run].iters)
+                    u, ahat = self.sparsify(I, Phi, u_pred=u_pred, I2=I2, num_iterations=run_p[run].iters)
                 else:
                     u, ahat = self.sparsify(I, Phi, num_iterations=run_p[run].iters)
 
@@ -908,10 +911,16 @@ class LcaNetwork():
             return True
 
 
-    def sparsify(self, I, Phi, u_pred=None, num_iterations=80):
-        'Run the LCA coefficient dynamics'
+    def sparsify(self, I, Phi, u_pred=None, I2=None, num_iterations=80):
+        '''
+        Run the LCA coefficient dynamics
+        - I2 allows you to interpolate the next frame
+        '''
 
-        b = t2dot(Phi.T, I)
+        b_0 = b_1 = t2dot(Phi.T, I) # Interp with itself does no interp.
+        if I2 is not None:
+            b_1 = t2dot(Phi.T, I2)
+
         G = t2dot(Phi.T, Phi) - np.eye(self.neurons)
         u = u_pred if u_pred is not None else np.zeros((self.neurons, self.batch_size))
 
@@ -990,6 +999,7 @@ class LcaNetwork():
                 plt.show()
 
         for t in range(num_iterations):
+            b = (1 - (float(t)/num_iterations)) * b_0 + (float(t)/num_iterations) * b_1
             u = self.coeff_eta * (b - t2dot(G,a)) + (1 - self.coeff_eta) * u
             #u = self.coeff_eta * (b - np.sign(u) * t2dot(G,np.abs(u))) + (1 - self.coeff_eta) * u
             a = self.thresh(u, l)
