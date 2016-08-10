@@ -51,7 +51,9 @@ if __name__ == "__main__":
     #name = 'Phi_169_45.0.mat'
 
     #name = 'Phi_606_1.0.mat'
-    name = 'Phi_607_0.3.mat'
+    #name = 'Phi_607_0.3.mat'
+    name = 'Phi_608_0.3.mat'
+    name = 'Phi_609_1.0.mat'
     #name = 'Phi_600/Phi_600_1.3.mat'
     #name = 'Phi_601/Phi_601_0.3.mat'
     #name = 'Phi_602/Phi_602_0.2.mat'

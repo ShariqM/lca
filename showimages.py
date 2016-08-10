@@ -28,6 +28,9 @@ oname = 'IMAGES_EDGE_DUCK'
 oname = 'IMAGES_PHI_INTERP'
 oname = 'IMAGES_PHI_463_INTERP'
 
+oname = 'IMAGES_DUCK_SHORT'
+#oname = 'IMAGES_DUCK_SHORT_INTERP'
+
 #oname = 'IMAGES_EDGE_DUCK_2'
 #oname = 'IMAGES_DUCK'
 #oname = 'IMAGES_MOVE_RIGHT'
@@ -58,21 +61,25 @@ if orig_show:
 print 'Shape:', shape
 
 plt.ion()
-#start, stop = 70, 82
-start, stop = 0, shape[2]
+start, stop = 70, 82
+#start, stop = 0, shape[2]
 plt.figure(figsize=(8,8))
 for i in range(start, stop, interval):
     if orig_show:
         #plt.subplot(211)
-        r = 144
-        c = 144
+        sz = 8
+        r = 3 * sz
+        c = 3 * sz
         #pdb.set_trace()
-        #plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
-        plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-0.25,0.25,True), cmap = cm.binary, interpolation='none')
+        #plt.imshow(OIMAGES[r:r+sz,c:c+sz,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
+        plt.imshow(OIMAGES[r:r+sz,c:c+sz,i], cmap = cm.binary, interpolation='nearest')
+                #self.ax[0,0].imshow(np.reshape(recon, (self.sz, self.sz)),cmap = cm.binary, interpolation='nearest')
+        #plt.imshow(OIMAGES[r:r+12,c:c+12,i], norm=matplotlib.colors.Normalize(-0.25,0.25,True), cmap = cm.binary, interpolation='none')
         #plt.imshow(OIMAGES[24:36,24:36,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary)
+        #plt.imshow(OIMAGES[24:36,24:36,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
         #plt.imshow(OIMAGES[:,:,i], norm=matplotlib.colors.Normalize(-1,1,True), cmap = cm.binary, interpolation='none')
         plt.title('Original %d Var=%.4f' % (i, OIMAGES[:,:,i].var().mean()))
-        time.sleep(0.2)
+        time.sleep(0.01)
 
     if smooth_show:
         plt.subplot(212)
